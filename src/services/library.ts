@@ -1,0 +1,294 @@
+/**
+ * Livello dati della libreria personale (Supabase).
+ *
+ * Film  → stato: da vedere / visto.
+ * Serie → tracking per episodio; lo stato è derivato dal progresso.
+ */
+
+import { getSupabase } from '@/services/supabase';
+import { getTvDetails, posterUrl, type MediaType, type Title } from '@/services/tmdb';
+
+export type LibraryStatus = 'to_watch' | 'watching' | 'watched';
+
+export const STATUS_LABELS: Record<LibraryStatus, string> = {
+  to_watch: 'Da vedere',
+  watching: 'In corso',
+  watched: 'Visto',
+};
+
+// Ordine di visualizzazione dei gruppi in libreria.
+export const STATUS_ORDER: LibraryStatus[] = ['watching', 'to_watch', 'watched'];
+
+// Stati selezionabili per i film (niente "in corso").
+export const MOVIE_STATUSES: LibraryStatus[] = ['to_watch', 'watched'];
+
+export type LibraryItem = {
+  id: string;
+  status: LibraryStatus;
+  rating: number | null;
+  notes: string | null;
+  addedAt: string;
+  tmdbId: number;
+  mediaType: MediaType;
+  title: string;
+  year: string | null;
+  posterUrl: string | null;
+  overview: string;
+  totalEpisodes: number | null;
+  watchedEpisodes: number;
+};
+
+type LibraryRow = {
+  id: string;
+  status: LibraryStatus;
+  rating: number | null;
+  notes: string | null;
+  added_at: string;
+  titles: {
+    tmdb_id: number;
+    media_type: MediaType;
+    title: string;
+    year: string | null;
+    poster_path: string | null;
+    overview: string | null;
+    total_episodes: number | null;
+  } | null;
+};
+
+function toItem(row: LibraryRow, watchedByItem: Map<string, number>): LibraryItem {
+  const t = row.titles;
+  return {
+    id: row.id,
+    status: row.status,
+    rating: row.rating,
+    notes: row.notes,
+    addedAt: row.added_at,
+    tmdbId: t?.tmdb_id ?? 0,
+    mediaType: t?.media_type ?? 'movie',
+    title: t?.title ?? 'Senza titolo',
+    year: t?.year ?? null,
+    posterUrl: posterUrl(t?.poster_path),
+    overview: t?.overview ?? '',
+    totalEpisodes: t?.total_episodes ?? null,
+    watchedEpisodes: watchedByItem.get(row.id) ?? 0,
+  };
+}
+
+const SELECT =
+  'id, status, rating, notes, added_at, titles ( tmdb_id, media_type, title, year, poster_path, overview, total_episodes )';
+
+async function getUserId(): Promise<string> {
+  const { data, error } = await getSupabase().auth.getUser();
+  if (error || !data.user) {
+    throw new Error('Sessione non valida');
+  }
+  return data.user.id;
+}
+
+/** Deriva lo stato di una serie dal progresso episodi. */
+export function deriveSeriesStatus(watched: number, total: number | null): LibraryStatus {
+  if (watched <= 0) {
+    return 'to_watch';
+  }
+  if (total != null && watched >= total) {
+    return 'watched';
+  }
+  return 'watching';
+}
+
+/** Salva (o aggiorna lo stato di) un titolo TMDB nella libreria dell'utente. */
+export async function addToLibrary(title: Title, status: LibraryStatus): Promise<void> {
+  let totalEpisodes: number | null = null;
+  if (title.mediaType === 'tv') {
+    try {
+      totalEpisodes = (await getTvDetails(title.id)).numberOfEpisodes;
+    } catch {
+      totalEpisodes = null; // opzionale: si popolerà aprendo il dettaglio
+    }
+  }
+  const { error } = await getSupabase().rpc('add_to_library', {
+    p_tmdb_id: title.id,
+    p_media_type: title.mediaType,
+    p_title: title.title,
+    p_year: title.year,
+    p_poster_path: title.posterPath,
+    p_overview: title.overview,
+    p_status: status,
+    p_total_episodes: totalEpisodes,
+  });
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+/** Ritorna tutti i titoli in libreria, con il conteggio episodi visti per le serie. */
+export async function getLibrary(): Promise<LibraryItem[]> {
+  const supabase = getSupabase();
+  const [{ data, error }, watches] = await Promise.all([
+    supabase.from('library_items').select(SELECT).order('updated_at', { ascending: false }),
+    supabase.from('episode_watches').select('library_item_id'),
+  ]);
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const watchedByItem = new Map<string, number>();
+  for (const row of (watches.data ?? []) as { library_item_id: string }[]) {
+    watchedByItem.set(row.library_item_id, (watchedByItem.get(row.library_item_id) ?? 0) + 1);
+  }
+
+  return (data as unknown as LibraryRow[]).map((row) => toItem(row, watchedByItem));
+}
+
+/** Ritorna una singola voce di libreria per id. */
+export async function getLibraryItem(itemId: string): Promise<LibraryItem | null> {
+  const supabase = getSupabase();
+  const [{ data, error }, watches] = await Promise.all([
+    supabase.from('library_items').select(SELECT).eq('id', itemId).maybeSingle(),
+    supabase.from('episode_watches').select('library_item_id').eq('library_item_id', itemId),
+  ]);
+  if (error) {
+    throw new Error(error.message);
+  }
+  if (!data) {
+    return null;
+  }
+  const watchedByItem = new Map<string, number>([[itemId, (watches.data ?? []).length]]);
+  return toItem(data as unknown as LibraryRow, watchedByItem);
+}
+
+/** Aggiorna lo stato di una voce di libreria (usato per i film). */
+export async function updateStatus(itemId: string, status: LibraryStatus): Promise<void> {
+  const { error } = await getSupabase()
+    .from('library_items')
+    .update({ status })
+    .eq('id', itemId);
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+/** Rimuove una voce dalla libreria. */
+export async function removeFromLibrary(itemId: string): Promise<void> {
+  const { error } = await getSupabase().from('library_items').delete().eq('id', itemId);
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+/** Insieme delle chiavi `mediaType-tmdbId` gia' in libreria (per la UI di ricerca). */
+export async function getSavedKeys(): Promise<Set<string>> {
+  const items = await getLibrary();
+  return new Set(items.map((item) => `${item.mediaType}-${item.tmdbId}`));
+}
+
+// ---------------------------------------------------------------------------
+// Tracking episodi (serie TV)
+// ---------------------------------------------------------------------------
+
+const episodeKey = (season: number, episode: number) => `${season}-${episode}`;
+
+/** Chiavi `season-episode` degli episodi visti per una serie. */
+export async function getWatchedEpisodes(itemId: string): Promise<Set<string>> {
+  const { data, error } = await getSupabase()
+    .from('episode_watches')
+    .select('season_number, episode_number')
+    .eq('library_item_id', itemId);
+  if (error) {
+    throw new Error(error.message);
+  }
+  return new Set(
+    (data ?? []).map((r: { season_number: number; episode_number: number }) =>
+      episodeKey(r.season_number, r.episode_number),
+    ),
+  );
+}
+
+/**
+ * Segna/desegna un episodio come visto, poi ricalcola e salva lo stato della serie.
+ * `watchedCount` è il numero di episodi visti dopo questa modifica (noto lato client).
+ */
+export async function setEpisodeWatched(
+  itemId: string,
+  season: number,
+  episode: number,
+  watched: boolean,
+  watchedCount: number,
+  totalEpisodes: number | null,
+): Promise<LibraryStatus> {
+  const supabase = getSupabase();
+
+  if (watched) {
+    const userId = await getUserId();
+    const { error } = await supabase.from('episode_watches').upsert(
+      {
+        library_item_id: itemId,
+        user_id: userId,
+        season_number: season,
+        episode_number: episode,
+      },
+      { onConflict: 'library_item_id,season_number,episode_number' },
+    );
+    if (error) {
+      throw new Error(error.message);
+    }
+  } else {
+    const { error } = await supabase
+      .from('episode_watches')
+      .delete()
+      .eq('library_item_id', itemId)
+      .eq('season_number', season)
+      .eq('episode_number', episode);
+    if (error) {
+      throw new Error(error.message);
+    }
+  }
+
+  const status = deriveSeriesStatus(watchedCount, totalEpisodes);
+  await updateStatus(itemId, status);
+  return status;
+}
+
+/**
+ * Segna/azzera in blocco tutti gli episodi di una stagione, poi ricalcola lo stato.
+ * `watchedCount` è il numero di episodi visti dopo questa modifica (noto lato client).
+ */
+export async function setSeasonWatched(
+  itemId: string,
+  season: number,
+  episodeNumbers: number[],
+  watched: boolean,
+  watchedCount: number,
+  totalEpisodes: number | null,
+): Promise<LibraryStatus> {
+  const supabase = getSupabase();
+
+  if (watched) {
+    const userId = await getUserId();
+    const rows = episodeNumbers.map((episode) => ({
+      library_item_id: itemId,
+      user_id: userId,
+      season_number: season,
+      episode_number: episode,
+    }));
+    const { error } = await supabase
+      .from('episode_watches')
+      .upsert(rows, { onConflict: 'library_item_id,season_number,episode_number' });
+    if (error) {
+      throw new Error(error.message);
+    }
+  } else {
+    const { error } = await supabase
+      .from('episode_watches')
+      .delete()
+      .eq('library_item_id', itemId)
+      .eq('season_number', season);
+    if (error) {
+      throw new Error(error.message);
+    }
+  }
+
+  const status = deriveSeriesStatus(watchedCount, totalEpisodes);
+  await updateStatus(itemId, status);
+  return status;
+}

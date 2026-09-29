@@ -7,20 +7,37 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
+/**
+ * Palette ShowTime — "sala cinema al tramonto".
+ * Base blu notte con glow blu freddo (sinistra) e arancio caldo (destra).
+ */
+export const Brand = {
+  nightBlue: '#0B0E1A',
+  deepBlue: '#121528',
+  glowBlue: '#2F6BFF',
+  sunsetOrange: '#FF6A2C',
+  softViolet: '#6A4CFF',
+  pureWhite: '#FFFFFF',
+} as const;
+
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: '#121528',
+    background: '#F4F5FA',
+    backgroundElement: '#E6E8F2',
+    backgroundSelected: '#D6DAEC',
+    textSecondary: '#5A5F73',
+    tint: Brand.glowBlue,
+    accent: Brand.sunsetOrange,
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    text: '#FFFFFF',
+    background: '#040212',
+    backgroundElement: '#121528',
+    backgroundSelected: '#1C2038',
+    textSecondary: '#A7ADC4',
+    tint: Brand.glowBlue,
+    accent: Brand.sunsetOrange,
   },
 } as const;
 
