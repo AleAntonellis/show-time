@@ -1,4 +1,5 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import Head from 'expo-router/head';
 import * as SplashScreen from 'expo-splash-screen';
 import { ActivityIndicator, useColorScheme, View } from 'react-native';
 
@@ -31,6 +32,9 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <Head>
+        <title>ShowTime</title>
+      </Head>
       <AuthProvider>
         <AnimatedSplashOverlay />
         <AuthGate />

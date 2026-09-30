@@ -25,7 +25,7 @@ leggera, condivisione via link privato, dark mode.
 | D2 | Framework | **Expo (React Native + react-native-web)** | Un solo codice → Web/PWA oggi, iOS nativo domani (`eas build`) |
 | D3 | Backend / auth / dati | **Supabase** (Postgres + Auth + RLS) | Free tier, login semplice, RLS per privacy, sharing futuro |
 | D4 | Metadati film/serie | **TMDB API** | Gratuita, poster, uscite, stagioni, localizzata `it-IT` |
-| D5 | Hosting web (futuro) | **Vercel** | Deploy da GitHub, HTTPS, free |
+| D5 | Hosting web | **Azure Static Web Apps** | Credito Visual Studio, deploy GitHub, HTTPS e preview |
 | D6 | Gestione segreti | Chiavi in **`.env.local`** (gitignored) | Mai committare credenziali; `.env.example` come modello |
 | D7 | Autenticazione v1 | Email/password Supabase, **conferma email disattivata** | Semplicità massima per 2 utenti |
 | D8 | Colore di sfondo | `#040212` (aggiornato dal precedente `#0B0E1A`) | Preferenza estetica dell'utente |
@@ -40,6 +40,7 @@ leggera, condivisione via link privato, dark mode.
 | D17 | Contenuto del Diario | Solo visioni con almeno una nota o un voto | Timeline significativa, senza rumore dalle semplici spunte |
 | D18 | Calendario serie | Vista mensile + agenda del giorno, solo episodi futuri della libreria | Pianificazione leggibile e mobile-first |
 | D19 | Accesso ai Reminder | Campanella dedicata con badge prima dell'hamburger | Uscite imminenti visibili senza aprire il menu |
+| D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
 ```
@@ -212,6 +213,15 @@ fra utenti autenticati. RPC `add_to_library(...)` fa upsert atomico titolo + voc
   a ogni navigazione tramite la cache condivisa; gli errori sono segnalati con `!`.
 - ✅ Test positivo con American Horror Story: badge `1`, click campanella → Reminder,
   chiusura automatica del menu e layout 390 px verificati.
+- ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
+  `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
+  `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.
+- ✅ Configurati GitHub Secrets per TMDB e Supabase; verificati login, dati reali,
+  reminder, calendario, persistenza sessione e deep link dopo reload direttamente
+  sull'hostname Azure.
+- ✅ Aggiunti manifest PWA, icone 192/512, tema, metadati iOS, lingua italiana e titolo
+  pagina. Service worker offline rimandato intenzionalmente per evitare cache aggressive;
+  il token TMDB pubblico verrà protetto in seguito con un proxy Azure Function.
 
 ## 6. Prossimi passi (backlog)
 
@@ -224,5 +234,5 @@ fra utenti autenticati. RPC `add_to_library(...)` fa upsert atomico titolo + voc
 - [x] Centro reminder in-app per nuove stagioni / uscite entro 10 giorni
 - [x] Diario delle visioni commentate o valutate
 - [x] Calendario mensile delle prossime uscite TV
-- [ ] Deploy web su Vercel + test PWA
+- [x] Deploy web su Azure Static Web Apps + test produzione
 - [ ] *(v2)* Build iOS nativa via EAS + TestFlight

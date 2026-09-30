@@ -102,7 +102,7 @@ App a uso privato per **2 persone**. Strategia **web-first con pivot su iOS nati
 | **Frontend** | **Expo (React Native + react-native-web)** | Un codice → Web/PWA oggi, iOS nativo domani |
 | **Backend / Auth / Dati** | **Supabase** (Postgres) | Login semplice, permessi per-utente, sharing via link, free tier |
 | **Metadati film/serie** | **TMDB API** | Poster, anno, uscite, stagioni — gratis |
-| **Hosting web** | **Vercel** | Deploy da GitHub, HTTPS, free |
+| **Hosting web** | **Azure Static Web Apps** | Deploy GitHub, HTTPS, preview e credito Visual Studio |
 | **Notifiche** | Web Push (v1) / Push nativo (v2) | Reminder uscite e nuove stagioni |
 
 Backend e metadati sono **agnostici** rispetto al frontend: non si riscrivono mai nel passaggio web → iOS.
@@ -115,6 +115,7 @@ Backend e metadati sono **agnostici** rispetto al frontend: non si riscrivono ma
 npm install                       # dipendenze
 copy .env.example .env.local      # (macOS/Linux: cp) poi inserisci la chiave TMDB
 npm run web                       # avvia la web app su http://localhost:8081
+npm run build                     # esporta il sito statico in dist/
 ```
 
 ### Chiave TMDB
@@ -140,6 +141,24 @@ Le liste personali e il login usano [Supabase](https://supabase.com) (free tier)
    ```
 5. *(Consigliato per 2 utenti)* **Authentication → Providers → Email**: disattiva "Confirm email" per accedere subito
 6. Riavvia `npm run web`, registra i due account e salva i titoli dalla schermata **Cerca**
+
+### Pubblicazione Azure
+
+La PWA è pubblicata su
+[`https://ashy-plant-0d5e71903.4.azurestaticapps.net`](https://ashy-plant-0d5e71903.4.azurestaticapps.net)
+tramite Azure Static Web Apps (piano Free, West Europe).
+
+Il workflow in [`.github/workflows/`](.github/workflows/) esegue `npm run build` e
+pubblica `dist/` a ogni push su `main`. Richiede questi GitHub Actions secrets:
+
+- `EXPO_PUBLIC_TMDB_ACCESS_TOKEN`
+- `EXPO_PUBLIC_SUPABASE_URL`
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- deployment token Azure generato dalla risorsa Static Web Apps
+
+Le variabili `EXPO_PUBLIC_*` sono incorporate nel bundle web. La chiave anon Supabase
+è progettata per essere pubblica e protetta dalle policy RLS; il token TMDB verrà
+spostato dietro un proxy Azure Function in una fase successiva.
 
 ---
 

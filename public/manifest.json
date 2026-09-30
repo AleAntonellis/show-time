@@ -1,0 +1,26 @@
+{
+  "name": "ShowTime",
+  "short_name": "ShowTime",
+  "description": "La tua serata sul divano, organizzata.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#040212",
+  "background_color": "#040212",
+  "lang": "it",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
