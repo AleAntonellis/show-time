@@ -176,5 +176,7 @@ Sicurezza: **RLS** attiva ovunque — ogni utente accede solo ai propri dati. Sc
 - [x] Navigazione web compatta con hamburger e logout
 - [ ] Condivisione liste via link
 - [x] Centro reminder in-app per nuove stagioni / uscite entro 10 giorni
+- [x] Diario delle visioni commentate o valutate
+- [x] Calendario mensile delle prossime uscite TV
 - [ ] Deploy web (Vercel) + test come PWA
 - [ ] *(v2)* Build iOS nativa via EAS + TestFlight

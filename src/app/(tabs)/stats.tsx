@@ -244,7 +244,7 @@ export default function StatisticsTabScreen() {
                 Attività recente
               </ThemedText>
               {statistics.recentActivity.length > 0 ? (
-                statistics.recentActivity.map((activity) => (
+                statistics.recentActivity.slice(0, 10).map((activity) => (
                   <RecentActivityCard key={activity.id} activity={activity} />
                 ))
               ) : (

@@ -82,7 +82,9 @@ export default function TitleScreen() {
     fromParam === '/library' ||
     fromParam === '/search' ||
     fromParam === '/stats' ||
-    fromParam === '/reminders'
+    fromParam === '/reminders' ||
+    fromParam === '/diary' ||
+    fromParam === '/calendar'
       ? fromParam
       : '/';
   const mediaType: MediaType | null =

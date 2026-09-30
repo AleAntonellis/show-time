@@ -3,8 +3,8 @@ import {
   daysUntilDate,
   isReminderWindowDay,
 } from '@/services/reminder-window';
+import { getCachedTitleDetails } from '@/services/tmdb-cache';
 import {
-  getTitleDetails,
   type MediaType,
   type TitleDetails,
 } from '@/services/tmdb';
@@ -36,35 +36,7 @@ export type ReminderCenter = {
   windowDays: number;
 };
 
-type CachedDetails = {
-  expiresAt: number;
-  value: TitleDetails;
-};
-
-const detailsCache = new Map<string, CachedDetails>();
-const CACHE_TTL_MS = 15 * 60 * 1000;
 const MAX_CONCURRENCY = 4;
-
-function cacheKey(item: LibraryItem): string {
-  return `${item.mediaType}-${item.tmdbId}`;
-}
-
-async function getCachedDetails(
-  item: LibraryItem,
-  forceRefresh: boolean,
-): Promise<TitleDetails> {
-  const key = cacheKey(item);
-  const cached = detailsCache.get(key);
-  if (!forceRefresh && cached && cached.expiresAt > Date.now()) {
-    return cached.value;
-  }
-  const details = await getTitleDetails(item.mediaType, item.tmdbId);
-  detailsCache.set(key, {
-    value: details,
-    expiresAt: Date.now() + CACHE_TTL_MS,
-  });
-  return details;
-}
 
 function movieReminder(
   item: LibraryItem,
@@ -183,7 +155,11 @@ export async function getReminderCenter({
       const item = items[cursor];
       cursor += 1;
       try {
-        const details = await getCachedDetails(item, forceRefresh);
+        const details = await getCachedTitleDetails(
+          item.mediaType,
+          item.tmdbId,
+          forceRefresh,
+        );
         const reminder =
           item.mediaType === 'movie'
             ? movieReminder(item, details, now, windowDays)

@@ -265,11 +265,18 @@ export async function getPersonalStatistics(): Promise<PersonalStatistics> {
     ratedViewings: ratings.length,
     monthlyActivity,
     genres,
-    recentActivity: events.slice(0, 10).map(({ libraryItemId: _libraryItemId, sortKey: _sortKey, ...event }) => event),
+    recentActivity: events.map(({ libraryItemId: _libraryItemId, sortKey: _sortKey, ...event }) => event),
     missingMetadata: items.filter(
       (item) => item.runtime == null || item.genres.length === 0,
     ).length,
   };
+}
+
+export async function getDiaryEntries(): Promise<RecentActivity[]> {
+  const statistics = await getPersonalStatistics();
+  return statistics.recentActivity.filter(
+    (activity) => activity.rating != null || Boolean(activity.note?.trim()),
+  );
 }
 
 export async function enrichStatisticsMetadata(limit = 12): Promise<number> {

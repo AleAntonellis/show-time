@@ -37,6 +37,9 @@ leggera, condivisione via link privato, dark mode.
 | D14 | Navigazione web | Barra compatta con hamburger e menu centralizzato | Più spazio ai contenuti e UX coerente su PWA mobile |
 | D15 | Calcolo statistiche | Eventi film + episodi, storico dettagliato prioritario sulla spunta | Evita doppi conteggi e include le revisioni reali |
 | D16 | Reminder in-app | Solo eventi dei titoli in libreria tra oggi e +10 giorni | Segnale utile e poco rumoroso, senza push o backend aggiuntivo |
+| D17 | Contenuto del Diario | Solo visioni con almeno una nota o un voto | Timeline significativa, senza rumore dalle semplici spunte |
+| D18 | Calendario serie | Vista mensile + agenda del giorno, solo episodi futuri della libreria | Pianificazione leggibile e mobile-first |
+| D19 | Accesso ai Reminder | Campanella dedicata con badge prima dell'hamburger | Uscite imminenti visibili senza aprire il menu |
 
 ### Percorso di distribuzione
 ```
@@ -194,6 +197,21 @@ fra utenti autenticati. RPC `add_to_library(...)` fa upsert atomico titolo + voc
 - ✅ Caso positivo verificato manualmente dall'utente: aggiungendo American Horror
   Story, il centro mostra `Nuovo episodio · S13 E4 · Domani (01/10/2026)` nella
   sezione **Molto presto**, con conteggio `1 in arrivo`.
+- ✅ **Diario personale** con timeline raggruppata per data, filtri Tutto/Film/Serie TV
+  e sole visioni che hanno almeno una nota o un voto. Ogni ricordo apre il titolo.
+- ✅ **Calendario mensile** delle serie in libreria con griglia lunedì-domenica, indicatori
+  per giorno, navigazione fino a 12 mesi, agenda del giorno e refresh TMDB.
+- ✅ La cache TMDB di dettagli e stagioni è ora condivisa tra Reminder e Calendario;
+  il calendario carica solo la stagione rilevante e usa la première come fallback se
+  gli episodi non sono ancora pubblicati.
+- ✅ Dati reali verificati: Diario con 2 ricordi di Breaking Bad; ottobre 2026 con
+  10 episodi futuri di American Horror Story e 3 uscite il 1° ottobre. Filtri,
+  navigazione dettaglio/ritorno e viewport 390 px superati.
+- ✅ Spostato Reminder fuori dal dropdown web: campanella dedicata prima del burger,
+  stato arancio e badge numerico quando ci sono eventi. Il conteggio viene aggiornato
+  a ogni navigazione tramite la cache condivisa; gli errori sono segnalati con `!`.
+- ✅ Test positivo con American Horror Story: badge `1`, click campanella → Reminder,
+  chiusura automatica del menu e layout 390 px verificati.
 
 ## 6. Prossimi passi (backlog)
 
@@ -204,5 +222,7 @@ fra utenti autenticati. RPC `add_to_library(...)` fa upsert atomico titolo + voc
 - [x] Navigazione web compatta con hamburger e logout
 - [ ] Condivisione lista via link privato
 - [x] Centro reminder in-app per nuove stagioni / uscite entro 10 giorni
+- [x] Diario delle visioni commentate o valutate
+- [x] Calendario mensile delle prossime uscite TV
 - [ ] Deploy web su Vercel + test PWA
 - [ ] *(v2)* Build iOS nativa via EAS + TestFlight
