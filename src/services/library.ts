@@ -28,14 +28,33 @@ export type LibraryItem = {
   rating: number | null;
   notes: string | null;
   addedAt: string;
+  updatedAt: string;
   tmdbId: number;
   mediaType: MediaType;
   title: string;
   year: string | null;
   posterUrl: string | null;
   overview: string;
+  runtime: number | null;
+  genres: string[];
   totalEpisodes: number | null;
   watchedEpisodes: number;
+};
+
+export type Viewing = {
+  id: string;
+  watchedOn: string;
+  note: string | null;
+  rating: number | null;
+  createdAt: string;
+};
+
+type ViewingRow = {
+  id: string;
+  watched_on: string;
+  note: string | null;
+  rating: number | null;
+  created_at: string;
 };
 
 type LibraryRow = {
@@ -44,6 +63,7 @@ type LibraryRow = {
   rating: number | null;
   notes: string | null;
   added_at: string;
+  updated_at: string;
   titles: {
     tmdb_id: number;
     media_type: MediaType;
@@ -51,6 +71,8 @@ type LibraryRow = {
     year: string | null;
     poster_path: string | null;
     overview: string | null;
+    runtime: number | null;
+    genres: string[] | null;
     total_episodes: number | null;
   } | null;
 };
@@ -63,19 +85,32 @@ function toItem(row: LibraryRow, watchedByItem: Map<string, number>): LibraryIte
     rating: row.rating,
     notes: row.notes,
     addedAt: row.added_at,
+    updatedAt: row.updated_at,
     tmdbId: t?.tmdb_id ?? 0,
     mediaType: t?.media_type ?? 'movie',
     title: t?.title ?? 'Senza titolo',
     year: t?.year ?? null,
     posterUrl: posterUrl(t?.poster_path),
     overview: t?.overview ?? '',
+    runtime: t?.runtime ?? null,
+    genres: t?.genres ?? [],
     totalEpisodes: t?.total_episodes ?? null,
     watchedEpisodes: watchedByItem.get(row.id) ?? 0,
   };
 }
 
+function toViewing(row: ViewingRow): Viewing {
+  return {
+    id: row.id,
+    watchedOn: row.watched_on,
+    note: row.note,
+    rating: row.rating,
+    createdAt: row.created_at,
+  };
+}
+
 const SELECT =
-  'id, status, rating, notes, added_at, titles ( tmdb_id, media_type, title, year, poster_path, overview, total_episodes )';
+  'id, status, rating, notes, added_at, updated_at, titles ( tmdb_id, media_type, title, year, poster_path, overview, runtime, genres, total_episodes )';
 
 async function getUserId(): Promise<string> {
   const { data, error } = await getSupabase().auth.getUser();
@@ -157,6 +192,15 @@ export async function getLibraryItem(itemId: string): Promise<LibraryItem | null
   return toItem(data as unknown as LibraryRow, watchedByItem);
 }
 
+/** Cerca una voce di libreria tramite la chiave TMDB del titolo. */
+export async function getLibraryItemByTmdb(
+  mediaType: MediaType,
+  tmdbId: number,
+): Promise<LibraryItem | null> {
+  const items = await getLibrary();
+  return items.find((item) => item.mediaType === mediaType && item.tmdbId === tmdbId) ?? null;
+}
+
 /** Aggiorna lo stato di una voce di libreria (usato per i film). */
 export async function updateStatus(itemId: string, status: LibraryStatus): Promise<void> {
   const { error } = await getSupabase()
@@ -171,6 +215,170 @@ export async function updateStatus(itemId: string, status: LibraryStatus): Promi
 /** Rimuove una voce dalla libreria. */
 export async function removeFromLibrary(itemId: string): Promise<void> {
   const { error } = await getSupabase().from('library_items').delete().eq('id', itemId);
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+/** Ritorna lo storico delle visioni di un film, dalla piu' recente. */
+export async function getViewings(itemId: string): Promise<Viewing[]> {
+  const { data, error } = await getSupabase()
+    .from('viewings')
+    .select('id, watched_on, note, rating, created_at')
+    .eq('library_item_id', itemId)
+    .order('watched_on', { ascending: false })
+    .order('created_at', { ascending: false });
+  if (error) {
+    throw new Error(error.message);
+  }
+  return ((data ?? []) as ViewingRow[]).map(toViewing);
+}
+
+/** Registra una visione e marca il film come visto. */
+export async function addViewing(
+  itemId: string,
+  watchedOn: string,
+  note: string | null,
+  rating: number | null,
+): Promise<Viewing> {
+  const userId = await getUserId();
+  const { data, error } = await getSupabase()
+    .from('viewings')
+    .insert({
+      library_item_id: itemId,
+      user_id: userId,
+      watched_on: watchedOn,
+      note,
+      rating,
+    })
+    .select('id, watched_on, note, rating, created_at')
+    .single();
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  try {
+    await updateStatus(itemId, 'watched');
+  } catch (statusError) {
+    const { error: rollbackError } = await getSupabase().from('viewings').delete().eq('id', data.id);
+    if (rollbackError) {
+      throw new Error(
+        `${statusError instanceof Error ? statusError.message : 'Stato non aggiornato'}; rollback non riuscito: ${rollbackError.message}`,
+      );
+    }
+    throw statusError;
+  }
+
+  return toViewing(data as ViewingRow);
+}
+
+/** Elimina una singola visione dallo storico. */
+export async function removeViewing(viewingId: string): Promise<void> {
+  const { error } = await getSupabase().from('viewings').delete().eq('id', viewingId);
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+/** Ritorna tutte le visioni di uno specifico episodio, dalla piu' recente. */
+export async function getEpisodeViewings(
+  itemId: string,
+  season: number,
+  episode: number,
+): Promise<Viewing[]> {
+  const { data, error } = await getSupabase()
+    .from('episode_viewings')
+    .select('id, watched_on, note, rating, created_at')
+    .eq('library_item_id', itemId)
+    .eq('season_number', season)
+    .eq('episode_number', episode)
+    .order('watched_on', { ascending: false })
+    .order('created_at', { ascending: false });
+  if (error) {
+    throw new Error(error.message);
+  }
+  return ((data ?? []) as ViewingRow[]).map(toViewing);
+}
+
+/**
+ * Registra una visione dell'episodio. Se non era ancora spuntato, aggiorna anche
+ * il tracking e lo stato della serie.
+ */
+export async function addEpisodeViewing(
+  itemId: string,
+  season: number,
+  episode: number,
+  totalEpisodes: number | null,
+  watchedOn: string,
+  note: string | null,
+  rating: number | null,
+): Promise<Viewing> {
+  const userId = await getUserId();
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('episode_viewings')
+    .insert({
+      library_item_id: itemId,
+      user_id: userId,
+      season_number: season,
+      episode_number: episode,
+      watched_on: watchedOn,
+      note,
+      rating,
+    })
+    .select('id, watched_on, note, rating, created_at')
+    .single();
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const { data: watchedRows, error: watchedError } = await supabase
+    .from('episode_watches')
+    .select('season_number, episode_number')
+    .eq('library_item_id', itemId);
+  if (watchedError) {
+    await rollbackEpisodeViewing(data.id, watchedError.message);
+  }
+
+  const watchedKeys = new Set(
+    (watchedRows ?? []).map(
+      (row: { season_number: number; episode_number: number }) =>
+        `${row.season_number}-${row.episode_number}`,
+    ),
+  );
+  const key = `${season}-${episode}`;
+  if (!watchedKeys.has(key)) {
+    try {
+      await setEpisodeWatched(
+        itemId,
+        season,
+        episode,
+        true,
+        watchedKeys.size + 1,
+        totalEpisodes,
+      );
+    } catch (trackingError) {
+      await rollbackEpisodeViewing(
+        data.id,
+        trackingError instanceof Error ? trackingError.message : 'Tracking non aggiornato',
+      );
+    }
+  }
+
+  return toViewing(data as ViewingRow);
+}
+
+async function rollbackEpisodeViewing(viewingId: string, reason: string): Promise<never> {
+  const { error } = await getSupabase().from('episode_viewings').delete().eq('id', viewingId);
+  if (error) {
+    throw new Error(`${reason}; rollback non riuscito: ${error.message}`);
+  }
+  throw new Error(reason);
+}
+
+/** Elimina una singola visione senza cambiare la spunta di progresso dell'episodio. */
+export async function removeEpisodeViewing(viewingId: string): Promise<void> {
+  const { error } = await getSupabase().from('episode_viewings').delete().eq('id', viewingId);
   if (error) {
     throw new Error(error.message);
   }

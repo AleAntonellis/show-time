@@ -7,12 +7,19 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { TitleCard } from '@/components/title-card';
-import { BottomTabInset, Brand, MaxContentWidth, Spacing } from '@/constants/theme';
+import {
+  BottomTabInset,
+  Brand,
+  MaxContentWidth,
+  Spacing,
+  WebTabTopInset,
+} from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useTheme } from '@/hooks/use-theme';
@@ -21,7 +28,7 @@ import { isTmdbConfigured, searchTitles, type Title } from '@/services/tmdb';
 
 const NUM_COLUMNS = 3;
 
-export default function SearchScreen() {
+export default function SearchTabScreen() {
   const theme = useTheme();
   const safeAreaInsets = useSafeAreaInsets();
   const { session, configured: supabaseConfigured } = useAuth();
@@ -110,7 +117,8 @@ export default function SearchScreen() {
     };
   }, [debouncedQuery, configured]);
 
-  const topInset = Platform.OS === 'web' ? Spacing.six : safeAreaInsets.top + Spacing.three;
+  const topInset =
+    Platform.OS === 'web' ? WebTabTopInset : safeAreaInsets.top + Spacing.three;
   const bottomInset = safeAreaInsets.bottom + BottomTabInset + Spacing.four;
 
   return (
@@ -161,6 +169,7 @@ export default function SearchScreen() {
           />
         ) : (
           <FlatList
+            showsVerticalScrollIndicator={false}
             data={results}
             keyExtractor={(item) => `${item.mediaType}-${item.id}`}
             numColumns={NUM_COLUMNS}
@@ -174,6 +183,16 @@ export default function SearchScreen() {
                     title={item}
                     saved={savedKeys.has(key)}
                     busy={savingKey === key}
+                    onOpen={() =>
+                      router.push({
+                        pathname: '/title',
+                        params: {
+                          mediaType: item.mediaType,
+                          id: String(item.id),
+                          from: '/search',
+                        },
+                      })
+                    }
                     onSave={canSave ? () => handleSave(item) : undefined}
                   />
                 </View>

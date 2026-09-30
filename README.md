@@ -16,7 +16,8 @@ Un'app **personale** per tenere traccia di serie TV e film visti o da vedere, pe
 
 Deve essere **intuitiva, visivamente piacevole e veloce**, con un'esperienza da *"serata sul divano"*.
 
-> **Stato del progetto:** bozza / brainstorming tecnico. Nessuna riga di codice ancora scritta.
+> **Stato del progetto:** MVP in sviluppo — auth, ricerca TMDB, libreria, tracking episodi
+> e storico delle visioni sono già funzionanti.
 
 ---
 
@@ -128,7 +129,9 @@ La ricerca usa l'API gratuita di [TMDB](https://www.themoviedb.org/settings/api)
 ### Database & login (Supabase)
 Le liste personali e il login usano [Supabase](https://supabase.com) (free tier).
 1. Crea un progetto su **supabase.com** (gratis)
-2. Apri **SQL Editor** ed esegui i file in [`supabase/migrations/`](supabase/migrations) in ordine: `0001_init.sql`, poi `0002_episode_tracking.sql`
+2. Apri **SQL Editor** ed esegui i file in [`supabase/migrations/`](supabase/migrations)
+   in ordine: `0001_init.sql`, `0002_episode_tracking.sql`, poi
+   `0003_episode_viewings.sql`
 3. In **Project Settings → API** copia *Project URL* e *anon public key*
 4. Aggiungili in `.env.local`:
    ```
@@ -149,6 +152,7 @@ Le liste personali e il login usano [Supabase](https://supabase.com) (free tier)
 | `library_items` | Titolo salvato da un utente | Stato `to_watch` / `watching` / `watched`, priorità, rating |
 | `viewings` | Una riga per visione | Nota e voto **per singola visione** |
 | `episode_watches` | Episodi visti (serie TV) | Tracking per episodio, stato serie derivato |
+| `episode_viewings` | Storico visioni episodi | Più visioni per episodio con data, nota e voto |
 
 Sicurezza: **RLS** attiva ovunque — ogni utente accede solo ai propri dati. Schema completo in [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql).
 
@@ -164,11 +168,13 @@ Sicurezza: **RLS** attiva ovunque — ogni utente accede solo ai propri dati. Sc
 - [x] Login/registrazione (Supabase Auth)
 - [x] Salvataggio titoli nelle liste (visto / da vedere / in corso)
 - [x] Distinzione film / serie — film 2 stati, **serie con tracking per episodio**
-- [ ] Note e voto per singola visione (UI su `viewings`)
-- [ ] TMDB — dettaglio titolo, uscite e nuove stagioni
-- [ ] Statistiche (ore viste, generi, trend mensili)
-- [ ] Prototipo UI "living room"
+- [x] Note e voto per singola visione di film ed episodi
+- [x] TMDB — dettaglio titolo, uscite e nuove stagioni
+- [x] Azioni Libreria nella scheda titolo + tracking/note inline per gli episodi
+- [x] Statistiche (ore viste, generi, trend mensili)
+- [x] Home “living room” operativa
+- [x] Navigazione web compatta con hamburger e logout
 - [ ] Condivisione liste via link
-- [ ] Reminder nuove stagioni / uscite
+- [x] Centro reminder in-app per nuove stagioni / uscite entro 10 giorni
 - [ ] Deploy web (Vercel) + test come PWA
 - [ ] *(v2)* Build iOS nativa via EAS + TestFlight

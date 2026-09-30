@@ -28,6 +28,29 @@ export type Title = {
   voteAverage: number;
 };
 
+export type DetailSeason = SeasonSummary;
+
+export type NextEpisode = {
+  seasonNumber: number;
+  episodeNumber: number;
+  name: string;
+  airDate: string | null;
+};
+
+export type TitleDetails = Title & {
+  backdropUrl: string | null;
+  tagline: string;
+  releaseDate: string | null;
+  runtime: number | null;
+  genres: string[];
+  voteCount: number;
+  status: string | null;
+  numberOfSeasons: number | null;
+  numberOfEpisodes: number | null;
+  seasons: DetailSeason[];
+  nextEpisode: NextEpisode | null;
+};
+
 type TmdbSearchItem = {
   id: number;
   media_type: string;
@@ -44,6 +67,43 @@ type TmdbSearchResponse = {
   results?: TmdbSearchItem[];
 };
 
+type TmdbTitleDetailsResponse = {
+  id: number;
+  title?: string;
+  name?: string;
+  release_date?: string;
+  first_air_date?: string;
+  poster_path?: string | null;
+  backdrop_path?: string | null;
+  overview?: string;
+  tagline?: string;
+  vote_average?: number;
+  vote_count?: number;
+  runtime?: number | null;
+  episode_run_time?: number[];
+  genres?: { name?: string }[];
+  status?: string;
+  number_of_seasons?: number;
+  number_of_episodes?: number;
+  seasons?: {
+    season_number: number;
+    name?: string;
+    episode_count?: number;
+    air_date?: string | null;
+    poster_path?: string | null;
+  }[];
+  next_episode_to_air?: {
+    season_number: number;
+    episode_number: number;
+    name?: string;
+    air_date?: string | null;
+    runtime?: number | null;
+  } | null;
+  last_episode_to_air?: {
+    runtime?: number | null;
+  } | null;
+};
+
 export function isTmdbConfigured(): boolean {
   return Boolean(ACCESS_TOKEN || API_KEY);
 }
@@ -53,6 +113,10 @@ export function posterUrl(
   size: 'w185' | 'w342' | 'w500' = 'w342',
 ): string | null {
   return path ? `${IMAGE_BASE}/${size}${path}` : null;
+}
+
+export function backdropUrl(path: string | null | undefined): string | null {
+  return path ? `${IMAGE_BASE}/w780${path}` : null;
 }
 
 function buildUrl(path: string, params: Record<string, string> = {}): string {
@@ -115,6 +179,70 @@ export async function searchTitles(query: string): Promise<Title[]> {
     .filter((item): item is Title => item !== null);
 }
 
+/** Dettaglio completo di un film o una serie TV. */
+export async function getTitleDetails(
+  mediaType: MediaType,
+  titleId: number,
+): Promise<TitleDetails> {
+  const data = await request<TmdbTitleDetailsResponse>(`/${mediaType}/${titleId}`);
+  const releaseDate = data.release_date ?? data.first_air_date ?? null;
+  const seasons =
+    mediaType === 'tv'
+      ? (data.seasons ?? [])
+          .filter((season) => season.season_number > 0)
+          .map((season) => ({
+            seasonNumber: season.season_number,
+            name: season.name ?? `Stagione ${season.season_number}`,
+            episodeCount: season.episode_count ?? 0,
+            airDate: season.air_date ?? null,
+            posterUrl: posterUrl(season.poster_path, 'w185'),
+          }))
+      : [];
+  const nextEpisode = data.next_episode_to_air
+    ? {
+        seasonNumber: data.next_episode_to_air.season_number,
+        episodeNumber: data.next_episode_to_air.episode_number,
+        name:
+          data.next_episode_to_air.name ??
+          `Episodio ${data.next_episode_to_air.episode_number}`,
+        airDate: data.next_episode_to_air.air_date ?? null,
+      }
+    : null;
+
+  return {
+    id: data.id,
+    mediaType,
+    title: data.title ?? data.name ?? 'Senza titolo',
+    year: releaseDate ? releaseDate.slice(0, 4) : null,
+    posterPath: data.poster_path ?? null,
+    posterUrl: posterUrl(data.poster_path, 'w500'),
+    backdropUrl: backdropUrl(data.backdrop_path),
+    overview: data.overview ?? '',
+    tagline: data.tagline ?? '',
+    voteAverage: data.vote_average ?? 0,
+    voteCount: data.vote_count ?? 0,
+    releaseDate,
+    runtime:
+      data.runtime ??
+      data.episode_run_time?.find((duration) => duration > 0) ??
+      data.last_episode_to_air?.runtime ??
+      data.next_episode_to_air?.runtime ??
+      null,
+    genres: (data.genres ?? [])
+      .map((genre) => genre.name?.trim())
+      .filter((name): name is string => Boolean(name)),
+    status: data.status ?? null,
+    numberOfSeasons: mediaType === 'tv' ? (data.number_of_seasons ?? seasons.length) : null,
+    numberOfEpisodes:
+      mediaType === 'tv'
+        ? (data.number_of_episodes ??
+          seasons.reduce((total, season) => total + season.episodeCount, 0))
+        : null,
+    seasons,
+    nextEpisode,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Serie TV: dettaglio, stagioni ed episodi
 // ---------------------------------------------------------------------------
@@ -123,6 +251,8 @@ export type SeasonSummary = {
   seasonNumber: number;
   name: string;
   episodeCount: number;
+  airDate: string | null;
+  posterUrl: string | null;
 };
 
 export type TvDetails = {
@@ -143,6 +273,8 @@ type TmdbTvDetailsResponse = {
     season_number: number;
     name?: string;
     episode_count?: number;
+    air_date?: string | null;
+    poster_path?: string | null;
   }[];
 };
 
@@ -164,6 +296,8 @@ export async function getTvDetails(tvId: number): Promise<TvDetails> {
       seasonNumber: s.season_number,
       name: s.name ?? `Stagione ${s.season_number}`,
       episodeCount: s.episode_count ?? 0,
+      airDate: s.air_date ?? null,
+      posterUrl: posterUrl(s.poster_path, 'w185'),
     }));
   return {
     numberOfEpisodes: data.number_of_episodes ?? seasons.reduce((n, s) => n + s.episodeCount, 0),

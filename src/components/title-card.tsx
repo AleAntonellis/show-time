@@ -12,45 +12,53 @@ type Props = {
   title: Title;
   saved?: boolean;
   busy?: boolean;
+  onOpen?: () => void;
   onSave?: () => void;
 };
 
-export function TitleCard({ title, saved, busy, onSave }: Props) {
+export function TitleCard({ title, saved, busy, onOpen, onSave }: Props) {
   return (
     <ThemedView type="backgroundElement" style={styles.card}>
-      <View style={styles.posterWrapper}>
-        {title.posterUrl ? (
-          <Image
-            source={{ uri: title.posterUrl }}
-            style={styles.poster}
-            contentFit="cover"
-            transition={200}
-          />
-        ) : (
-          <ThemedView type="backgroundSelected" style={[styles.poster, styles.posterFallback]}>
-            <ThemedText type="small" themeColor="textSecondary">
-              Nessun poster
+      <Pressable onPress={onOpen} disabled={!onOpen} style={({ pressed }) => pressed && styles.pressed}>
+        <View style={styles.posterWrapper}>
+          {title.posterUrl ? (
+            <Image
+              source={{ uri: title.posterUrl }}
+              style={styles.poster}
+              contentFit="cover"
+              transition={200}
+            />
+          ) : (
+            <ThemedView type="backgroundSelected" style={[styles.poster, styles.posterFallback]}>
+              <ThemedText type="small" themeColor="textSecondary">
+                Nessun poster
+              </ThemedText>
+            </ThemedView>
+          )}
+          <View style={styles.badge}>
+            <ThemedText type="small" style={styles.badgeText}>
+              {title.mediaType === 'movie' ? '🎬' : '📺'}
+              {title.voteAverage > 0 ? ` ${title.voteAverage.toFixed(1)}` : ''}
             </ThemedText>
-          </ThemedView>
-        )}
-        <View style={styles.badge}>
-          <ThemedText type="small" style={styles.badgeText}>
-            {title.mediaType === 'movie' ? '🎬' : '📺'}
-            {title.voteAverage > 0 ? ` ${title.voteAverage.toFixed(1)}` : ''}
-          </ThemedText>
+          </View>
         </View>
-      </View>
 
-      <View style={styles.meta}>
-        <ThemedText type="smallBold" numberOfLines={2}>
-          {title.title}
-        </ThemedText>
-        {title.year && (
-          <ThemedText type="small" themeColor="textSecondary">
-            {title.year}
+        <View style={styles.meta}>
+          <ThemedText type="smallBold" numberOfLines={2}>
+            {title.title}
           </ThemedText>
-        )}
-      </View>
+          {title.year && (
+            <ThemedText type="small" themeColor="textSecondary">
+              {title.year}
+            </ThemedText>
+          )}
+          {onOpen && (
+            <ThemedText type="small" style={styles.detailText}>
+              Dettagli ›
+            </ThemedText>
+          )}
+        </View>
+      </Pressable>
 
       {onSave && (
         <Pressable
@@ -123,6 +131,9 @@ const styles = StyleSheet.create({
   },
   saveText: {
     color: Brand.pureWhite,
+  },
+  detailText: {
+    color: Brand.sunsetOrange,
   },
   pressed: {
     opacity: 0.8,

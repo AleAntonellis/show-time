@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,10 +11,17 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MovieViewings } from '@/components/movie-viewings';
 import { SeriesEpisodes } from '@/components/series-episodes';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, Brand, MaxContentWidth, Spacing } from '@/constants/theme';
+import {
+  BottomTabInset,
+  Brand,
+  MaxContentWidth,
+  Spacing,
+  WebTabTopInset,
+} from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -28,7 +35,7 @@ import {
   type LibraryStatus,
 } from '@/services/library';
 
-export default function LibraryScreen() {
+export default function LibraryTabScreen() {
   const theme = useTheme();
   const safeAreaInsets = useSafeAreaInsets();
   const { session, configured, signOut } = useAuth();
@@ -37,6 +44,7 @@ export default function LibraryScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedSeries, setSelectedSeries] = useState<LibraryItem | null>(null);
+  const [selectedMovie, setSelectedMovie] = useState<LibraryItem | null>(null);
 
   const load = useCallback(() => {
     if (!configured || !session) {
@@ -77,7 +85,8 @@ export default function LibraryScreen() {
     }
   }
 
-  const topInset = Platform.OS === 'web' ? Spacing.six : safeAreaInsets.top + Spacing.three;
+  const topInset =
+    Platform.OS === 'web' ? WebTabTopInset : safeAreaInsets.top + Spacing.three;
   const bottomInset = safeAreaInsets.bottom + BottomTabInset + Spacing.four;
 
   if (configured && !session) {
@@ -87,6 +96,7 @@ export default function LibraryScreen() {
   return (
     <ThemedView style={styles.container}>
       <ScrollView
+        showsVerticalScrollIndicator={false}
         style={{ width: '100%' }}
         contentContainerStyle={[
           styles.content,
@@ -96,7 +106,7 @@ export default function LibraryScreen() {
           <ThemedText type="subtitle" style={styles.heading}>
             La mia libreria
           </ThemedText>
-          {configured && session && (
+          {Platform.OS !== 'web' && configured && session && (
             <Pressable onPress={() => signOut()} hitSlop={8}>
               <ThemedText type="small" themeColor="textSecondary">
                 Esci
@@ -134,40 +144,83 @@ export default function LibraryScreen() {
                 </ThemedText>
                 {group.map((item) => (
                   <ThemedView key={item.id} type="backgroundElement" style={styles.row}>
-                    {item.posterUrl ? (
-                      <Image source={{ uri: item.posterUrl }} style={styles.thumb} contentFit="cover" />
-                    ) : (
-                      <ThemedView type="backgroundSelected" style={styles.thumb} />
-                    )}
-                    <View style={styles.rowBody}>
-                      <ThemedText type="smallBold" numberOfLines={2}>
-                        {item.mediaType === 'movie' ? '🎬' : '📺'} {item.title}
-                      </ThemedText>
-                      {item.year && (
-                        <ThemedText type="small" themeColor="textSecondary">
-                          {item.year}
-                        </ThemedText>
+                    <Pressable
+                      onPress={() =>
+                        router.push({
+                          pathname: '/title',
+                          params: {
+                            mediaType: item.mediaType,
+                            id: String(item.tmdbId),
+                            from: '/library',
+                          },
+                        })
+                      }>
+                      {item.posterUrl ? (
+                        <Image
+                          source={{ uri: item.posterUrl }}
+                          style={styles.thumb}
+                          contentFit="cover"
+                        />
+                      ) : (
+                        <ThemedView type="backgroundSelected" style={styles.thumb} />
                       )}
+                    </Pressable>
+                    <View style={styles.rowBody}>
+                      <Pressable
+                        style={styles.detailTarget}
+                        onPress={() =>
+                          router.push({
+                            pathname: '/title',
+                            params: {
+                              mediaType: item.mediaType,
+                              id: String(item.tmdbId),
+                              from: '/library',
+                            },
+                          })
+                        }>
+                        <ThemedText type="smallBold" numberOfLines={2}>
+                          {item.mediaType === 'movie' ? '🎬' : '📺'} {item.title}
+                        </ThemedText>
+                        <View style={styles.detailMeta}>
+                          {item.year && (
+                            <ThemedText type="small" themeColor="textSecondary">
+                              {item.year}
+                            </ThemedText>
+                          )}
+                          <ThemedText type="small" style={styles.detailLink}>
+                            Dettagli ›
+                          </ThemedText>
+                        </View>
+                      </Pressable>
 
                       {item.mediaType === 'movie' ? (
-                        <View style={styles.statusRow}>
-                          {MOVIE_STATUSES.map((s) => {
-                            const active = s === item.status;
-                            return (
-                              <Pressable
-                                key={s}
-                                onPress={() => changeStatus(item, s)}
-                                style={[styles.chip, active && styles.chipActive]}>
-                                <ThemedText
-                                  type="small"
-                                  style={
-                                    active ? styles.chipTextActive : { color: theme.textSecondary }
-                                  }>
-                                  {STATUS_LABELS[s]}
-                                </ThemedText>
-                              </Pressable>
-                            );
-                          })}
+                        <View style={styles.movieActions}>
+                          <View style={styles.statusRow}>
+                            {MOVIE_STATUSES.map((s) => {
+                              const active = s === item.status;
+                              return (
+                                <Pressable
+                                  key={s}
+                                  onPress={() => changeStatus(item, s)}
+                                  style={[styles.chip, active && styles.chipActive]}>
+                                  <ThemedText
+                                    type="small"
+                                    style={
+                                      active ? styles.chipTextActive : { color: theme.textSecondary }
+                                    }>
+                                    {STATUS_LABELS[s]}
+                                  </ThemedText>
+                                </Pressable>
+                              );
+                            })}
+                          </View>
+                          <Pressable
+                            style={styles.viewingsButton}
+                            onPress={() => setSelectedMovie(item)}>
+                            <ThemedText type="small" style={styles.viewingsText}>
+                              Visioni ▸
+                            </ThemedText>
+                          </Pressable>
                         </View>
                       ) : (
                         <View style={styles.seriesRow}>
@@ -205,6 +258,13 @@ export default function LibraryScreen() {
         onClose={() => setSelectedSeries(null)}
         onChanged={load}
       />
+      {selectedMovie && (
+        <MovieViewings
+          item={selectedMovie}
+          onClose={() => setSelectedMovie(null)}
+          onChanged={load}
+        />
+      )}
     </ThemedView>
   );
 }
@@ -263,11 +323,38 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: Spacing.one,
   },
+  detailTarget: {
+    gap: Spacing.half,
+  },
+  detailMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  detailLink: {
+    color: Brand.sunsetOrange,
+  },
   statusRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.one,
     marginTop: Spacing.one,
+  },
+  movieActions: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  viewingsButton: {
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.half,
+    borderRadius: Spacing.three,
+    backgroundColor: 'rgba(255,106,44,0.18)',
+  },
+  viewingsText: {
+    color: Brand.sunsetOrange,
   },
   seriesRow: {
     flexDirection: 'row',

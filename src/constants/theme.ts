@@ -79,4 +79,5 @@ export const Spacing = {
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
+export const WebTabTopInset = Spacing.six + Spacing.three;
 export const MaxContentWidth = 800;
