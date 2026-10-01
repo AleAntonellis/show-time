@@ -197,7 +197,7 @@ Sicurezza: **RLS** attiva ovunque — ogni utente accede solo ai propri dati. Sc
 - [x] Note e voto per singola visione di film ed episodi
 - [x] TMDB — dettaglio titolo, uscite e nuove stagioni
 - [x] Azioni Libreria nella scheda titolo + tracking/note inline per gli episodi
-- [x] Statistiche (ore viste, generi, trend mensili)
+- [x] Statistiche (ore catalogate, generi, trend mensili e riepilogo degli ultimi 30 giorni)
 - [x] Importazione storico senza contaminare trend e attività recente
 - [x] Importazione film già visti, riclassificabile dalla UI, con ore separate dalla timeline
 - [x] Home “living room” operativa

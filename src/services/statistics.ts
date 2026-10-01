@@ -29,6 +29,17 @@ export type RecentActivity = {
   posterUrl: string | null;
 };
 
+export type RecentPeriodStatistics = {
+  fromDate: string;
+  toDate: string;
+  movies: number;
+  series: number;
+  episodes: number;
+  estimatedMinutes: number;
+  averageRating: number | null;
+  ratedViewings: number;
+};
+
 export type PersonalStatistics = {
   totalTitles: number;
   movies: number;
@@ -43,6 +54,7 @@ export type PersonalStatistics = {
   averageRating: number | null;
   ratedViewings: number;
   monthlyActivity: MonthlyActivity[];
+  lastThirtyDays: RecentPeriodStatistics;
   genres: GenreStatistic[];
   recentActivity: RecentActivity[];
   missingMetadata: number;
@@ -133,6 +145,58 @@ function episodeEvent(
   };
 }
 
+function localDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function lastThirtyDays(
+  events: ActivityEvent[],
+  itemById: Map<string, LibraryItem>,
+): RecentPeriodStatistics {
+  const now = new Date();
+  const toDate = localDateString(now);
+  const from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
+  const fromDate = localDateString(from);
+  const periodEvents = events.filter(
+    (event) => event.watchedOn >= fromDate && event.watchedOn <= toDate,
+  );
+  const movieIds = new Set<string>();
+  const seriesIds = new Set<string>();
+  let episodes = 0;
+  let estimatedMinutes = 0;
+
+  for (const event of periodEvents) {
+    if (event.mediaType === 'movie') {
+      movieIds.add(event.libraryItemId);
+    } else {
+      seriesIds.add(event.libraryItemId);
+      episodes += 1;
+    }
+    estimatedMinutes += itemById.get(event.libraryItemId)?.runtime ?? 0;
+  }
+
+  const ratings = periodEvents
+    .map((event) => event.rating)
+    .filter((rating): rating is number => rating != null);
+
+  return {
+    fromDate,
+    toDate,
+    movies: movieIds.size,
+    series: seriesIds.size,
+    episodes,
+    estimatedMinutes,
+    averageRating:
+      ratings.length > 0
+        ? ratings.reduce((total, rating) => total + rating, 0) / ratings.length
+        : null,
+    ratedViewings: ratings.length,
+  };
+}
+
 export async function getPersonalStatistics(): Promise<PersonalStatistics> {
   const supabase = getSupabase();
   const [items, movieResult, episodeWatchResult, episodeViewingResult] = await Promise.all([
@@ -202,6 +266,7 @@ export async function getPersonalStatistics(): Promise<PersonalStatistics> {
     }
   }
 
+  const recentPeriod = lastThirtyDays(events, itemById);
   const monthlyActivity = lastSixMonths();
   const monthByKey = new Map(monthlyActivity.map((month) => [month.key, month]));
   for (const event of events) {
@@ -302,6 +367,7 @@ export async function getPersonalStatistics(): Promise<PersonalStatistics> {
         : null,
     ratedViewings: ratings.length,
     monthlyActivity,
+    lastThirtyDays: recentPeriod,
     genres,
     recentActivity: events.map(({ libraryItemId: _libraryItemId, sortKey: _sortKey, ...event }) => event),
     missingMetadata: items.filter(

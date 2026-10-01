@@ -269,6 +269,11 @@ fra utenti autenticati. RPC `add_to_library(...)` fa upsert atomico titolo + voc
 - ✅ I film già `Visto` senza storico sono stati inizializzati automaticamente con una
   visione importata. Test Inception: import preservato, revisione “oggi” aggiunta e
   rimossa, ore/trend aggiornati e poi ripristinati; scelta importata verificata.
+- ✅ Riorganizzata la pagina **Statistiche**: Libreria, totali catalogo, generi, trend
+  semestrale, ultimi 30 giorni e attività recente. Il riepilogo mobile riusa i quattro
+  box dei totali e mostra titoli unici (film/serie), episodi, tempo realmente visto e
+  voti; usa solo eventi datati ed esclude gli importati. Verificati `0` film, `1` serie,
+  `2` episodi, `1,9 h` e media `9,5`.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

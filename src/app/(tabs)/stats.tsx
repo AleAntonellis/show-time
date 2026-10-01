@@ -41,6 +41,11 @@ function formatDate(value: string): string {
   return day && month && year ? `${day}/${month}/${year}` : value;
 }
 
+function formatShortDate(value: string): string {
+  const [, month, day] = value.split('-');
+  return day && month ? `${day}/${month}` : value;
+}
+
 function openActivity(activity: RecentActivity) {
   router.push({
     pathname: '/title',
@@ -179,34 +184,6 @@ export default function StatisticsTabScreen() {
               </ThemedText>
             )}
 
-            <View style={styles.summaryGrid}>
-              <SummaryCard
-                value={String(statistics.totalTitles)}
-                label={`${statistics.movies} film · ${statistics.series} serie`}
-              />
-              <SummaryCard
-                value={String(statistics.watchedEpisodes)}
-                label={
-                  statistics.importedEpisodes > 0
-                    ? `Episodi completati · ${statistics.importedEpisodes} importati`
-                    : 'Episodi completati'
-                }
-              />
-              <SummaryCard
-                value={`${formatHours(statistics.estimatedMinutes)} h`}
-                label="Tempo catalogato"
-                accent
-              />
-              <SummaryCard
-                value={
-                  statistics.averageRating != null
-                    ? statistics.averageRating.toFixed(1)
-                    : '—'
-                }
-                label={`${statistics.ratedViewings} voti`}
-              />
-            </View>
-
             <ThemedView type="backgroundElement" style={styles.section}>
               <ThemedText type="smallBold">La tua libreria</ThemedText>
               <View style={styles.libraryBreakdown}>
@@ -217,15 +194,38 @@ export default function StatisticsTabScreen() {
               </View>
             </ThemedView>
 
-            <ThemedView type="backgroundElement" style={styles.section}>
-              <View>
-                <ThemedText type="smallBold">Attività negli ultimi 6 mesi</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  Attività con una data reale; gli episodi importati sono esclusi.
-                </ThemedText>
+            <View style={styles.totalsSection}>
+              <ThemedText type="smallBold" themeColor="textSecondary">
+                Totali catalogo
+              </ThemedText>
+              <View style={styles.summaryGrid}>
+                <SummaryCard
+                  value={String(statistics.totalTitles)}
+                  label={`${statistics.movies} film · ${statistics.series} serie`}
+                />
+                <SummaryCard
+                  value={String(statistics.watchedEpisodes)}
+                  label={
+                    statistics.importedEpisodes > 0
+                      ? `Episodi completati · ${statistics.importedEpisodes} importati`
+                      : 'Episodi completati'
+                  }
+                />
+                <SummaryCard
+                  value={`${formatHours(statistics.estimatedMinutes)} h`}
+                  label="Tempo catalogato"
+                  accent
+                />
+                <SummaryCard
+                  value={
+                    statistics.averageRating != null
+                      ? statistics.averageRating.toFixed(1)
+                      : '—'
+                  }
+                  label={`${statistics.ratedViewings} voti`}
+                />
               </View>
-              <ActivityChart months={statistics.monthlyActivity} />
-            </ThemedView>
+            </View>
 
             <ThemedView type="backgroundElement" style={styles.section}>
               <View>
@@ -242,6 +242,55 @@ export default function StatisticsTabScreen() {
                 </ThemedText>
               )}
             </ThemedView>
+
+            <ThemedView type="backgroundElement" style={styles.section}>
+              <View>
+                <ThemedText type="smallBold">Attività negli ultimi 6 mesi</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Attività con una data reale; gli episodi importati sono esclusi.
+                </ThemedText>
+              </View>
+              <ActivityChart months={statistics.monthlyActivity} />
+            </ThemedView>
+
+            <View style={styles.totalsSection}>
+              <View>
+                <ThemedText type="smallBold">Ultimi 30 giorni</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {formatShortDate(statistics.lastThirtyDays.fromDate)}–
+                  {formatShortDate(statistics.lastThirtyDays.toDate)} · solo attività
+                  con una data reale.
+                </ThemedText>
+              </View>
+              <View style={styles.summaryGrid}>
+                <SummaryCard
+                  value={String(
+                    statistics.lastThirtyDays.movies +
+                      statistics.lastThirtyDays.series,
+                  )}
+                  label={`${statistics.lastThirtyDays.movies} film · ${statistics.lastThirtyDays.series} serie`}
+                />
+                <SummaryCard
+                  value={String(statistics.lastThirtyDays.episodes)}
+                  label="Episodi completati"
+                />
+                <SummaryCard
+                  value={`${formatHours(
+                    statistics.lastThirtyDays.estimatedMinutes,
+                  )} h`}
+                  label="Tempo visto"
+                  accent
+                />
+                <SummaryCard
+                  value={
+                    statistics.lastThirtyDays.averageRating != null
+                      ? statistics.lastThirtyDays.averageRating.toFixed(1)
+                      : '—'
+                  }
+                  label={`${statistics.lastThirtyDays.ratedViewings} voti`}
+                />
+              </View>
+            </View>
 
             <View style={styles.recentSection}>
               <ThemedText type="smallBold" themeColor="textSecondary">
@@ -289,7 +338,7 @@ function SummaryCard({
   );
 }
 
-function Breakdown({ value, label }: { value: number; label: string }) {
+function Breakdown({ value, label }: { value: number | string; label: string }) {
   return (
     <View style={styles.breakdownItem}>
       <ThemedText type="smallBold">{value}</ThemedText>
@@ -443,6 +492,9 @@ const styles = StyleSheet.create({
   warning: {
     color: Brand.sunsetOrange,
     textAlign: 'center',
+  },
+  totalsSection: {
+    gap: Spacing.two,
   },
   summaryGrid: {
     flexDirection: 'row',
