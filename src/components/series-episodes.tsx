@@ -20,8 +20,11 @@ import {
   getWatchedEpisodes,
   setEpisodeWatched,
   setSeasonWatched,
+  setWatchedEpisodesSource,
   STATUS_LABELS,
+  type EpisodeWatchSource,
   type LibraryItem,
+  type WatchedEpisodes,
 } from '@/services/library';
 import {
   getSeasonEpisodes,
@@ -146,7 +149,7 @@ export function SeriesEpisodesContent({
 }: ContentProps) {
   const theme = useTheme();
   const itemId = item?.id;
-  const [watched, setWatched] = useState<Set<string>>(new Set());
+  const [watched, setWatched] = useState<WatchedEpisodes>(new Map());
   const [watchedLoading, setWatchedLoading] = useState(itemId != null);
   const [expandedSeason, setExpandedSeason] = useState<number | null>(null);
   const [episodesBySeason, setEpisodesBySeason] = useState<Record<number, Episode[]>>({});
@@ -154,6 +157,8 @@ export function SeriesEpisodesContent({
   const [seasonErrors, setSeasonErrors] = useState<Record<number, string>>({});
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [busySeason, setBusySeason] = useState<number | null>(null);
+  const [busySourceScope, setBusySourceScope] = useState<string | null>(null);
+  const [seasonChoice, setSeasonChoice] = useState<number | null>(null);
   const [viewingKey, setViewingKey] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -248,9 +253,9 @@ export function SeriesEpisodesContent({
     const key = episodeKey(season, episode);
     const nextWatched = !watched.has(key);
     const previous = watched;
-    const optimistic = new Set(watched);
+    const optimistic = new Map(watched);
     if (nextWatched) {
-      optimistic.add(key);
+      optimistic.set(key, 'tracked');
     } else {
       optimistic.delete(key);
     }
@@ -266,6 +271,7 @@ export function SeriesEpisodesContent({
         nextWatched,
         optimistic.size,
         totalEpisodes,
+        'tracked',
       );
       await notifyChanged();
     } catch (err) {
@@ -278,7 +284,11 @@ export function SeriesEpisodesContent({
     }
   }
 
-  async function markSeason(season: SeasonSummary, watchAll: boolean) {
+  async function markSeason(
+    season: SeasonSummary,
+    watchAll: boolean,
+    source: EpisodeWatchSource = 'tracked',
+  ) {
     if (!item) {
       await requireLibrary();
       return;
@@ -296,11 +306,11 @@ export function SeriesEpisodesContent({
         }));
       }
       const episodeNumbers = episodes.map((episode) => episode.episodeNumber);
-      const optimistic = new Set(watched);
+      const optimistic = new Map(watched);
       for (const episodeNumber of episodeNumbers) {
         const key = episodeKey(season.seasonNumber, episodeNumber);
         if (watchAll) {
-          optimistic.add(key);
+          optimistic.set(key, source);
         } else {
           optimistic.delete(key);
         }
@@ -313,7 +323,9 @@ export function SeriesEpisodesContent({
         watchAll,
         optimistic.size,
         totalEpisodes,
+        source,
       );
+      setSeasonChoice(null);
       await notifyChanged();
     } catch (err) {
       setWatched(previous);
@@ -325,7 +337,42 @@ export function SeriesEpisodesContent({
     }
   }
 
+  async function changeWatchedSource(
+    seasonNumber: number | null,
+    source: EpisodeWatchSource,
+  ) {
+    if (!item) {
+      return;
+    }
+    const scope = seasonNumber == null ? 'series' : `season-${seasonNumber}`;
+    const previous = watched;
+    const optimistic = new Map(watched);
+    for (const [key] of optimistic) {
+      if (seasonNumber == null || key.startsWith(`${seasonNumber}-`)) {
+        optimistic.set(key, source);
+      }
+    }
+    setWatched(optimistic);
+    setBusySourceScope(scope);
+    setActionError(null);
+    try {
+      await setWatchedEpisodesSource(item.id, seasonNumber, source);
+      await notifyChanged();
+    } catch (err) {
+      setWatched(previous);
+      setActionError(
+        err instanceof Error ? err.message : 'Impossibile aggiornare la cronologia',
+      );
+    } finally {
+      setBusySourceScope(null);
+    }
+  }
+
   const watchedCount = watched.size;
+  const importedCount = Array.from(watched.values()).filter(
+    (source) => source === 'imported',
+  ).length;
+  const trackedCount = watchedCount - importedCount;
   const status = deriveSeriesStatus(watchedCount, totalEpisodes);
 
   return (
@@ -348,6 +395,32 @@ export function SeriesEpisodesContent({
         {watchedLoading && <ActivityIndicator color={Brand.glowBlue} size="small" />}
       </View>
 
+      {item && watchedCount > 0 && !watchedLoading && (
+        <Pressable
+          onPress={() =>
+            changeWatchedSource(null, trackedCount > 0 ? 'imported' : 'tracked')
+          }
+          disabled={busySourceScope === 'series'}
+          style={styles.seriesHistoryAction}>
+          {busySourceScope === 'series' ? (
+            <ActivityIndicator color={Brand.softViolet} size="small" />
+          ) : (
+            <>
+              <ThemedText type="smallBold" style={styles.historyActionText}>
+                {trackedCount > 0
+                  ? 'Escludi tutti dalla cronologia'
+                  : 'Includi tutti nella cronologia da oggi'}
+              </ThemedText>
+              {importedCount > 0 && (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {importedCount} episodi importati
+                </ThemedText>
+              )}
+            </>
+          )}
+        </Pressable>
+      )}
+
       {!item && (
         <ThemedView type="backgroundElement" style={styles.libraryPrompt}>
           <ThemedText type="small" themeColor="textSecondary" style={styles.centerText}>
@@ -366,11 +439,18 @@ export function SeriesEpisodesContent({
       {seasons.map((season) => {
         const isOpen = expandedSeason === season.seasonNumber;
         const episodes = episodesBySeason[season.seasonNumber];
-        const watchedInSeason = Array.from(watched).filter((key) =>
+        const watchedEntriesInSeason = Array.from(watched.entries()).filter(([key]) =>
           key.startsWith(`${season.seasonNumber}-`),
+        );
+        const watchedInSeason = watchedEntriesInSeason.length;
+        const importedInSeason = watchedEntriesInSeason.filter(
+          ([, source]) => source === 'imported',
         ).length;
+        const trackedInSeason = watchedInSeason - importedInSeason;
         const allWatched =
           season.episodeCount > 0 && watchedInSeason >= season.episodeCount;
+        const choosingSource = seasonChoice === season.seasonNumber;
+        const sourceScope = `season-${season.seasonNumber}`;
 
         return (
           <ThemedView
@@ -397,22 +477,85 @@ export function SeriesEpisodesContent({
                   <ThemedText type="small" themeColor="textSecondary">
                     {item && !watchedLoading ? `${watchedInSeason}/` : ''}
                     {season.episodeCount} episodi
+                    {importedInSeason > 0 ? ` · ${importedInSeason} importati` : ''}
                   </ThemedText>
                 </View>
               </Pressable>
               <Pressable
                 style={styles.seasonAction}
                 disabled={busySeason === season.seasonNumber || adding}
-                onPress={() => markSeason(season, !allWatched)}>
+                onPress={() => {
+                  if (allWatched) {
+                    void markSeason(season, false);
+                  } else {
+                    setSeasonChoice(choosingSource ? null : season.seasonNumber);
+                  }
+                }}>
                 {busySeason === season.seasonNumber ? (
                   <ActivityIndicator color={Brand.glowBlue} size="small" />
                 ) : (
                   <ThemedText type="small" style={styles.seasonActionText}>
-                    {!item ? 'Traccia' : allWatched ? 'Azzera' : 'Segna tutti'}
+                    {!item
+                      ? 'Traccia'
+                      : allWatched
+                        ? 'Azzera'
+                        : choosingSource
+                          ? 'Annulla'
+                          : 'Segna tutti'}
                   </ThemedText>
                 )}
               </Pressable>
             </View>
+
+            {item && choosingSource && !allWatched && (
+              <ThemedView type="backgroundSelected" style={styles.sourceChooser}>
+                <View style={styles.sourceChooserCopy}>
+                  <ThemedText type="smallBold">Come vuoi registrarli?</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Gli episodi importati contano nel progresso e nelle ore complessive,
+                    ma non nell’attività mensile.
+                  </ThemedText>
+                </View>
+                <View style={styles.sourceChooserActions}>
+                  <Pressable
+                    onPress={() => markSeason(season, true, 'tracked')}
+                    style={styles.trackedButton}>
+                    <ThemedText type="smallBold" style={styles.trackedButtonText}>
+                      Visti oggi
+                    </ThemedText>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => markSeason(season, true, 'imported')}
+                    style={styles.importButton}>
+                    <ThemedText type="smallBold" style={styles.importButtonText}>
+                      Già visti prima
+                    </ThemedText>
+                  </Pressable>
+                </View>
+              </ThemedView>
+            )}
+
+            {item && watchedInSeason > 0 && !choosingSource && (
+              <Pressable
+                onPress={() =>
+                  changeWatchedSource(
+                    season.seasonNumber,
+                    trackedInSeason > 0 ? 'imported' : 'tracked',
+                  )
+                }
+                disabled={busySourceScope === sourceScope}
+                style={styles.seasonHistoryAction}>
+                {busySourceScope === sourceScope ? (
+                  <ActivityIndicator color={Brand.softViolet} size="small" />
+                ) : (
+                  <ThemedText type="small" style={styles.historyActionText}>
+                    {trackedInSeason > 0
+                      ? 'Escludi la stagione dalla cronologia'
+                      : 'Includi la stagione da oggi'}
+                  </ThemedText>
+                )}
+              </Pressable>
+            )}
 
             {isOpen &&
               (loadingSeason === season.seasonNumber ? (
@@ -427,6 +570,7 @@ export function SeriesEpisodesContent({
                 (episodes ?? []).map((episode) => {
                   const key = episodeKey(season.seasonNumber, episode.episodeNumber);
                   const isWatched = watched.has(key);
+                  const isImported = watched.get(key) === 'imported';
                   const viewingsOpen = viewingKey === key;
                   return (
                     <View key={key} style={styles.episode}>
@@ -445,9 +589,12 @@ export function SeriesEpisodesContent({
                               style={[
                                 styles.checkbox,
                                 isWatched && styles.checkboxOn,
+                                isImported && styles.checkboxImported,
                                 {
                                   borderColor: isWatched
-                                    ? Brand.glowBlue
+                                    ? isImported
+                                      ? Brand.softViolet
+                                      : Brand.glowBlue
                                     : theme.textSecondary,
                                 },
                               ]}>
@@ -468,6 +615,11 @@ export function SeriesEpisodesContent({
                               {episode.airDate.split('-').reverse().join('/')}
                             </ThemedText>
                           ) : null}
+                          {isImported && (
+                            <ThemedText type="small" style={styles.importedLabel}>
+                              Importato
+                            </ThemedText>
+                          )}
                         </View>
                       </View>
 
@@ -552,6 +704,16 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: Spacing.half,
   },
+  seriesHistoryAction: {
+    alignItems: 'center',
+    gap: Spacing.half,
+    padding: Spacing.two,
+    borderRadius: Spacing.three,
+    backgroundColor: 'rgba(106,76,255,0.12)',
+  },
+  historyActionText: {
+    color: Brand.softViolet,
+  },
   center: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -608,6 +770,48 @@ const styles = StyleSheet.create({
   seasonActionText: {
     color: Brand.glowBlue,
   },
+  sourceChooser: {
+    gap: Spacing.two,
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
+  },
+  sourceChooserCopy: {
+    gap: Spacing.half,
+  },
+  sourceChooserActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  trackedButton: {
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.two,
+    backgroundColor: 'rgba(47,107,255,0.18)',
+  },
+  trackedButtonText: {
+    color: Brand.glowBlue,
+  },
+  importButton: {
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.two,
+    backgroundColor: 'rgba(106,76,255,0.18)',
+  },
+  importButtonText: {
+    color: Brand.softViolet,
+  },
+  seasonHistoryAction: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one,
+    borderRadius: Spacing.three,
+    backgroundColor: 'rgba(106,76,255,0.10)',
+  },
   episode: {
     gap: Spacing.two,
     paddingTop: Spacing.three,
@@ -636,12 +840,19 @@ const styles = StyleSheet.create({
   checkboxOn: {
     backgroundColor: Brand.glowBlue,
   },
+  checkboxImported: {
+    backgroundColor: Brand.softViolet,
+  },
   check: {
     color: Brand.pureWhite,
   },
   episodeTitle: {
     flex: 1,
     gap: Spacing.half,
+  },
+  importedLabel: {
+    alignSelf: 'flex-start',
+    color: Brand.softViolet,
   },
   viewingsButton: {
     alignSelf: 'flex-start',

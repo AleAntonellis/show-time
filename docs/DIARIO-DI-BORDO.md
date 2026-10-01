@@ -45,6 +45,8 @@ leggera, condivisione via link privato, dark mode.
 | D23 | Condivisione v1 | Link canonico alla scheda del singolo titolo | Nessun dato personale esposto; il destinatario usa la propria libreria |
 | D24 | Condivisione interna | Follow one-way con accettazione + Inbox titoli | Evita spam e mantiene mittente/destinatario protetti da RLS |
 | D25 | Inviti da link esterno | Token hashato, monouso, 7 giorni e consenso esplicito | Collega condivisione esterna e Inbox senza esporre identità nell'URL |
+| D26 | Storico importato | Progresso e ore sì; trend, timeline e visioni registrate no | Mantiene pulite le statistiche senza inventare date |
+| D27 | Film già visti | Contatore importato separato dalle visioni datate | Permette import + revisioni future senza perdere ore o inquinare i trend |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -248,6 +250,25 @@ fra utenti autenticati. RPC `add_to_library(...)` fa upsert atomico titolo + voc
   token rimosso dopo “Apri soltanto” e nessun record interno nel ramo senza consenso.
 - ✅ Token inesistente verificato: viene mostrato un errore esplicito, mentre la scheda
   TMDB resta consultabile e utilizzabile normalmente.
+- ✅ Distinte le spunte episodio `tracked` e `imported`. Gli importati mantengono
+  progresso, stato serie ed ore catalogate, ma non generano eventi mensili o recenti.
+- ✅ `Segna tutti` ora richiede di scegliere tra **Visti oggi** e **Già visti prima**;
+  stagione e serie possono essere escluse o incluse nuovamente nella cronologia senza
+  perdere il progresso. Le visioni con data/nota/voto restano sempre eventi reali.
+- ✅ Rimosso l'evento sintetico dei film semplicemente segnati *Visto*: contribuiscono
+  a completati e tempo catalogato, ma entrano nella timeline solo con una visione esplicita.
+- ✅ Test reale Breaking Bad: `7/62` e `9,9 h` invariati; attività e visioni registrate
+  passate da 8 a 2, conservando solo le due revisioni esplicite. Verificati bulk import,
+  conversione reversibile, spunta singola “oggi” e ripristino dei dati di test.
+- ✅ Anche i film offrono la scelta **Visto oggi** / **Già visto prima di ShowTime**.
+  Le visioni importate sono conteggiate separatamente e si sommano alle revisioni reali
+  nelle ore catalogate, ma non generano date o attività mensili.
+- ✅ Un film con una sola visione già conteggiata espone **Modifica origine**: la visione
+  può passare da importata a “oggi” (o viceversa) senza aumentare il totale. Note e voti
+  non vengono rimossi automaticamente.
+- ✅ I film già `Visto` senza storico sono stati inizializzati automaticamente con una
+  visione importata. Test Inception: import preservato, revisione “oggi” aggiunta e
+  rimossa, ore/trend aggiornati e poi ripristinati; scelta importata verificata.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

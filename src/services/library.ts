@@ -9,6 +9,9 @@ import { getSupabase } from '@/services/supabase';
 import { getTvDetails, posterUrl, type MediaType, type Title } from '@/services/tmdb';
 
 export type LibraryStatus = 'to_watch' | 'watching' | 'watched';
+export type EpisodeWatchSource = 'tracked' | 'imported';
+export type MovieWatchSource = 'tracked' | 'imported';
+export type WatchedEpisodes = Map<string, EpisodeWatchSource>;
 
 export const STATUS_LABELS: Record<LibraryStatus, string> = {
   to_watch: 'Da vedere',
@@ -39,6 +42,8 @@ export type LibraryItem = {
   genres: string[];
   totalEpisodes: number | null;
   watchedEpisodes: number;
+  viewingCount: number;
+  importedViewings: number;
 };
 
 export type Viewing = {
@@ -64,6 +69,7 @@ type LibraryRow = {
   notes: string | null;
   added_at: string;
   updated_at: string;
+  imported_viewings: number;
   titles: {
     tmdb_id: number;
     media_type: MediaType;
@@ -77,7 +83,11 @@ type LibraryRow = {
   } | null;
 };
 
-function toItem(row: LibraryRow, watchedByItem: Map<string, number>): LibraryItem {
+function toItem(
+  row: LibraryRow,
+  watchedByItem: Map<string, number>,
+  viewingsByItem: Map<string, number>,
+): LibraryItem {
   const t = row.titles;
   return {
     id: row.id,
@@ -96,6 +106,8 @@ function toItem(row: LibraryRow, watchedByItem: Map<string, number>): LibraryIte
     genres: t?.genres ?? [],
     totalEpisodes: t?.total_episodes ?? null,
     watchedEpisodes: watchedByItem.get(row.id) ?? 0,
+    viewingCount: viewingsByItem.get(row.id) ?? 0,
+    importedViewings: row.imported_viewings,
   };
 }
 
@@ -110,7 +122,7 @@ function toViewing(row: ViewingRow): Viewing {
 }
 
 const SELECT =
-  'id, status, rating, notes, added_at, updated_at, titles ( tmdb_id, media_type, title, year, poster_path, overview, runtime, genres, total_episodes )';
+  'id, status, rating, notes, added_at, updated_at, imported_viewings, titles ( tmdb_id, media_type, title, year, poster_path, overview, runtime, genres, total_episodes )';
 
 async function getUserId(): Promise<string> {
   const { data, error } = await getSupabase().auth.getUser();
@@ -129,6 +141,31 @@ export function deriveSeriesStatus(watched: number, total: number | null): Libra
     return 'watched';
   }
   return 'watching';
+}
+
+export function getMovieWatchSource(
+  item: Pick<LibraryItem, 'importedViewings' | 'viewingCount'>,
+): MovieWatchSource | null {
+  if (item.importedViewings === 1 && item.viewingCount === 0) {
+    return 'imported';
+  }
+  if (item.importedViewings === 0 && item.viewingCount === 1) {
+    return 'tracked';
+  }
+  return null;
+}
+
+export function canReclassifyMovieWatch(
+  item: Pick<
+    LibraryItem,
+    'importedViewings' | 'mediaType' | 'status' | 'viewingCount'
+  >,
+): boolean {
+  return (
+    item.mediaType === 'movie' &&
+    item.status === 'watched' &&
+    getMovieWatchSource(item) !== null
+  );
 }
 
 /** Salva (o aggiorna lo stato di) un titolo TMDB nella libreria dell'utente. */
@@ -159,37 +196,61 @@ export async function addToLibrary(title: Title, status: LibraryStatus): Promise
 /** Ritorna tutti i titoli in libreria, con il conteggio episodi visti per le serie. */
 export async function getLibrary(): Promise<LibraryItem[]> {
   const supabase = getSupabase();
-  const [{ data, error }, watches] = await Promise.all([
+  const [{ data, error }, watches, viewings] = await Promise.all([
     supabase.from('library_items').select(SELECT).order('updated_at', { ascending: false }),
     supabase.from('episode_watches').select('library_item_id'),
+    supabase.from('viewings').select('library_item_id'),
   ]);
   if (error) {
     throw new Error(error.message);
+  }
+  if (watches.error) {
+    throw new Error(watches.error.message);
+  }
+  if (viewings.error) {
+    throw new Error(viewings.error.message);
   }
 
   const watchedByItem = new Map<string, number>();
   for (const row of (watches.data ?? []) as { library_item_id: string }[]) {
     watchedByItem.set(row.library_item_id, (watchedByItem.get(row.library_item_id) ?? 0) + 1);
   }
+  const viewingsByItem = new Map<string, number>();
+  for (const row of (viewings.data ?? []) as { library_item_id: string }[]) {
+    viewingsByItem.set(
+      row.library_item_id,
+      (viewingsByItem.get(row.library_item_id) ?? 0) + 1,
+    );
+  }
 
-  return (data as unknown as LibraryRow[]).map((row) => toItem(row, watchedByItem));
+  return (data as unknown as LibraryRow[]).map((row) =>
+    toItem(row, watchedByItem, viewingsByItem),
+  );
 }
 
 /** Ritorna una singola voce di libreria per id. */
 export async function getLibraryItem(itemId: string): Promise<LibraryItem | null> {
   const supabase = getSupabase();
-  const [{ data, error }, watches] = await Promise.all([
+  const [{ data, error }, watches, viewings] = await Promise.all([
     supabase.from('library_items').select(SELECT).eq('id', itemId).maybeSingle(),
     supabase.from('episode_watches').select('library_item_id').eq('library_item_id', itemId),
+    supabase.from('viewings').select('library_item_id').eq('library_item_id', itemId),
   ]);
   if (error) {
     throw new Error(error.message);
+  }
+  if (watches.error) {
+    throw new Error(watches.error.message);
+  }
+  if (viewings.error) {
+    throw new Error(viewings.error.message);
   }
   if (!data) {
     return null;
   }
   const watchedByItem = new Map<string, number>([[itemId, (watches.data ?? []).length]]);
-  return toItem(data as unknown as LibraryRow, watchedByItem);
+  const viewingsByItem = new Map<string, number>([[itemId, (viewings.data ?? []).length]]);
+  return toItem(data as unknown as LibraryRow, watchedByItem, viewingsByItem);
 }
 
 /** Cerca una voce di libreria tramite la chiave TMDB del titolo. */
@@ -209,6 +270,138 @@ export async function updateStatus(itemId: string, status: LibraryStatus): Promi
     .eq('id', itemId);
   if (error) {
     throw new Error(error.message);
+  }
+}
+
+/** Registra un film come visto oggi oppure come visione importata senza data. */
+export async function recordMovieWatched(
+  itemId: string,
+  source: MovieWatchSource,
+  importedViewings: number,
+): Promise<void> {
+  if (source === 'tracked') {
+    await addViewing(itemId, localDateString(), null, null);
+    return;
+  }
+  const { error } = await getSupabase()
+    .from('library_items')
+    .update({
+      status: 'watched',
+      imported_viewings: Math.max(importedViewings, 1),
+    })
+    .eq('id', itemId);
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+async function setImportedViewings(
+  itemId: string,
+  count: number,
+  expectedCount?: number,
+): Promise<void> {
+  let query = getSupabase()
+    .from('library_items')
+    .update({ status: 'watched', imported_viewings: count })
+    .eq('id', itemId);
+  if (expectedCount != null) {
+    query = query.eq('imported_viewings', expectedCount);
+  }
+  const { data, error } = await query.select('id').maybeSingle();
+  if (error) {
+    throw new Error(error.message);
+  }
+  if (!data) {
+    throw new Error('La visione è cambiata. Ricarica la libreria e riprova.');
+  }
+}
+
+async function deleteViewingForReclassification(viewingId: string): Promise<void> {
+  const { data, error } = await getSupabase()
+    .from('viewings')
+    .delete()
+    .eq('id', viewingId)
+    .select('id')
+    .maybeSingle();
+  if (error) {
+    throw new Error(error.message);
+  }
+  if (!data) {
+    throw new Error('La visione non è più disponibile. Ricarica la libreria e riprova.');
+  }
+}
+
+/** Riclassifica l'unica visione di un film senza modificarne il conteggio. */
+export async function reclassifyMovieWatched(
+  item: LibraryItem,
+  source: MovieWatchSource,
+): Promise<void> {
+  const currentSource = getMovieWatchSource(item);
+  if (!canReclassifyMovieWatch(item) || !currentSource) {
+    throw new Error(
+      'Puoi modificare l’origine solo quando il film ha una singola visione.',
+    );
+  }
+  if (currentSource === source) {
+    return;
+  }
+
+  if (source === 'tracked') {
+    const viewing = await addViewing(item.id, localDateString(), null, null);
+    try {
+      await setImportedViewings(item.id, 0, 1);
+    } catch (classificationError) {
+      try {
+        await deleteViewingForReclassification(viewing.id);
+      } catch (rollbackError) {
+        throw new Error(
+          `${
+            classificationError instanceof Error
+              ? classificationError.message
+              : 'Origine non aggiornata'
+          }; rollback non riuscito: ${
+            rollbackError instanceof Error
+              ? rollbackError.message
+              : 'visione odierna non rimossa'
+          }`,
+        );
+      }
+      throw classificationError;
+    }
+    return;
+  }
+
+  const viewings = await getViewings(item.id);
+  if (viewings.length !== 1) {
+    throw new Error('Lo storico è cambiato. Ricarica la libreria e riprova.');
+  }
+  const [viewing] = viewings;
+  if (viewing.note != null || viewing.rating != null) {
+    throw new Error(
+      'Questa visione contiene una nota o un voto. Rimuovili dallo storico prima di importarla.',
+    );
+  }
+
+  await setImportedViewings(item.id, 1, 0);
+  try {
+    await deleteViewingForReclassification(viewing.id);
+  } catch (classificationError) {
+    try {
+      await setImportedViewings(item.id, 0, 1);
+    } catch (rollbackError) {
+      throw new Error(
+        `${
+          classificationError instanceof Error
+            ? classificationError.message
+            : 'Visione non riclassificata'
+        }; rollback non riuscito: ${
+          rollbackError instanceof Error
+            ? rollbackError.message
+            : 'conteggio importato non ripristinato'
+        }`,
+      );
+    }
+    throw classificationError;
   }
 }
 
@@ -396,19 +589,34 @@ export async function getSavedKeys(): Promise<Set<string>> {
 
 const episodeKey = (season: number, episode: number) => `${season}-${episode}`;
 
-/** Chiavi `season-episode` degli episodi visti per una serie. */
-export async function getWatchedEpisodes(itemId: string): Promise<Set<string>> {
+function localDateString(): string {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/** Chiavi `season-episode` e origine degli episodi visti per una serie. */
+export async function getWatchedEpisodes(itemId: string): Promise<WatchedEpisodes> {
   const { data, error } = await getSupabase()
     .from('episode_watches')
-    .select('season_number, episode_number')
+    .select('season_number, episode_number, source')
     .eq('library_item_id', itemId);
   if (error) {
     throw new Error(error.message);
   }
-  return new Set(
-    (data ?? []).map((r: { season_number: number; episode_number: number }) =>
-      episodeKey(r.season_number, r.episode_number),
-    ),
+  return new Map(
+    (
+      (data ?? []) as {
+        season_number: number;
+        episode_number: number;
+        source: EpisodeWatchSource;
+      }[]
+    ).map((row) => [
+      episodeKey(row.season_number, row.episode_number),
+      row.source,
+    ]),
   );
 }
 
@@ -423,6 +631,7 @@ export async function setEpisodeWatched(
   watched: boolean,
   watchedCount: number,
   totalEpisodes: number | null,
+  source: EpisodeWatchSource = 'tracked',
 ): Promise<LibraryStatus> {
   const supabase = getSupabase();
 
@@ -434,6 +643,8 @@ export async function setEpisodeWatched(
         user_id: userId,
         season_number: season,
         episode_number: episode,
+        source,
+        watched_on: localDateString(),
       },
       { onConflict: 'library_item_id,season_number,episode_number' },
     );
@@ -468,6 +679,7 @@ export async function setSeasonWatched(
   watched: boolean,
   watchedCount: number,
   totalEpisodes: number | null,
+  source: EpisodeWatchSource = 'tracked',
 ): Promise<LibraryStatus> {
   const supabase = getSupabase();
 
@@ -478,6 +690,8 @@ export async function setSeasonWatched(
       user_id: userId,
       season_number: season,
       episode_number: episode,
+      source,
+      watched_on: localDateString(),
     }));
     const { error } = await supabase
       .from('episode_watches')
@@ -499,4 +713,30 @@ export async function setSeasonWatched(
   const status = deriveSeriesStatus(watchedCount, totalEpisodes);
   await updateStatus(itemId, status);
   return status;
+}
+
+/**
+ * Converte episodi già spuntati tra attività registrata e storico importato.
+ * Se `season` è null, converte l'intera serie.
+ */
+export async function setWatchedEpisodesSource(
+  itemId: string,
+  season: number | null,
+  source: EpisodeWatchSource,
+): Promise<void> {
+  const values =
+    source === 'tracked'
+      ? { source, watched_on: localDateString() }
+      : { source };
+  let query = getSupabase()
+    .from('episode_watches')
+    .update(values)
+    .eq('library_item_id', itemId);
+  if (season != null) {
+    query = query.eq('season_number', season);
+  }
+  const { error } = await query;
+  if (error) {
+    throw new Error(error.message);
+  }
 }

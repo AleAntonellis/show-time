@@ -134,8 +134,9 @@ Le liste personali e il login usano [Supabase](https://supabase.com) (free tier)
 1. Crea un progetto su **supabase.com** (gratis)
 2. Apri **SQL Editor** ed esegui i file in [`supabase/migrations/`](supabase/migrations)
    in ordine: `0001_init.sql`, `0002_episode_tracking.sql`, poi
-   `0003_episode_viewings.sql`, `0004_internal_sharing.sql` e
-   `0005_share_invites.sql`
+   `0003_episode_viewings.sql`, `0004_internal_sharing.sql`,
+   `0005_share_invites.sql`, `0006_watch_origins.sql` e
+   `0007_movie_imports.sql`
 3. In **Project Settings → API** copia *Project URL* e *anon public key*
 4. Aggiungili in `.env.local`:
    ```
@@ -171,9 +172,9 @@ spostato dietro un proxy Azure Function in una fase successiva.
 |---|---|---|
 | `profiles` | Utenti | Estende `auth.users`, creato in automatico |
 | `titles` | Cache metadati TMDB | Condivisa; poster, durata, generi (per statistiche) |
-| `library_items` | Titolo salvato da un utente | Stato `to_watch` / `watching` / `watched`, priorità, rating |
+| `library_items` | Titolo salvato da un utente | Stato, priorità e conteggio visioni film importate |
 | `viewings` | Una riga per visione | Nota e voto **per singola visione** |
-| `episode_watches` | Episodi visti (serie TV) | Tracking per episodio, stato serie derivato |
+| `episode_watches` | Episodi visti (serie TV) | Tracking per episodio, origine registrata/importata |
 | `episode_viewings` | Storico visioni episodi | Più visioni per episodio con data, nota e voto |
 | `user_follows` | Contatti | Richieste one-way con accettazione |
 | `title_shares` | Condivisioni interne | Titolo, messaggio, mittente, destinatario e lettura |
@@ -197,6 +198,8 @@ Sicurezza: **RLS** attiva ovunque — ogni utente accede solo ai propri dati. Sc
 - [x] TMDB — dettaglio titolo, uscite e nuove stagioni
 - [x] Azioni Libreria nella scheda titolo + tracking/note inline per gli episodi
 - [x] Statistiche (ore viste, generi, trend mensili)
+- [x] Importazione storico senza contaminare trend e attività recente
+- [x] Importazione film già visti, riclassificabile dalla UI, con ore separate dalla timeline
 - [x] Home “living room” operativa
 - [x] Navigazione web compatta con hamburger e logout
 - [x] Condivisione singolo titolo via link

@@ -12,6 +12,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MovieViewings } from '@/components/movie-viewings';
+import {
+  MovieWatchChoiceModal,
+  type MovieWatchChoiceMode,
+} from '@/components/movie-watch-choice-modal';
 import { SeriesEpisodes } from '@/components/series-episodes';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -25,14 +29,18 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
 import {
+  canReclassifyMovieWatch,
   getLibrary,
   MOVIE_STATUSES,
+  recordMovieWatched,
+  reclassifyMovieWatched,
   removeFromLibrary,
   STATUS_LABELS,
   STATUS_ORDER,
   updateStatus,
   type LibraryItem,
   type LibraryStatus,
+  type MovieWatchSource,
 } from '@/services/library';
 
 export default function LibraryTabScreen() {
@@ -45,6 +53,10 @@ export default function LibraryTabScreen() {
   const [error, setError] = useState<string | null>(null);
   const [selectedSeries, setSelectedSeries] = useState<LibraryItem | null>(null);
   const [selectedMovie, setSelectedMovie] = useState<LibraryItem | null>(null);
+  const [movieWatchChoice, setMovieWatchChoice] = useState<{
+    item: LibraryItem;
+    mode: MovieWatchChoiceMode;
+  } | null>(null);
 
   const load = useCallback(() => {
     if (!configured || !session) {
@@ -82,6 +94,27 @@ export default function LibraryTabScreen() {
       await removeFromLibrary(item.id);
     } catch {
       load();
+    }
+  }
+
+  async function markMovieWatched(
+    item: LibraryItem,
+    mode: MovieWatchChoiceMode,
+    source: MovieWatchSource,
+  ) {
+    setMovieWatchChoice(null);
+    setError(null);
+    try {
+      if (mode === 'reclassify') {
+        await reclassifyMovieWatched(item, source);
+      } else {
+        await recordMovieWatched(item.id, source, item.importedViewings);
+      }
+      load();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Impossibile registrare la visione',
+      );
     }
   }
 
@@ -201,7 +234,20 @@ export default function LibraryTabScreen() {
                               return (
                                 <Pressable
                                   key={s}
-                                  onPress={() => changeStatus(item, s)}
+                                  onPress={() => {
+                                    if (s === 'watched') {
+                                      if (item.status !== 'watched') {
+                                        setMovieWatchChoice({ item, mode: 'record' });
+                                      } else if (canReclassifyMovieWatch(item)) {
+                                        setMovieWatchChoice({
+                                          item,
+                                          mode: 'reclassify',
+                                        });
+                                      }
+                                    } else {
+                                      void changeStatus(item, s);
+                                    }
+                                  }}
                                   style={[styles.chip, active && styles.chipActive]}>
                                   <ThemedText
                                     type="small"
@@ -214,6 +260,45 @@ export default function LibraryTabScreen() {
                               );
                             })}
                           </View>
+                          {item.status === 'watched' &&
+                            (item.importedViewings > 0 || item.viewingCount > 0) && (
+                            <View style={styles.watchSummary}>
+                              <ThemedText type="small" themeColor="textSecondary">
+                                {[
+                                  item.importedViewings > 0
+                                    ? `${item.importedViewings} ${
+                                        item.importedViewings === 1
+                                          ? 'visione importata'
+                                          : 'visioni importate'
+                                      }`
+                                    : null,
+                                  item.viewingCount > 0
+                                    ? `${item.viewingCount} ${
+                                        item.viewingCount === 1
+                                          ? 'visione registrata'
+                                          : 'visioni registrate'
+                                      }`
+                                    : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                              </ThemedText>
+                              {canReclassifyMovieWatch(item) && (
+                                <Pressable
+                                  onPress={() =>
+                                    setMovieWatchChoice({
+                                      item,
+                                      mode: 'reclassify',
+                                    })
+                                  }
+                                  hitSlop={8}>
+                                  <ThemedText type="smallBold" style={styles.originLink}>
+                                    Modifica origine ›
+                                  </ThemedText>
+                                </Pressable>
+                              )}
+                            </View>
+                          )}
                           <Pressable
                             style={styles.viewingsButton}
                             onPress={() => setSelectedMovie(item)}>
@@ -263,6 +348,20 @@ export default function LibraryTabScreen() {
           item={selectedMovie}
           onClose={() => setSelectedMovie(null)}
           onChanged={load}
+        />
+      )}
+      {movieWatchChoice && (
+        <MovieWatchChoiceModal
+          item={movieWatchChoice.item}
+          mode={movieWatchChoice.mode}
+          onClose={() => setMovieWatchChoice(null)}
+          onSelect={(source) =>
+            markMovieWatched(
+              movieWatchChoice.item,
+              movieWatchChoice.mode,
+              source,
+            )
+          }
         />
       )}
     </ThemedView>
@@ -346,6 +445,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     flexWrap: 'wrap',
     gap: Spacing.two,
+  },
+  watchSummary: {
+    gap: Spacing.half,
+  },
+  originLink: {
+    color: Brand.softViolet,
   },
   viewingsButton: {
     paddingHorizontal: Spacing.two,

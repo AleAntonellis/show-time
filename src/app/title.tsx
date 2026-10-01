@@ -13,6 +13,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MovieViewings } from '@/components/movie-viewings';
+import {
+  MovieWatchChoiceModal,
+  type MovieWatchChoiceMode,
+} from '@/components/movie-watch-choice-modal';
 import { InternalShareModal } from '@/components/internal-share-modal';
 import { SeriesEpisodesContent } from '@/components/series-episodes';
 import { ShareInviteBanner } from '@/components/share-invite-banner';
@@ -22,13 +26,17 @@ import { BottomTabInset, Brand, MaxContentWidth, Spacing } from '@/constants/the
 import { useAuth } from '@/hooks/use-auth';
 import {
   addToLibrary,
+  canReclassifyMovieWatch,
   getLibraryItemByTmdb,
   MOVIE_STATUSES,
+  recordMovieWatched,
+  reclassifyMovieWatched,
   removeFromLibrary,
   STATUS_LABELS as LIBRARY_STATUS_LABELS,
   updateStatus,
   type LibraryItem,
   type LibraryStatus,
+  type MovieWatchSource,
 } from '@/services/library';
 import {
   createTitleShareInvite,
@@ -111,6 +119,8 @@ export default function TitleScreen() {
   const [actionBusy, setActionBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showMovieViewings, setShowMovieViewings] = useState(false);
+  const [movieWatchChoiceMode, setMovieWatchChoiceMode] =
+    useState<MovieWatchChoiceMode | null>(null);
   const [sharing, setSharing] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const [shareError, setShareError] = useState<string | null>(null);
@@ -224,6 +234,34 @@ export default function TitleScreen() {
       setLibraryItem({ ...libraryItem, status });
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Impossibile aggiornare lo stato');
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function markMovieWatched(source: MovieWatchSource) {
+    if (!libraryItem || !movieWatchChoiceMode || actionBusy) {
+      return;
+    }
+    const choiceMode = movieWatchChoiceMode;
+    setMovieWatchChoiceMode(null);
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      if (choiceMode === 'reclassify') {
+        await reclassifyMovieWatched(libraryItem, source);
+      } else {
+        await recordMovieWatched(
+          libraryItem.id,
+          source,
+          libraryItem.importedViewings,
+        );
+      }
+      await refreshLibraryItem();
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : 'Impossibile registrare la visione',
+      );
     } finally {
       setActionBusy(false);
     }
@@ -515,7 +553,17 @@ export default function TitleScreen() {
                   return (
                     <Pressable
                       key={movieStatus}
-                      onPress={() => changeMovieStatus(movieStatus)}
+                      onPress={() => {
+                        if (movieStatus === 'watched') {
+                          if (libraryItem.status !== 'watched') {
+                            setMovieWatchChoiceMode('record');
+                          } else if (canReclassifyMovieWatch(libraryItem)) {
+                            setMovieWatchChoiceMode('reclassify');
+                          }
+                        } else {
+                          void changeMovieStatus(movieStatus);
+                        }
+                      }}
                       disabled={actionBusy}
                       style={[styles.statusChip, active && styles.statusChipActive]}>
                       <ThemedText
@@ -527,6 +575,42 @@ export default function TitleScreen() {
                   );
                 })}
               </View>
+              {libraryItem.status === 'watched' &&
+                (libraryItem.importedViewings > 0 ||
+                  libraryItem.viewingCount > 0) && (
+                <View style={styles.watchSummary}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {[
+                      libraryItem.importedViewings > 0
+                        ? `${libraryItem.importedViewings} ${
+                            libraryItem.importedViewings === 1
+                              ? 'visione importata'
+                              : 'visioni importate'
+                          }`
+                        : null,
+                      libraryItem.viewingCount > 0
+                        ? `${libraryItem.viewingCount} ${
+                            libraryItem.viewingCount === 1
+                              ? 'visione registrata'
+                              : 'visioni registrate'
+                          }`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </ThemedText>
+                  {canReclassifyMovieWatch(libraryItem) && (
+                    <Pressable
+                      onPress={() => setMovieWatchChoiceMode('reclassify')}
+                      disabled={actionBusy}
+                      hitSlop={8}>
+                      <ThemedText type="smallBold" style={styles.originLink}>
+                        Modifica origine ›
+                      </ThemedText>
+                    </Pressable>
+                  )}
+                </View>
+              )}
               <Pressable
                 onPress={() => setShowMovieViewings(true)}
                 style={styles.secondaryButton}>
@@ -624,6 +708,14 @@ export default function TitleScreen() {
           item={libraryItem}
           onClose={() => setShowMovieViewings(false)}
           onChanged={refreshLibraryItem}
+        />
+      )}
+      {libraryItem && movieWatchChoiceMode && (
+        <MovieWatchChoiceModal
+          item={libraryItem}
+          mode={movieWatchChoiceMode}
+          onClose={() => setMovieWatchChoiceMode(null)}
+          onSelect={markMovieWatched}
         />
       )}
       {showInternalShare && (
@@ -821,6 +913,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.two,
+  },
+  watchSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  originLink: {
+    color: Brand.softViolet,
   },
   statusChip: {
     paddingHorizontal: Spacing.three,

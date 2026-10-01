@@ -1,4 +1,8 @@
-import { getLibrary, type LibraryItem } from '@/services/library';
+import {
+  getLibrary,
+  type EpisodeWatchSource,
+  type LibraryItem,
+} from '@/services/library';
 import { getSupabase } from '@/services/supabase';
 import { getTitleDetails, type MediaType } from '@/services/tmdb';
 
@@ -33,6 +37,7 @@ export type PersonalStatistics = {
   inProgress: number;
   completed: number;
   watchedEpisodes: number;
+  importedEpisodes: number;
   viewingCount: number;
   estimatedMinutes: number;
   averageRating: number | null;
@@ -58,10 +63,12 @@ type EpisodeWatchRow = {
   season_number: number;
   episode_number: number;
   watched_on: string;
+  source: EpisodeWatchSource;
   created_at: string;
 };
 
-type EpisodeViewingRow = EpisodeWatchRow & {
+type EpisodeViewingRow = Omit<EpisodeWatchRow, 'source' | 'watched_on'> & {
+  watched_on: string;
   rating: number | null;
   note: string | null;
 };
@@ -72,7 +79,7 @@ type ActivityEvent = RecentActivity & {
 };
 
 const episodeKey = (itemId: string, season: number, episode: number) =>
-  `${itemId}-${season}-${episode}`;
+  `${itemId}|${season}|${episode}`;
 
 function lastSixMonths(): MonthlyActivity[] {
   const formatter = new Intl.DateTimeFormat('it-IT', { month: 'short' });
@@ -108,7 +115,7 @@ function movieEvent(row: MovieViewingRow, item: LibraryItem): ActivityEvent {
 }
 
 function episodeEvent(
-  row: EpisodeWatchRow | EpisodeViewingRow,
+  row: EpisodeViewingRow | EpisodeWatchRow,
   item: LibraryItem,
 ): ActivityEvent {
   return {
@@ -136,7 +143,7 @@ export async function getPersonalStatistics(): Promise<PersonalStatistics> {
     supabase
       .from('episode_watches')
       .select(
-        'id, library_item_id, season_number, episode_number, watched_on, created_at',
+        'id, library_item_id, season_number, episode_number, watched_on, source, created_at',
       ),
     supabase
       .from('episode_viewings')
@@ -160,37 +167,13 @@ export async function getPersonalStatistics(): Promise<PersonalStatistics> {
   const episodeWatchRows = (episodeWatchResult.data ?? []) as EpisodeWatchRow[];
   const episodeViewingRows = (episodeViewingResult.data ?? []) as EpisodeViewingRow[];
   const events: ActivityEvent[] = [];
-  const movieItemsWithHistory = new Set<string>();
 
   for (const row of movieRows) {
     const item = itemById.get(row.library_item_id);
     if (!item) {
       continue;
     }
-    movieItemsWithHistory.add(item.id);
     events.push(movieEvent(row, item));
-  }
-
-  for (const item of items) {
-    if (
-      item.mediaType === 'movie' &&
-      item.status === 'watched' &&
-      !movieItemsWithHistory.has(item.id)
-    ) {
-      events.push({
-        id: `movie-library-${item.id}`,
-        libraryItemId: item.id,
-        title: item.title,
-        detail: 'Film',
-        watchedOn: item.updatedAt.slice(0, 10),
-        rating: null,
-        note: null,
-        mediaType: 'movie',
-        tmdbId: item.tmdbId,
-        posterUrl: item.posterUrl,
-        sortKey: item.updatedAt,
-      });
-    }
   }
 
   const episodesWithHistory = new Set(
@@ -200,6 +183,7 @@ export async function getPersonalStatistics(): Promise<PersonalStatistics> {
   );
   for (const row of episodeWatchRows) {
     if (
+      row.source === 'imported' ||
       episodesWithHistory.has(
         episodeKey(row.library_item_id, row.season_number, row.episode_number),
       )
@@ -230,10 +214,63 @@ export async function getPersonalStatistics(): Promise<PersonalStatistics> {
   const ratings = events
     .map((event) => event.rating)
     .filter((rating): rating is number => rating != null);
-  const estimatedMinutes = events.reduce((total, event) => {
-    const item = itemById.get(event.libraryItemId);
-    return total + (item?.runtime ?? 0);
-  }, 0);
+  const movieViewingCountByItem = new Map<string, number>();
+  for (const row of movieRows) {
+    movieViewingCountByItem.set(
+      row.library_item_id,
+      (movieViewingCountByItem.get(row.library_item_id) ?? 0) + 1,
+    );
+  }
+  let estimatedMinutes = 0;
+  for (const item of items) {
+    if (item.mediaType !== 'movie') {
+      continue;
+    }
+    const explicitViewings = movieViewingCountByItem.get(item.id) ?? 0;
+    const compatibilityFallback =
+      explicitViewings === 0 &&
+      item.importedViewings === 0 &&
+      item.status === 'watched'
+        ? 1
+        : 0;
+    const catalogedViewings =
+      item.importedViewings + explicitViewings + compatibilityFallback;
+    estimatedMinutes += catalogedViewings * (item.runtime ?? 0);
+  }
+
+  const episodeViewingCountByKey = new Map<string, number>();
+  for (const row of episodeViewingRows) {
+    const key = episodeKey(
+      row.library_item_id,
+      row.season_number,
+      row.episode_number,
+    );
+    episodeViewingCountByKey.set(
+      key,
+      (episodeViewingCountByKey.get(key) ?? 0) + 1,
+    );
+  }
+  const watchedEpisodeKeys = new Set<string>();
+  for (const row of episodeWatchRows) {
+    const key = episodeKey(
+      row.library_item_id,
+      row.season_number,
+      row.episode_number,
+    );
+    watchedEpisodeKeys.add(key);
+    const explicitViewings = episodeViewingCountByKey.get(key) ?? 0;
+    const catalogedViewings = Math.max(explicitViewings, 1);
+    const item = itemById.get(row.library_item_id);
+    estimatedMinutes += catalogedViewings * (item?.runtime ?? 0);
+  }
+  for (const [key, explicitViewings] of episodeViewingCountByKey) {
+    if (watchedEpisodeKeys.has(key)) {
+      continue;
+    }
+    const libraryItemId = key.split('|', 1)[0];
+    const item = itemById.get(libraryItemId);
+    estimatedMinutes += explicitViewings * (item?.runtime ?? 0);
+  }
   const genreCounts = new Map<string, number>();
   for (const item of items) {
     for (const genre of new Set(item.genres)) {
@@ -256,6 +293,7 @@ export async function getPersonalStatistics(): Promise<PersonalStatistics> {
     inProgress: items.filter((item) => item.status === 'watching').length,
     completed: items.filter((item) => item.status === 'watched').length,
     watchedEpisodes: episodeWatchRows.length,
+    importedEpisodes: episodeWatchRows.filter((row) => row.source === 'imported').length,
     viewingCount: events.length,
     estimatedMinutes,
     averageRating:

@@ -186,11 +186,15 @@ export default function StatisticsTabScreen() {
               />
               <SummaryCard
                 value={String(statistics.watchedEpisodes)}
-                label="Episodi completati"
+                label={
+                  statistics.importedEpisodes > 0
+                    ? `Episodi completati · ${statistics.importedEpisodes} importati`
+                    : 'Episodi completati'
+                }
               />
               <SummaryCard
                 value={`${formatHours(statistics.estimatedMinutes)} h`}
-                label="Tempo stimato"
+                label="Tempo catalogato"
                 accent
               />
               <SummaryCard
@@ -209,7 +213,7 @@ export default function StatisticsTabScreen() {
                 <Breakdown value={statistics.watchlist} label="Da vedere" />
                 <Breakdown value={statistics.inProgress} label="In corso" />
                 <Breakdown value={statistics.completed} label="Completati" />
-                <Breakdown value={statistics.viewingCount} label="Visioni totali" />
+                <Breakdown value={statistics.viewingCount} label="Visioni registrate" />
               </View>
             </ThemedView>
 
@@ -217,7 +221,7 @@ export default function StatisticsTabScreen() {
               <View>
                 <ThemedText type="smallBold">Attività negli ultimi 6 mesi</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  Film ed episodi guardati, incluse le revisioni.
+                  Attività con una data reale; gli episodi importati sono esclusi.
                 </ThemedText>
               </View>
               <ActivityChart months={statistics.monthlyActivity} />
