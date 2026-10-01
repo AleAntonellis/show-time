@@ -13,7 +13,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MovieViewings } from '@/components/movie-viewings';
+import { InternalShareModal } from '@/components/internal-share-modal';
 import { SeriesEpisodesContent } from '@/components/series-episodes';
+import { ShareInviteBanner } from '@/components/share-invite-banner';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Brand, MaxContentWidth, Spacing } from '@/constants/theme';
@@ -28,6 +30,10 @@ import {
   type LibraryItem,
   type LibraryStatus,
 } from '@/services/library';
+import {
+  createTitleShareInvite,
+  revokeTitleShareInvite,
+} from '@/services/social';
 import { shareTitle } from '@/services/sharing';
 import {
   getTitleDetails,
@@ -73,12 +79,14 @@ export default function TitleScreen() {
     mediaType?: string | string[];
     id?: string | string[];
     from?: string | string[];
+    invite?: string | string[];
   }>();
   const insets = useSafeAreaInsets();
   const { session, configured: supabaseConfigured } = useAuth();
   const mediaTypeParam = firstParam(params.mediaType);
   const idParam = firstParam(params.id);
   const fromParam = firstParam(params.from);
+  const inviteToken = firstParam(params.invite);
   const backTarget =
     fromParam === '/' ||
     fromParam === '/library' ||
@@ -86,7 +94,8 @@ export default function TitleScreen() {
     fromParam === '/stats' ||
     fromParam === '/reminders' ||
     fromParam === '/diary' ||
-    fromParam === '/calendar'
+    fromParam === '/calendar' ||
+    fromParam === '/inbox'
       ? fromParam
       : '/';
   const mediaType: MediaType | null =
@@ -105,6 +114,10 @@ export default function TitleScreen() {
   const [sharing, setSharing] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const [shareError, setShareError] = useState<string | null>(null);
+  const [showInternalShare, setShowInternalShare] = useState(false);
+  const [internalShareFeedback, setInternalShareFeedback] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!validParams || !mediaType) {
@@ -239,24 +252,54 @@ export default function TitleScreen() {
     setSharing(true);
     setShareFeedback(null);
     setShareError(null);
+    let createdInviteToken: string | null = null;
     try {
+      createdInviteToken = await createTitleShareInvite(details);
       const result = await shareTitle({
         mediaType: details.mediaType,
         tmdbId: details.id,
         title: details.title,
+        inviteToken: createdInviteToken,
       });
       if (result === 'copied') {
         setShareFeedback('Link copiato');
       } else if (result === 'shared') {
         setShareFeedback('Condiviso');
+      } else if (result === 'dismissed') {
+        await revokeTitleShareInvite(createdInviteToken);
       }
     } catch (err) {
-      setShareError(
-        err instanceof Error ? err.message : 'Impossibile condividere il titolo',
-      );
+      const originalMessage =
+        err instanceof Error ? err.message : 'Impossibile condividere il titolo';
+      if (createdInviteToken) {
+        try {
+          await revokeTitleShareInvite(createdInviteToken);
+        } catch (revokeError) {
+          const revokeMessage =
+            revokeError instanceof Error
+              ? revokeError.message
+              : 'revoca invito non riuscita';
+          setShareError(`${originalMessage}; ${revokeMessage}`);
+          return;
+        }
+      }
+      setShareError(originalMessage);
     } finally {
       setSharing(false);
     }
+  }
+
+  function removeInviteFromUrl() {
+    if (!details) {
+      return;
+    }
+    router.replace({
+      pathname: '/title',
+      params: {
+        mediaType: details.mediaType,
+        id: String(details.id),
+      },
+    });
   }
 
   if (!validParams) {
@@ -304,6 +347,15 @@ export default function TitleScreen() {
         <Pressable onPress={goBack} hitSlop={8} style={styles.backButton}>
           <ThemedText type="smallBold">‹ Indietro</ThemedText>
         </Pressable>
+
+        {inviteToken && (
+          <ShareInviteBanner
+            token={inviteToken}
+            mediaType={details.mediaType}
+            tmdbId={details.id}
+            onOpenOnly={removeInviteFromUrl}
+          />
+        )}
 
         {details.backdropUrl && (
           <View style={styles.backdropWrapper}>
@@ -359,34 +411,55 @@ export default function TitleScreen() {
                 />
               )}
             </View>
-            <Pressable
-              accessibilityLabel={`Condividi ${details.title}`}
-              onPress={shareCurrentTitle}
-              disabled={sharing}
-              style={({ pressed }) => [
-                styles.shareButton,
-                pressed && styles.pressed,
-                sharing && styles.disabled,
-              ]}>
-              {sharing ? (
-                <ActivityIndicator color={Brand.glowBlue} size="small" />
-              ) : (
-                <>
-                  <SymbolView
-                    name={{
-                      ios: 'square.and.arrow.up',
-                      android: 'share',
-                      web: 'share',
-                    }}
-                    tintColor={Brand.glowBlue}
-                    size={18}
-                  />
-                  <ThemedText type="smallBold" style={styles.shareButtonText}>
-                    {shareFeedback ?? 'Condividi'}
-                  </ThemedText>
-                </>
-              )}
-            </Pressable>
+            <View style={styles.shareActions}>
+              <Pressable
+                accessibilityLabel={`Invia ${details.title} su ShowTime`}
+                onPress={() => {
+                  setInternalShareFeedback(null);
+                  setShowInternalShare(true);
+                }}
+                style={({ pressed }) => [
+                  styles.internalShareButton,
+                  pressed && styles.pressed,
+                ]}>
+                <SymbolView
+                  name={{ ios: 'paperplane.fill', android: 'send', web: 'send' }}
+                  tintColor={Brand.softViolet}
+                  size={18}
+                />
+                <ThemedText type="smallBold" style={styles.internalShareButtonText}>
+                  {internalShareFeedback ?? 'Invia su ShowTime'}
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                accessibilityLabel={`Condividi ${details.title} con altre app`}
+                onPress={shareCurrentTitle}
+                disabled={sharing}
+                style={({ pressed }) => [
+                  styles.shareButton,
+                  pressed && styles.pressed,
+                  sharing && styles.disabled,
+                ]}>
+                {sharing ? (
+                  <ActivityIndicator color={Brand.glowBlue} size="small" />
+                ) : (
+                  <>
+                    <SymbolView
+                      name={{
+                        ios: 'square.and.arrow.up',
+                        android: 'share',
+                        web: 'share',
+                      }}
+                      tintColor={Brand.glowBlue}
+                      size={18}
+                    />
+                    <ThemedText type="smallBold" style={styles.shareButtonText}>
+                      {shareFeedback ?? 'Altre app'}
+                    </ThemedText>
+                  </>
+                )}
+              </Pressable>
+            </View>
           </View>
         </View>
 
@@ -553,6 +626,16 @@ export default function TitleScreen() {
           onChanged={refreshLibraryItem}
         />
       )}
+      {showInternalShare && (
+        <InternalShareModal
+          details={details}
+          onClose={() => setShowInternalShare(false)}
+          onSent={(username) => {
+            setShowInternalShare(false);
+            setInternalShareFeedback(`Inviato a @${username}`);
+          }}
+        />
+      )}
     </ThemedView>
   );
 }
@@ -680,6 +763,25 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.three,
     paddingHorizontal: Spacing.three,
     backgroundColor: 'rgba(47,107,255,0.14)',
+  },
+  shareActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  internalShareButton: {
+    minHeight: 40,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.two,
+    borderRadius: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    backgroundColor: 'rgba(106,76,255,0.16)',
+  },
+  internalShareButtonText: {
+    color: Brand.softViolet,
   },
   shareButtonText: {
     color: Brand.glowBlue,

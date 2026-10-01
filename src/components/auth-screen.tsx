@@ -8,6 +8,11 @@ import { ThemedView } from '@/components/themed-view';
 import { Brand, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
+import {
+  isUsernameAvailable,
+  normalizeUsername,
+  usernameValidationError,
+} from '@/services/social';
 
 export function AuthScreen() {
   const theme = useTheme();
@@ -15,6 +20,7 @@ export function AuthScreen() {
 
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [displayName, setDisplayName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -30,10 +36,26 @@ export function AuthScreen() {
       setError('Inserisci email e password.');
       return;
     }
+    const normalizedUsername = normalizeUsername(username);
+    if (isSignup) {
+      const validationError = usernameValidationError(normalizedUsername);
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
+    }
     setBusy(true);
     try {
       if (isSignup) {
-        await signUp(email.trim(), password, displayName.trim() || email.split('@')[0]);
+        if (!(await isUsernameAvailable(normalizedUsername))) {
+          throw new Error('Username già in uso.');
+        }
+        await signUp(
+          email.trim(),
+          password,
+          displayName.trim() || email.split('@')[0],
+          normalizedUsername,
+        );
         setInfo('Registrazione completata. Se richiesto, conferma la mail, poi accedi.');
         setMode('signin');
       } else {
@@ -62,14 +84,26 @@ export function AuthScreen() {
 
         <ThemedView type="backgroundElement" style={styles.form}>
           {isSignup && (
-            <TextInput
-              value={displayName}
-              onChangeText={setDisplayName}
-              placeholder="Nome"
-              placeholderTextColor={theme.textSecondary}
-              style={[styles.input, { color: theme.text }]}
-              autoCapitalize="words"
-            />
+            <>
+              <TextInput
+                value={displayName}
+                onChangeText={setDisplayName}
+                placeholder="Nome"
+                placeholderTextColor={theme.textSecondary}
+                style={[styles.input, { color: theme.text }]}
+                autoCapitalize="words"
+              />
+              <TextInput
+                value={username}
+                onChangeText={setUsername}
+                placeholder="Username pubblico"
+                placeholderTextColor={theme.textSecondary}
+                style={[styles.input, { color: theme.text }]}
+                autoCapitalize="none"
+                autoCorrect={false}
+                maxLength={24}
+              />
+            </>
           )}
           <TextInput
             value={email}

@@ -10,11 +10,18 @@ type WebShareNavigator = Navigator & {
 
 export type ShareTitleResult = 'shared' | 'copied' | 'dismissed';
 
-export function buildSharedTitleUrl(mediaType: MediaType, tmdbId: number): string {
+export function buildSharedTitleUrl(
+  mediaType: MediaType,
+  tmdbId: number,
+  inviteToken?: string,
+): string {
   const baseUrl = process.env.EXPO_PUBLIC_APP_URL?.trim() || DEFAULT_PUBLIC_APP_URL;
   const url = new URL('/title', baseUrl);
   url.searchParams.set('mediaType', mediaType);
   url.searchParams.set('id', String(tmdbId));
+  if (inviteToken) {
+    url.searchParams.set('invite', inviteToken);
+  }
   return url.toString();
 }
 
@@ -22,12 +29,14 @@ export async function shareTitle({
   mediaType,
   tmdbId,
   title,
+  inviteToken,
 }: {
   mediaType: MediaType;
   tmdbId: number;
   title: string;
+  inviteToken?: string;
 }): Promise<ShareTitleResult> {
-  const url = buildSharedTitleUrl(mediaType, tmdbId);
+  const url = buildSharedTitleUrl(mediaType, tmdbId, inviteToken);
   const text = `Guarda ${title} su ShowTime`;
 
   if (Platform.OS === 'web') {

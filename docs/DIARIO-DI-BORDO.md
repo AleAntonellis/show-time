@@ -43,6 +43,8 @@ leggera, condivisione via link privato, dark mode.
 | D21 | Azioni primarie web | Home e Cerca sempre visibili nella barra | Navigazione più immediata, burger riservato alle sezioni secondarie |
 | D22 | Hero Home | Saluto personale + logo senza scritta su fondo libero | Riduce il rumore visivo e porta subito ai contenuti |
 | D23 | Condivisione v1 | Link canonico alla scheda del singolo titolo | Nessun dato personale esposto; il destinatario usa la propria libreria |
+| D24 | Condivisione interna | Follow one-way con accettazione + Inbox titoli | Evita spam e mantiene mittente/destinatario protetti da RLS |
+| D25 | Inviti da link esterno | Token hashato, monouso, 7 giorni e consenso esplicito | Collega condivisione esterna e Inbox senza esporre identità nell'URL |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -81,6 +83,9 @@ Migrations in [`../supabase/migrations/`](../supabase/migrations).
 | `viewings` | Una riga per visione (nota + voto per singola visione) |
 | `episode_watches` | Episodi visti per le serie (per il tracking per episodio) |
 | `episode_viewings` | Più visioni dello stesso episodio, ciascuna con data, nota e voto |
+| `user_follows` | Richieste e relazioni accettate tra profili pubblici |
+| `title_shares` | Titoli inviati tra contatti, messaggio e stato letto |
+| `title_share_invites` | Inviti esterni monouso con hash, scadenza e account destinatario |
 
 Sicurezza: **RLS** ovunque — ogni utente accede solo ai propri dati. `titles` è cache condivisa
 fra utenti autenticati. RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
@@ -227,6 +232,22 @@ fra utenti autenticati. RPC `add_to_library(...)` fa upsert atomico titolo + voc
   `mediaType` e id TMDB, senza stato, note o identificativi del mittente.
 - ✅ Test end-to-end del link condiviso: apertura sulla PWA Azure, login/registrazione,
   ritorno automatico alla scheda e azioni collegate alla libreria del destinatario.
+- ✅ **Condivisione interna ShowTime**: username pubblico univoco, ricerca utenti,
+  richieste follow accettabili, contatti autorizzati, messaggio opzionale e Inbox
+  Ricevuti/Inviati.
+- ✅ RLS e RPC impediscono scritture dirette e permettono l'invio solo lungo una
+  relazione accettata; email, note e libreria del mittente non vengono esposte.
+- ✅ Badge Inbox Realtime, stato non letto, apertura del titolo e ricevuta
+  *Consegnato/Letto* verificati end-to-end con `@ale` e `@testshowtime`.
+- ✅ I link esterni ora includono un token casuale di 256 bit; nel database resta solo
+  l'hash SHA-256. Il primo account autenticato lo reclama e il link scade dopo 7 giorni.
+- ✅ Il destinatario sceglie **Accetta contatto** oppure **Apri soltanto**. L'accettazione
+  crea due relazioni reciproche e registra la condivisione interna già letta; l'apertura
+  semplice consuma il link senza creare contatti o messaggi.
+- ✅ Flusso invito verificato tra `@ale` e `@testshowtime`: contatto reciproco, Inbox,
+  token rimosso dopo “Apri soltanto” e nessun record interno nel ramo senza consenso.
+- ✅ Token inesistente verificato: viene mostrato un errore esplicito, mentre la scheda
+  TMDB resta consultabile e utilizzabile normalmente.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.
@@ -245,6 +266,8 @@ fra utenti autenticati. RPC `add_to_library(...)` fa upsert atomico titolo + voc
 - [x] Home “living room” operativa
 - [x] Navigazione web compatta con hamburger e logout
 - [x] Condivisione singolo titolo via link
+- [x] Contatti e condivisione interna con Inbox
+- [x] Link monouso per contatto reciproco e registrazione Inbox
 - [x] Centro reminder in-app per nuove stagioni / uscite entro 10 giorni
 - [x] Diario delle visioni commentate o valutate
 - [x] Calendario mensile delle prossime uscite TV

@@ -42,6 +42,8 @@ Deve essere **intuitiva, visivamente piacevole e veloce**, con un'esperienza da 
 
 ### 🔗 Social minimo
 - Condivisione di una lista o di un singolo titolo via link
+- Condivisione interna tra contatti accettati, con messaggio e Inbox
+- Link monouso (7 giorni) con invito esplicito a diventare contatti reciproci
 - Nessun feed pubblico, solo scambio privato
 
 ### 🌙 Interfaccia cinematografica
@@ -132,7 +134,8 @@ Le liste personali e il login usano [Supabase](https://supabase.com) (free tier)
 1. Crea un progetto su **supabase.com** (gratis)
 2. Apri **SQL Editor** ed esegui i file in [`supabase/migrations/`](supabase/migrations)
    in ordine: `0001_init.sql`, `0002_episode_tracking.sql`, poi
-   `0003_episode_viewings.sql`
+   `0003_episode_viewings.sql`, `0004_internal_sharing.sql` e
+   `0005_share_invites.sql`
 3. In **Project Settings → API** copia *Project URL* e *anon public key*
 4. Aggiungili in `.env.local`:
    ```
@@ -172,6 +175,9 @@ spostato dietro un proxy Azure Function in una fase successiva.
 | `viewings` | Una riga per visione | Nota e voto **per singola visione** |
 | `episode_watches` | Episodi visti (serie TV) | Tracking per episodio, stato serie derivato |
 | `episode_viewings` | Storico visioni episodi | Più visioni per episodio con data, nota e voto |
+| `user_follows` | Contatti | Richieste one-way con accettazione |
+| `title_shares` | Condivisioni interne | Titolo, messaggio, mittente, destinatario e lettura |
+| `title_share_invites` | Inviti esterni | Token hashato, monouso e valido 7 giorni |
 
 Sicurezza: **RLS** attiva ovunque — ogni utente accede solo ai propri dati. Schema completo in [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql).
 
@@ -194,6 +200,8 @@ Sicurezza: **RLS** attiva ovunque — ogni utente accede solo ai propri dati. Sc
 - [x] Home “living room” operativa
 - [x] Navigazione web compatta con hamburger e logout
 - [x] Condivisione singolo titolo via link
+- [x] Contatti e condivisione interna con Inbox
+- [x] Inviti da link esterno con consenso e contatto reciproco
 - [x] Centro reminder in-app per nuove stagioni / uscite entro 10 giorni
 - [x] Diario delle visioni commentate o valutate
 - [x] Calendario mensile delle prossime uscite TV

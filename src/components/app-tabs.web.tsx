@@ -22,6 +22,11 @@ import { Brand, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
 import { getReminderCenter } from '@/services/reminders';
+import {
+  getUnreadShareCount,
+  subscribeToInternalShares,
+  unsubscribeFromInternalShares,
+} from '@/services/social';
 
 export default function AppTabs() {
   return (
@@ -35,6 +40,8 @@ export default function AppTabs() {
         <TabTrigger name="reminders" href="/reminders" />
         <TabTrigger name="diary" href="/diary" />
         <TabTrigger name="calendar" href="/calendar" />
+        <TabTrigger name="contacts" href="/contacts" />
+        <TabTrigger name="inbox" href="/inbox" />
       </TabList>
       <BurgerNavigation />
     </Tabs>
@@ -49,6 +56,8 @@ function BurgerNavigation() {
   const [error, setError] = useState<string | null>(null);
   const [reminderCount, setReminderCount] = useState(0);
   const [reminderError, setReminderError] = useState<string | null>(null);
+  const [shareUnreadCount, setShareUnreadCount] = useState(0);
+  const [shareError, setShareError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!configured || !session) {
@@ -71,6 +80,62 @@ function BurgerNavigation() {
       });
     return () => {
       cancelled = true;
+    };
+  }, [configured, pathname, session]);
+
+  useEffect(() => {
+    if (!configured || !session) {
+      return;
+    }
+    let active = true;
+    let subscribedChannel: Awaited<
+      ReturnType<typeof subscribeToInternalShares>
+    > | null = null;
+
+    const refreshCount = () =>
+      getUnreadShareCount()
+        .then((count) => {
+          if (active) {
+            setShareUnreadCount(count);
+            setShareError(null);
+          }
+        })
+        .catch((err: unknown) => {
+          if (active) {
+            setShareError(
+              err instanceof Error ? err.message : 'Inbox non disponibile',
+            );
+          }
+        });
+
+    void refreshCount();
+    subscribeToInternalShares(() => {
+      void refreshCount();
+    })
+      .then((channel) => {
+        if (active) {
+          subscribedChannel = channel;
+        } else {
+          void unsubscribeFromInternalShares(channel).catch((err: unknown) =>
+            console.error('Errore chiusura Realtime:', err),
+          );
+        }
+      })
+      .catch((err: unknown) => {
+        if (active) {
+          setShareError(
+            err instanceof Error ? err.message : 'Realtime Inbox non disponibile',
+          );
+        }
+      });
+
+    return () => {
+      active = false;
+      if (subscribedChannel) {
+        void unsubscribeFromInternalShares(subscribedChannel).catch((err: unknown) =>
+          console.error('Errore chiusura Realtime:', err),
+        );
+      }
     };
   }, [configured, pathname, session]);
 
@@ -111,6 +176,13 @@ function BurgerNavigation() {
             </TabTrigger>
           </View>
           <View style={styles.topBarActions}>
+            <TabTrigger name="inbox" asChild>
+              <InboxButton
+                count={shareUnreadCount}
+                hasError={shareError != null}
+                onSelected={() => setOpen(false)}
+              />
+            </TabTrigger>
             <TabTrigger name="reminders" asChild>
               <ReminderBellButton
                 count={reminderCount}
@@ -149,6 +221,9 @@ function BurgerNavigation() {
             <TabTrigger name="calendar" asChild>
               <MenuTabButton onSelected={() => setOpen(false)}>Calendario</MenuTabButton>
             </TabTrigger>
+            <TabTrigger name="contacts" asChild>
+              <MenuTabButton onSelected={() => setOpen(false)}>Contatti</MenuTabButton>
+            </TabTrigger>
 
             <View style={styles.divider} />
 
@@ -179,10 +254,74 @@ function BurgerNavigation() {
                 Reminder: {reminderError}
               </ThemedText>
             )}
+            {shareError && (
+              <ThemedText type="small" style={styles.error}>
+                Inbox: {shareError}
+              </ThemedText>
+            )}
           </ThemedView>
         )}
       </View>
     </View>
+  );
+}
+
+function InboxButton({
+  count,
+  hasError,
+  isFocused,
+  onSelected,
+  onPress,
+  ...props
+}: TabTriggerSlotProps & {
+  count: number;
+  hasError: boolean;
+  onSelected: () => void;
+}) {
+  const theme = useTheme();
+  const highlighted = count > 0;
+  const tint = highlighted
+    ? Brand.softViolet
+    : isFocused
+      ? Brand.glowBlue
+      : theme.textSecondary;
+
+  function handlePress(event: GestureResponderEvent) {
+    onPress?.(event);
+    onSelected();
+  }
+
+  return (
+    <Pressable
+      {...props}
+      accessibilityLabel={
+        hasError
+          ? 'Inbox non disponibile'
+          : count > 0
+            ? `Inbox, ${count} condivisioni non lette`
+            : 'Inbox, nessuna condivisione non letta'
+      }
+      onPress={handlePress}
+      hitSlop={8}
+      style={({ pressed }) => [
+        styles.bellButton,
+        isFocused && styles.inboxButtonFocused,
+        highlighted && styles.inboxButtonActive,
+        pressed && styles.pressed,
+      ]}>
+      <SymbolView
+        name={{ ios: 'tray.fill', android: 'inbox', web: 'inbox' }}
+        tintColor={tint}
+        size={20}
+      />
+      {(count > 0 || hasError) && (
+        <View style={[styles.badge, styles.inboxBadge, hasError && styles.badgeError]}>
+          <ThemedText type="smallBold" style={styles.badgeText}>
+            {hasError ? '!' : count > 99 ? '99+' : count}
+          </ThemedText>
+        </View>
+      )}
+    </Pressable>
   );
 }
 
@@ -437,6 +576,12 @@ const styles = StyleSheet.create({
   bellButtonActive: {
     backgroundColor: 'rgba(255,106,44,0.16)',
   },
+  inboxButtonFocused: {
+    backgroundColor: 'rgba(47,107,255,0.14)',
+  },
+  inboxButtonActive: {
+    backgroundColor: 'rgba(106,76,255,0.16)',
+  },
   bellIcon: {
     width: 20,
     height: 22,
@@ -472,6 +617,9 @@ const styles = StyleSheet.create({
   },
   badgeError: {
     backgroundColor: '#D9364F',
+  },
+  inboxBadge: {
+    backgroundColor: Brand.softViolet,
   },
   badgeText: {
     color: Brand.pureWhite,

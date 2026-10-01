@@ -8,7 +8,12 @@ type AuthState = {
   loading: boolean;
   configured: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, displayName: string) => Promise<void>;
+  signUp: (
+    email: string,
+    password: string,
+    displayName: string,
+    username: string,
+  ) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -46,11 +51,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           throw new Error(error.message);
         }
       },
-      signUp: async (email, password, displayName) => {
+      signUp: async (email, password, displayName, username) => {
         const { error } = await getSupabase().auth.signUp({
           email,
           password,
-          options: { data: { display_name: displayName } },
+          options: { data: { display_name: displayName, username } },
         });
         if (error) {
           throw new Error(error.message);
