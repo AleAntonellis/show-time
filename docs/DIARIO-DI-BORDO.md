@@ -40,6 +40,7 @@ leggera, condivisione via link privato, dark mode.
 | D17 | Contenuto del Diario | Solo visioni con almeno una nota o un voto | Timeline significativa, senza rumore dalle semplici spunte |
 | D18 | Calendario serie | Vista mensile + agenda del giorno, solo episodi futuri della libreria | Pianificazione leggibile e mobile-first |
 | D19 | Accesso ai Reminder | Campanella dedicata con badge prima dell'hamburger | Uscite imminenti visibili senza aprire il menu |
+| D21 | Azioni primarie web | Home e Cerca sempre visibili nella barra | Navigazione più immediata, burger riservato alle sezioni secondarie |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -213,6 +214,9 @@ fra utenti autenticati. RPC `add_to_library(...)` fa upsert atomico titolo + voc
   a ogni navigazione tramite la cache condivisa; gli errori sono segnalati con `!`.
 - ✅ Test positivo con American Horror Story: badge `1`, click campanella → Reminder,
   chiusura automatica del menu e layout 390 px verificati.
+- ✅ Rivista la barra web/PWA: icona Home e pulsante Cerca con lente sono ora sempre
+  visibili a sinistra; rimossi i duplicati Home/Cerca dal burger e il grande CTA di
+  ricerca dalla Home. Verificati stati attivi, navigazione e viewport 390 px.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

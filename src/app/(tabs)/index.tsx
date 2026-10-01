@@ -124,13 +124,6 @@ export default function HomeTabScreen() {
               </ThemedText>
             </View>
           </View>
-          <Pressable
-            onPress={() => router.push('/search')}
-            style={({ pressed }) => [styles.searchButton, pressed && styles.pressed]}>
-            <ThemedText type="smallBold" style={styles.searchButtonText}>
-              Cerca un titolo
-            </ThemedText>
-          </Pressable>
         </ThemedView>
 
         {!configured ? (
@@ -396,16 +389,6 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontSize: 30,
     lineHeight: 36,
-  },
-  searchButton: {
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: Spacing.two,
-    backgroundColor: Brand.glowBlue,
-  },
-  searchButtonText: {
-    color: Brand.pureWhite,
   },
   stats: {
     flexDirection: 'row',

@@ -6,6 +6,7 @@ import {
   TabTrigger,
   type TabTriggerSlotProps,
 } from 'expo-router/ui';
+import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -101,9 +102,14 @@ function BurgerNavigation() {
 
       <View style={styles.menuFrame}>
         <ThemedView type="backgroundElement" style={styles.topBar}>
-          <TabTrigger name="home" asChild>
-            <BrandHomeButton onSelected={() => setOpen(false)} />
-          </TabTrigger>
+          <View style={styles.topBarPrimaryActions}>
+            <TabTrigger name="home" asChild>
+              <HomeTabButton onSelected={() => setOpen(false)} />
+            </TabTrigger>
+            <TabTrigger name="search" asChild>
+              <SearchTabButton onSelected={() => setOpen(false)} />
+            </TabTrigger>
+          </View>
           <View style={styles.topBarActions}>
             <TabTrigger name="reminders" asChild>
               <ReminderBellButton
@@ -131,12 +137,6 @@ function BurgerNavigation() {
 
         {open && (
           <ThemedView type="backgroundElement" style={styles.dropdown}>
-            <TabTrigger name="home" asChild>
-              <MenuTabButton onSelected={() => setOpen(false)}>Home</MenuTabButton>
-            </TabTrigger>
-            <TabTrigger name="search" asChild>
-              <MenuTabButton onSelected={() => setOpen(false)}>Cerca</MenuTabButton>
-            </TabTrigger>
             <TabTrigger name="library" asChild>
               <MenuTabButton onSelected={() => setOpen(false)}>Libreria</MenuTabButton>
             </TabTrigger>
@@ -244,11 +244,14 @@ function ReminderBellButton({
   );
 }
 
-function BrandHomeButton({
+function HomeTabButton({
+  isFocused,
   onSelected,
   onPress,
   ...props
 }: TabTriggerSlotProps & { onSelected: () => void }) {
+  const theme = useTheme();
+
   function handlePress(event: GestureResponderEvent) {
     onPress?.(event);
     onSelected();
@@ -260,8 +263,55 @@ function BrandHomeButton({
       accessibilityLabel="Vai alla Home"
       onPress={handlePress}
       hitSlop={8}
-      style={({ pressed }) => [styles.brandButton, pressed && styles.pressed]}>
-      <ThemedText type="smallBold">ShowTime</ThemedText>
+      style={({ pressed }) => [
+        styles.primaryActionButton,
+        isFocused && styles.primaryActionButtonFocused,
+        pressed && styles.pressed,
+      ]}>
+      <SymbolView
+        name={{ ios: 'house.fill', android: 'home', web: 'home' }}
+        tintColor={isFocused ? Brand.glowBlue : theme.textSecondary}
+        size={20}
+      />
+    </Pressable>
+  );
+}
+
+function SearchTabButton({
+  isFocused,
+  onSelected,
+  onPress,
+  ...props
+}: TabTriggerSlotProps & { onSelected: () => void }) {
+  const theme = useTheme();
+
+  function handlePress(event: GestureResponderEvent) {
+    onPress?.(event);
+    onSelected();
+  }
+
+  return (
+    <Pressable
+      {...props}
+      accessibilityLabel="Cerca film e serie TV"
+      onPress={handlePress}
+      hitSlop={8}
+      style={({ pressed }) => [
+        styles.searchActionButton,
+        isFocused && styles.primaryActionButtonFocused,
+        pressed && styles.pressed,
+      ]}>
+      <SymbolView
+        name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
+        tintColor={isFocused ? Brand.glowBlue : theme.textSecondary}
+        size={19}
+      />
+      <ThemedText
+        type="smallBold"
+        style={isFocused ? styles.primaryActionTextFocused : undefined}
+        themeColor={isFocused ? 'text' : 'textSecondary'}>
+        Cerca
+      </ThemedText>
     </Pressable>
   );
 }
@@ -338,10 +388,34 @@ const styles = StyleSheet.create({
     paddingLeft: Spacing.three,
     paddingRight: Spacing.two,
   },
-  brandButton: {
-    minHeight: 40,
+  topBarPrimaryActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  primaryActionButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: Spacing.one,
+    borderRadius: Spacing.three,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  searchActionButton: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.two,
+    borderRadius: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  primaryActionButtonFocused: {
+    backgroundColor: 'rgba(47,107,255,0.14)',
+  },
+  primaryActionTextFocused: {
+    color: Brand.glowBlue,
   },
   topBarActions: {
     flexDirection: 'row',
