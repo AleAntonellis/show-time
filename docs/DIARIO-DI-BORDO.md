@@ -47,6 +47,7 @@ leggera, condivisione via link privato, dark mode.
 | D25 | Inviti da link esterno | Token hashato, monouso, 7 giorni e consenso esplicito | Collega condivisione esterna e Inbox senza esporre identità nell'URL |
 | D26 | Storico importato | Progresso e ore sì; trend, timeline e visioni registrate no | Mantiene pulite le statistiche senza inventare date |
 | D27 | Film già visti | Contatore importato separato dalle visioni datate | Permette import + revisioni future senza perdere ore o inquinare i trend |
+| D28 | Profilo follower | Libreria e Diario read-only per follower accettati, inclusi quelli esistenti | Estende il social senza rendere pubblici i dati personali |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -89,8 +90,10 @@ Migrations in [`../supabase/migrations/`](../supabase/migrations).
 | `title_shares` | Titoli inviati tra contatti, messaggio e stato letto |
 | `title_share_invites` | Inviti esterni monouso con hash, scadenza e account destinatario |
 
-Sicurezza: **RLS** ovunque — ogni utente accede solo ai propri dati. `titles` è cache condivisa
-fra utenti autenticati. RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
+Sicurezza: **RLS** ovunque — l’accesso diretto resta limitato ai propri dati. `titles` è
+cache condivisa fra utenti autenticati. RPC read-only dedicate verificano il follow
+accettato e proiettano solo Libreria e Diario, senza email, UUID o timestamp interni.
+RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
 
 ---
 
@@ -274,6 +277,13 @@ fra utenti autenticati. RPC `add_to_library(...)` fa upsert atomico titolo + voc
   box dei totali e mostra titoli unici (film/serie), episodi, tempo realmente visto e
   voti; usa solo eventi datati ed esclude gli importati. Verificati `0` film, `1` serie,
   `2` episodi, `1,9 h` e media `9,5`.
+- ✅ Aggiunto il **profilo follower** read-only su `/profile`: un follower accettato vede
+  tutti gli stati della Libreria, il progresso episodi e il Diario con data, voto e nota
+  completa. Accessi da Contatti e Inbox, Diario paginato e copia esplicita al momento
+  dell’accettazione. Le RPC della migration `0008` verificano la relazione one-way e non
+  espongono email, UUID o timestamp interni. Test reale `@testshowtime → @ale`: Libreria
+  `2`, Breaking Bad `62/62`, Diario `1`; profilo inesistente negato e layout 390 px senza
+  overflow.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

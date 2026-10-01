@@ -136,7 +136,7 @@ Le liste personali e il login usano [Supabase](https://supabase.com) (free tier)
    in ordine: `0001_init.sql`, `0002_episode_tracking.sql`, poi
    `0003_episode_viewings.sql`, `0004_internal_sharing.sql`,
    `0005_share_invites.sql`, `0006_watch_origins.sql` e
-   `0007_movie_imports.sql`
+   `0007_movie_imports.sql`, quindi `0008_follower_profiles.sql`
 3. In **Project Settings → API** copia *Project URL* e *anon public key*
 4. Aggiungili in `.env.local`:
    ```
@@ -180,7 +180,10 @@ spostato dietro un proxy Azure Function in una fase successiva.
 | `title_shares` | Condivisioni interne | Titolo, messaggio, mittente, destinatario e lettura |
 | `title_share_invites` | Inviti esterni | Token hashato, monouso e valido 7 giorni |
 
-Sicurezza: **RLS** attiva ovunque — ogni utente accede solo ai propri dati. Schema completo in [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql).
+Sicurezza: **RLS** attiva ovunque — l’accesso diretto resta limitato ai propri dati.
+RPC read-only con proiezioni esplicite permettono ai follower accettati di consultare
+Libreria e Diario, senza email, UUID o timestamp interni. Schema completo in
+[`supabase/migrations/`](supabase/migrations).
 
 ---
 
@@ -205,6 +208,7 @@ Sicurezza: **RLS** attiva ovunque — ogni utente accede solo ai propri dati. Sc
 - [x] Condivisione singolo titolo via link
 - [x] Contatti e condivisione interna con Inbox
 - [x] Inviti da link esterno con consenso e contatto reciproco
+- [x] Profili follower read-only con Libreria e Diario
 - [x] Centro reminder in-app per nuove stagioni / uscite entro 10 giorni
 - [x] Diario delle visioni commentate o valutate
 - [x] Calendario mensile delle prossime uscite TV

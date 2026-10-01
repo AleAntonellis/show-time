@@ -103,7 +103,8 @@ export default function TitleScreen() {
     fromParam === '/reminders' ||
     fromParam === '/diary' ||
     fromParam === '/calendar' ||
-    fromParam === '/inbox'
+    fromParam === '/inbox' ||
+    fromParam === '/contacts'
       ? fromParam
       : '/';
   const mediaType: MediaType | null =

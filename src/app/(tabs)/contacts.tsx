@@ -1,4 +1,4 @@
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -33,6 +33,13 @@ import {
   type PublicAccount,
   type PublicProfileSearchResult,
 } from '@/services/social';
+
+function openProfile(username: string) {
+  router.push({
+    pathname: '/profile',
+    params: { username, from: '/contacts' },
+  });
+}
 
 export default function ContactsTabScreen() {
   const insets = useSafeAreaInsets();
@@ -118,6 +125,7 @@ export default function ContactsTabScreen() {
   const followers = connections.filter(
     (item) => item.direction === 'incoming' && item.status === 'accepted',
   );
+  const viewableUserIds = new Set(shareContacts.map((item) => item.userId));
   const topInset = Platform.OS === 'web' ? WebTabTopInset : insets.top + Spacing.three;
   const bottomInset = insets.bottom + BottomTabInset + Spacing.four;
 
@@ -139,7 +147,7 @@ export default function ContactsTabScreen() {
               Contatti
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              Trova persone tramite username e scegli con chi condividere titoli.
+              I follower accettati possono consultare Libreria e Diario.
             </ThemedText>
           </View>
           {account?.username && (
@@ -211,13 +219,20 @@ export default function ContactsTabScreen() {
                     onRequest={() =>
                       runAction(profile.id, () => requestFollow(profile.id))
                     }
+                    onOpenProfile={
+                      profile.outgoingStatus === 'accepted'
+                        ? () => openProfile(profile.username)
+                        : undefined
+                    }
                   />
                 ))}
               </ContactSection>
             )}
 
             {incomingPending.length > 0 && (
-              <ContactSection title={`Richieste ricevute · ${incomingPending.length}`}>
+              <ContactSection
+                title={`Richieste ricevute · ${incomingPending.length}`}
+                subtitle="Accettando, questo utente potrà vedere la tua Libreria e il tuo Diario.">
                 {incomingPending.map((connection) => (
                   <ConnectionCard
                     key={connection.followId}
@@ -250,6 +265,7 @@ export default function ContactsTabScreen() {
                     connection={connection}
                     busy={busyId === connection.followId}
                     secondaryLabel="Rimuovi"
+                    onOpenProfile={() => openProfile(connection.username)}
                     onSecondary={() =>
                       runAction(connection.followId, () =>
                         removeFollow(connection.followId),
@@ -286,6 +302,11 @@ export default function ContactsTabScreen() {
                     connection={connection}
                     busy={busyId === connection.followId}
                     secondaryLabel="Rimuovi"
+                    onOpenProfile={
+                      viewableUserIds.has(connection.userId)
+                        ? () => openProfile(connection.username)
+                        : undefined
+                    }
                     onSecondary={() =>
                       runAction(connection.followId, () =>
                         removeFollow(connection.followId),
@@ -306,10 +327,12 @@ function ProfileResult({
   profile,
   busy,
   onRequest,
+  onOpenProfile,
 }: {
   profile: PublicProfileSearchResult;
   busy: boolean;
   onRequest: () => void;
+  onOpenProfile?: () => void;
 }) {
   const existing = profile.outgoingStatus;
   const label =
@@ -320,20 +343,33 @@ function ProfileResult({
         : 'Segui';
   return (
     <ThemedView type="backgroundElement" style={styles.card}>
-      <Avatar username={profile.username} />
-      <View style={styles.cardCopy}>
-        <ThemedText type="smallBold">@{profile.username}</ThemedText>
-        {profile.displayName && (
+      <Pressable
+        onPress={onOpenProfile}
+        disabled={!onOpenProfile}
+        style={({ pressed }) => [
+          styles.profileTarget,
+          pressed && styles.pressed,
+        ]}>
+        <Avatar username={profile.username} />
+        <View style={styles.cardCopy}>
+          <ThemedText type="smallBold">@{profile.username}</ThemedText>
+          {profile.displayName && (
+            <ThemedText type="small" themeColor="textSecondary">
+              {profile.displayName}
+            </ThemedText>
+          )}
+          {profile.incomingStatus === 'accepted' && (
+            <ThemedText type="small" themeColor="textSecondary">
+              Ti segue
+            </ThemedText>
+          )}
+        </View>
+        {onOpenProfile && (
           <ThemedText type="small" themeColor="textSecondary">
-            {profile.displayName}
+            ›
           </ThemedText>
         )}
-        {profile.incomingStatus === 'accepted' && (
-          <ThemedText type="small" themeColor="textSecondary">
-            Ti segue
-          </ThemedText>
-        )}
-      </View>
+      </Pressable>
       <Pressable
         onPress={onRequest}
         disabled={busy || existing === 'accepted' || existing === 'pending'}
@@ -360,6 +396,7 @@ function ConnectionCard({
   secondaryLabel,
   onPrimary,
   onSecondary,
+  onOpenProfile,
 }: {
   connection: FollowConnection;
   busy: boolean;
@@ -367,18 +404,32 @@ function ConnectionCard({
   secondaryLabel?: string;
   onPrimary?: () => void;
   onSecondary?: () => void;
+  onOpenProfile?: () => void;
 }) {
   return (
     <ThemedView type="backgroundElement" style={styles.card}>
-      <Avatar username={connection.username} />
-      <View style={styles.cardCopy}>
-        <ThemedText type="smallBold">@{connection.username}</ThemedText>
-        {connection.displayName && (
+      <Pressable
+        onPress={onOpenProfile}
+        disabled={!onOpenProfile}
+        style={({ pressed }) => [
+          styles.profileTarget,
+          pressed && styles.pressed,
+        ]}>
+        <Avatar username={connection.username} />
+        <View style={styles.cardCopy}>
+          <ThemedText type="smallBold">@{connection.username}</ThemedText>
+          {connection.displayName && (
+            <ThemedText type="small" themeColor="textSecondary">
+              {connection.displayName}
+            </ThemedText>
+          )}
+        </View>
+        {onOpenProfile && (
           <ThemedText type="small" themeColor="textSecondary">
-            {connection.displayName}
+            ›
           </ThemedText>
         )}
-      </View>
+      </Pressable>
       {busy ? (
         <ActivityIndicator color={Brand.glowBlue} size="small" />
       ) : (
@@ -415,16 +466,25 @@ function Avatar({ username }: { username: string }) {
 
 function ContactSection({
   title,
+  subtitle,
   children,
 }: {
   title: string;
+  subtitle?: string;
   children: React.ReactNode;
 }) {
   return (
     <View style={styles.section}>
-      <ThemedText type="smallBold" themeColor="textSecondary">
-        {title}
-      </ThemedText>
+      <View style={styles.sectionHeading}>
+        <ThemedText type="smallBold" themeColor="textSecondary">
+          {title}
+        </ThemedText>
+        {subtitle && (
+          <ThemedText type="small" themeColor="textSecondary">
+            {subtitle}
+          </ThemedText>
+        )}
+      </View>
       {children}
     </View>
   );
@@ -522,12 +582,22 @@ const styles = StyleSheet.create({
   section: {
     gap: Spacing.two,
   },
+  sectionHeading: {
+    gap: Spacing.half,
+  },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
     padding: Spacing.three,
     borderRadius: Spacing.three,
+  },
+  profileTarget: {
+    minWidth: 0,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
   },
   avatar: {
     width: 42,

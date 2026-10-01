@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type GestureResponderEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -22,6 +23,7 @@ import {
 } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import {
+  getFollowConnections,
   getInternalTitleShares,
   markInternalShareRead,
   subscribeToInternalShares,
@@ -44,9 +46,13 @@ export default function InboxTabScreen() {
   const { session, configured } = useAuth();
   const [box, setBox] = useState<ShareBox>('received');
   const [shares, setShares] = useState<InternalTitleShare[]>([]);
+  const [viewableProfileIds, setViewableProfileIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [loading, setLoading] = useState(true);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [profileWarning, setProfileWarning] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!configured || !session) {
@@ -55,8 +61,36 @@ export default function InboxTabScreen() {
     }
     setLoading(true);
     setError(null);
+    setProfileWarning(null);
     try {
-      setShares(await getInternalTitleShares(box));
+      const [sharesResult, connectionsResult] = await Promise.allSettled([
+        getInternalTitleShares(box),
+        getFollowConnections(),
+      ]);
+      if (sharesResult.status === 'rejected') {
+        throw sharesResult.reason;
+      }
+      setShares(sharesResult.value);
+      if (connectionsResult.status === 'fulfilled') {
+        setViewableProfileIds(
+          new Set(
+            connectionsResult.value
+              .filter(
+                (connection) =>
+                  connection.direction === 'outgoing' &&
+                  connection.status === 'accepted',
+              )
+              .map((connection) => connection.userId),
+          ),
+        );
+      } else {
+        setViewableProfileIds(new Set());
+        setProfileWarning(
+          connectionsResult.reason instanceof Error
+            ? `Profili non disponibili: ${connectionsResult.reason.message}`
+            : 'Profili dei contatti non disponibili',
+        );
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Impossibile caricare le condivisioni',
@@ -144,6 +178,20 @@ export default function InboxTabScreen() {
     }
   }
 
+  function openProfile(
+    event: GestureResponderEvent,
+    share: InternalTitleShare,
+  ) {
+    event.stopPropagation();
+    router.push({
+      pathname: '/profile',
+      params: {
+        username: share.counterpartyUsername,
+        from: '/inbox',
+      },
+    });
+  }
+
   const unreadCount = shares.filter((share) => !share.readAt).length;
   const topInset = Platform.OS === 'web' ? WebTabTopInset : insets.top + Spacing.three;
   const bottomInset = insets.bottom + BottomTabInset + Spacing.four;
@@ -201,6 +249,12 @@ export default function InboxTabScreen() {
           </Pressable>
         </View>
 
+        {profileWarning && (
+          <ThemedText type="small" style={styles.warning}>
+            {profileWarning}
+          </ThemedText>
+        )}
+
         {!configured ? (
           <StateMessage
             title="Supabase non configurato"
@@ -254,10 +308,29 @@ export default function InboxTabScreen() {
                         </ThemedText>
                         {unread && <View style={styles.unreadDot} />}
                       </View>
-                      <ThemedText type="small" themeColor="textSecondary">
-                        {box === 'received' ? 'Da' : 'A'} @{share.counterpartyUsername}
-                        {share.year ? ` · ${share.year}` : ''}
-                      </ThemedText>
+                      <View style={styles.counterparty}>
+                        <ThemedText type="small" themeColor="textSecondary">
+                          {box === 'received' ? 'Da' : 'A'}
+                        </ThemedText>
+                        {viewableProfileIds.has(share.counterpartyId) ? (
+                          <Pressable
+                            onPress={(event) => openProfile(event, share)}
+                            hitSlop={6}>
+                            <ThemedText type="smallBold" style={styles.profileLink}>
+                              @{share.counterpartyUsername}
+                            </ThemedText>
+                          </Pressable>
+                        ) : (
+                          <ThemedText type="small" themeColor="textSecondary">
+                            @{share.counterpartyUsername}
+                          </ThemedText>
+                        )}
+                        {share.year && (
+                          <ThemedText type="small" themeColor="textSecondary">
+                            · {share.year}
+                          </ThemedText>
+                        )}
+                      </View>
                       {share.message && (
                         <ThemedText type="small" numberOfLines={3} style={styles.message}>
                           “{share.message}”
@@ -399,6 +472,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.two,
   },
+  counterparty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: Spacing.half,
+  },
+  profileLink: {
+    color: Brand.softViolet,
+  },
   title: {
     flex: 1,
   },
@@ -407,6 +489,10 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: Spacing.one,
     backgroundColor: Brand.sunsetOrange,
+  },
+  warning: {
+    color: Brand.sunsetOrange,
+    textAlign: 'center',
   },
   message: {
     fontStyle: 'italic',
