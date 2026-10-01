@@ -1,5 +1,6 @@
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -27,6 +28,7 @@ import {
   type LibraryItem,
   type LibraryStatus,
 } from '@/services/library';
+import { shareTitle } from '@/services/sharing';
 import {
   getTitleDetails,
   type MediaType,
@@ -100,6 +102,9 @@ export default function TitleScreen() {
   const [actionBusy, setActionBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showMovieViewings, setShowMovieViewings] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!validParams || !mediaType) {
@@ -227,6 +232,33 @@ export default function TitleScreen() {
     }
   }
 
+  async function shareCurrentTitle() {
+    if (!details || sharing) {
+      return;
+    }
+    setSharing(true);
+    setShareFeedback(null);
+    setShareError(null);
+    try {
+      const result = await shareTitle({
+        mediaType: details.mediaType,
+        tmdbId: details.id,
+        title: details.title,
+      });
+      if (result === 'copied') {
+        setShareFeedback('Link copiato');
+      } else if (result === 'shared') {
+        setShareFeedback('Condiviso');
+      }
+    } catch (err) {
+      setShareError(
+        err instanceof Error ? err.message : 'Impossibile condividere il titolo',
+      );
+    } finally {
+      setSharing(false);
+    }
+  }
+
   if (!validParams) {
     return (
       <DetailMessage
@@ -327,8 +359,42 @@ export default function TitleScreen() {
                 />
               )}
             </View>
+            <Pressable
+              accessibilityLabel={`Condividi ${details.title}`}
+              onPress={shareCurrentTitle}
+              disabled={sharing}
+              style={({ pressed }) => [
+                styles.shareButton,
+                pressed && styles.pressed,
+                sharing && styles.disabled,
+              ]}>
+              {sharing ? (
+                <ActivityIndicator color={Brand.glowBlue} size="small" />
+              ) : (
+                <>
+                  <SymbolView
+                    name={{
+                      ios: 'square.and.arrow.up',
+                      android: 'share',
+                      web: 'share',
+                    }}
+                    tintColor={Brand.glowBlue}
+                    size={18}
+                  />
+                  <ThemedText type="smallBold" style={styles.shareButtonText}>
+                    {shareFeedback ?? 'Condividi'}
+                  </ThemedText>
+                </>
+              )}
+            </Pressable>
           </View>
         </View>
+
+        {shareError && (
+          <ThemedText type="small" style={styles.actionError}>
+            {shareError}
+          </ThemedText>
+        )}
 
         <ThemedView type="backgroundElement" style={styles.libraryPanel}>
           <View style={styles.libraryHeader}>
@@ -603,6 +669,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.two,
+  },
+  shareButton: {
+    minHeight: 40,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.two,
+    borderRadius: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    backgroundColor: 'rgba(47,107,255,0.14)',
+  },
+  shareButtonText: {
+    color: Brand.glowBlue,
   },
   chip: {
     paddingHorizontal: Spacing.two,

@@ -102,29 +102,18 @@ export default function HomeTabScreen() {
           styles.content,
           { paddingTop: topInset, paddingBottom: bottomInset },
         ]}>
-        <ThemedView type="backgroundElement" style={styles.hero}>
-          <View style={[styles.glow, styles.blueGlow]} />
-          <View style={[styles.glow, styles.orangeGlow]} />
-          <View style={styles.heroRow}>
-            <Image
-              source={require('@/assets/images/showtime-logo.png')}
-              contentFit="contain"
-              style={styles.logo}
-            />
-            <View style={styles.heroCopy}>
-              <ThemedText type="small" themeColor="textSecondary">
-                {greeting()}
-                {displayName ? `, ${displayName}` : ''}
-              </ThemedText>
-              <ThemedText type="subtitle" style={styles.heroTitle}>
-                Cosa guardiamo?
-              </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                Riprendi una serie o scegli il prossimo titolo per la serata.
-              </ThemedText>
-            </View>
-          </View>
-        </ThemedView>
+        <View style={styles.welcome}>
+          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.greeting}>
+            {greeting()}
+            {displayName ? `, ${displayName}` : ''}
+          </ThemedText>
+          <Image
+            source={require('../../../docs/LogoShowTimeNoScritta.png')}
+            contentFit="contain"
+            transition={200}
+            style={styles.welcomeLogo}
+          />
+        </View>
 
         {!configured ? (
           <HomeMessage
@@ -348,47 +337,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     gap: Spacing.four,
   },
-  hero: {
-    position: 'relative',
-    overflow: 'hidden',
-    borderRadius: Spacing.four,
-    padding: Spacing.four,
-    gap: Spacing.three,
-  },
-  glow: {
-    position: 'absolute',
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    opacity: 0.2,
-  },
-  blueGlow: {
-    left: -70,
-    top: -90,
-    backgroundColor: Brand.glowBlue,
-  },
-  orangeGlow: {
-    right: -80,
-    bottom: -110,
-    backgroundColor: Brand.sunsetOrange,
-  },
-  heroRow: {
-    flexDirection: 'row',
+  welcome: {
     alignItems: 'center',
-    gap: Spacing.three,
+    gap: Spacing.two,
+    paddingVertical: Spacing.three,
   },
-  logo: {
-    width: 92,
-    height: 92,
-    borderRadius: Spacing.three,
+  greeting: {
+    fontSize: 16,
+    lineHeight: 22,
+    textAlign: 'center',
   },
-  heroCopy: {
-    flex: 1,
-    gap: Spacing.one,
-  },
-  heroTitle: {
-    fontSize: 30,
-    lineHeight: 36,
+  welcomeLogo: {
+    width: 240,
+    aspectRatio: 1024 / 589,
   },
   stats: {
     flexDirection: 'row',

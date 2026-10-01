@@ -41,6 +41,8 @@ leggera, condivisione via link privato, dark mode.
 | D18 | Calendario serie | Vista mensile + agenda del giorno, solo episodi futuri della libreria | Pianificazione leggibile e mobile-first |
 | D19 | Accesso ai Reminder | Campanella dedicata con badge prima dell'hamburger | Uscite imminenti visibili senza aprire il menu |
 | D21 | Azioni primarie web | Home e Cerca sempre visibili nella barra | Navigazione più immediata, burger riservato alle sezioni secondarie |
+| D22 | Hero Home | Saluto personale + logo senza scritta su fondo libero | Riduce il rumore visivo e porta subito ai contenuti |
+| D23 | Condivisione v1 | Link canonico alla scheda del singolo titolo | Nessun dato personale esposto; il destinatario usa la propria libreria |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -217,6 +219,14 @@ fra utenti autenticati. RPC `add_to_library(...)` fa upsert atomico titolo + voc
 - ✅ Rivista la barra web/PWA: icona Home e pulsante Cerca con lente sono ora sempre
   visibili a sinistra; rimossi i duplicati Home/Cerca dal burger e il grande CTA di
   ricerca dalla Home. Verificati stati attivi, navigazione e viewport 390 px.
+- ✅ Semplificata ulteriormente la Home: rimosso il box “Cosa guardiamo?”, mantenuto
+  il saluto personale e centrato il nuovo `LogoShowTimeNoScritta.png`. Verificata la
+  composizione su desktop e viewport mobile 390 px.
+- ✅ **Condivisione singolo titolo** dalla scheda: Web Share su dispositivi compatibili,
+  copia del link su desktop e Share nativo su iOS/Android. Il link contiene solo
+  `mediaType` e id TMDB, senza stato, note o identificativi del mittente.
+- ✅ Test end-to-end del link condiviso: apertura sulla PWA Azure, login/registrazione,
+  ritorno automatico alla scheda e azioni collegate alla libreria del destinatario.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.
@@ -234,7 +244,7 @@ fra utenti autenticati. RPC `add_to_library(...)` fa upsert atomico titolo + voc
 - [x] Statistiche (ore viste, generi, trend mensili)
 - [x] Home “living room” operativa
 - [x] Navigazione web compatta con hamburger e logout
-- [ ] Condivisione lista via link privato
+- [x] Condivisione singolo titolo via link
 - [x] Centro reminder in-app per nuove stagioni / uscite entro 10 giorni
 - [x] Diario delle visioni commentate o valutate
 - [x] Calendario mensile delle prossime uscite TV

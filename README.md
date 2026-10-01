@@ -193,7 +193,7 @@ Sicurezza: **RLS** attiva ovunque — ogni utente accede solo ai propri dati. Sc
 - [x] Statistiche (ore viste, generi, trend mensili)
 - [x] Home “living room” operativa
 - [x] Navigazione web compatta con hamburger e logout
-- [ ] Condivisione liste via link
+- [x] Condivisione singolo titolo via link
 - [x] Centro reminder in-app per nuove stagioni / uscite entro 10 giorni
 - [x] Diario delle visioni commentate o valutate
 - [x] Calendario mensile delle prossime uscite TV
