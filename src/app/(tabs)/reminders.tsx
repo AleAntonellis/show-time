@@ -128,6 +128,7 @@ export default function RemindersTabScreen() {
   return (
     <ThemedView style={styles.container}>
       <ScrollView
+        style={styles.scroll}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.content,
@@ -301,8 +302,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
+  scroll: {
+    width: '100%',
+  },
   content: {
     width: '100%',
+    minWidth: 0,
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
     paddingHorizontal: Spacing.four,
@@ -318,6 +323,7 @@ const styles = StyleSheet.create({
   },
   heroCopy: {
     flex: 1,
+    minWidth: 0,
     gap: Spacing.one,
   },
   heroTitle: {
@@ -371,9 +377,13 @@ const styles = StyleSheet.create({
     padding: Spacing.five,
   },
   section: {
+    width: '100%',
+    minWidth: 0,
     gap: Spacing.two,
   },
   card: {
+    width: '100%',
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
@@ -387,17 +397,21 @@ const styles = StyleSheet.create({
   },
   cardCopy: {
     flex: 1,
+    minWidth: 0,
     gap: Spacing.half,
   },
   cardHeading: {
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
   },
   cardTitle: {
     flex: 1,
+    minWidth: 0,
   },
   relativeDate: {
+    flexShrink: 0,
     color: Brand.sunsetOrange,
   },
   headline: {

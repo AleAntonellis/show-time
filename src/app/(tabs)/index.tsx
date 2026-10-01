@@ -97,6 +97,7 @@ export default function HomeTabScreen() {
   return (
     <ThemedView style={styles.container}>
       <ScrollView
+        style={styles.scroll}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.content,
@@ -271,6 +272,7 @@ function PosterSection({
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          style={styles.posterScroller}
           contentContainerStyle={styles.posterList}>
           {items.map((item) => (
             <Pressable
@@ -330,8 +332,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
+  scroll: {
+    width: '100%',
+  },
   content: {
     width: '100%',
+    minWidth: 0,
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
     paddingHorizontal: Spacing.four,
@@ -368,9 +374,12 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   section: {
+    width: '100%',
+    minWidth: 0,
     gap: Spacing.two,
   },
   sectionHeader: {
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
@@ -380,6 +389,8 @@ const styles = StyleSheet.create({
     color: Brand.sunsetOrange,
   },
   continueCard: {
+    width: '100%',
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
@@ -393,6 +404,7 @@ const styles = StyleSheet.create({
   },
   continueCopy: {
     flex: 1,
+    minWidth: 0,
     gap: Spacing.one,
   },
   progressTrack: {
@@ -409,6 +421,10 @@ const styles = StyleSheet.create({
   continueLink: {
     color: Brand.sunsetOrange,
     alignSelf: 'flex-start',
+  },
+  posterScroller: {
+    width: '100%',
+    minWidth: 0,
   },
   posterList: {
     gap: Spacing.three,

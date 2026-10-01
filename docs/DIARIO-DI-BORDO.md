@@ -303,6 +303,18 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   per le regioni, nessuna nuova chiamata entro il TTL e refresh manuale forzato. Testati
   cambio Italia/Francia e ripristino, Matrix e Breaking Bad in Italia, menu web, layout
   390 px e assenza di overflow.
+- ✅ Corretta la Home con librerie numerose: il carosello dei completati non impone più
+  la propria larghezza intrinseca al `ScrollView` verticale. Testato con l'account
+  Alessio (`16` titoli, `959` episodi): documento da `595` a `390 px`, titoli lunghi
+  contenuti nelle card, scroll verticale/orizzontale preservati e desktop centrato a
+  `800 px`.
+- ✅ Applicata la stessa correzione ai **Reminder**: il titolo lungo “Hanno ucciso
+  l'Uomo Ragno…” non porta più la pagina da `390` a `498 px`; card, badge e azioni
+  restano nel viewport mobile, con layout desktop da `800 px` invariato.
+- ✅ Audit globale a `390 px` su Home, Cerca, Libreria, Statistiche, Reminder, Diario,
+  Calendario, Contatti, Inbox, Impostazioni, Profilo e dettagli film/serie. Tutte le
+  altre route restano entro il viewport. Stress test superati anche per risultati Cerca
+  con titoli lunghi e profilo `@arianna8` con `30` titoli.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.
