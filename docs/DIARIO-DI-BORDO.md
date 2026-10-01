@@ -48,6 +48,7 @@ leggera, condivisione via link privato, dark mode.
 | D26 | Storico importato | Progresso e ore sì; trend, timeline e visioni registrate no | Mantiene pulite le statistiche senza inventare date |
 | D27 | Film già visti | Contatore importato separato dalle visioni datate | Permette import + revisioni future senza perdere ore o inquinare i trend |
 | D28 | Profilo follower | Libreria e Diario read-only per follower accettati, inclusi quelli esistenti | Estende il social senza rendere pubblici i dati personali |
+| D29 | Attività social titolo | Tre attività recenti + lista completa cronologica dei profili seguiti | Porta il contesto sociale nella scheda senza creare un feed separato |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -92,7 +93,8 @@ Migrations in [`../supabase/migrations/`](../supabase/migrations).
 
 Sicurezza: **RLS** ovunque — l’accesso diretto resta limitato ai propri dati. `titles` è
 cache condivisa fra utenti autenticati. RPC read-only dedicate verificano il follow
-accettato e proiettano solo Libreria e Diario, senza email, UUID o timestamp interni.
+accettato e proiettano solo Libreria, Diario e attività titolo, senza email, UUID o
+timestamp interni.
 RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
 
 ---
@@ -284,6 +286,13 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   espongono email, UUID o timestamp interni. Test reale `@testshowtime → @ale`: Libreria
   `2`, Breaking Bad `62/62`, Diario `1`; profilo inesistente negato e layout 390 px senza
   overflow.
+- ✅ Aggiunta in fondo alla scheda titolo la sezione **Dai tuoi contatti**: riepilogo,
+  media voti, tre attività recenti e lista completa paginata in ordine cronologico.
+  La migration `0009` include solo film ed episodi con data reale, esclude gli importati
+  e deduplica la spunta episodio quando esiste uno storico dettagliato. Test reali:
+  Ladies First (`1` visione, media `8,0`, nota completa), Breaking Bad (`2` revisioni
+  S1E1, media `9,5`, importati esclusi) e Due spicci (`8` episodi, anteprima `3`,
+  espansione completa e riduzione). Link al profilo e layout 390 px verificati.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

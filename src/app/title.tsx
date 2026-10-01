@@ -17,6 +17,7 @@ import {
   MovieWatchChoiceModal,
   type MovieWatchChoiceMode,
 } from '@/components/movie-watch-choice-modal';
+import { FollowedTitleActivity } from '@/components/followed-title-activity';
 import { InternalShareModal } from '@/components/internal-share-modal';
 import { SeriesEpisodesContent } from '@/components/series-episodes';
 import { ShareInviteBanner } from '@/components/share-invite-banner';
@@ -696,6 +697,14 @@ export default function TitleScreen() {
             adding={actionBusy}
             onAddToLibrary={addCurrentTitle}
             onChanged={refreshLibraryItem}
+          />
+        )}
+
+        {canUseLibrary && (
+          <FollowedTitleActivity
+            key={`${details.mediaType}-${details.id}`}
+            mediaType={details.mediaType}
+            tmdbId={details.id}
           />
         )}
 
