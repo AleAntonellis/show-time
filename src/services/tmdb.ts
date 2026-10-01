@@ -17,6 +17,26 @@ const API_KEY = process.env.EXPO_PUBLIC_TMDB_API_KEY;
 
 export type MediaType = 'movie' | 'tv';
 
+export type WatchProviderRegion = {
+  code: string;
+  name: string;
+};
+
+export type WatchProvider = {
+  id: number;
+  name: string;
+  logoUrl: string | null;
+  priority: number;
+};
+
+export type WatchProviderAvailability = {
+  region: string;
+  subscription: WatchProvider[];
+  free: WatchProvider[];
+  rent: WatchProvider[];
+  buy: WatchProvider[];
+};
+
 export type Title = {
   id: number;
   mediaType: MediaType;
@@ -104,6 +124,33 @@ type TmdbTitleDetailsResponse = {
   } | null;
 };
 
+type TmdbWatchProviderItem = {
+  provider_id?: number;
+  provider_name?: string;
+  logo_path?: string | null;
+  display_priority?: number;
+};
+
+type TmdbWatchProviderCountry = {
+  flatrate?: TmdbWatchProviderItem[];
+  free?: TmdbWatchProviderItem[];
+  ads?: TmdbWatchProviderItem[];
+  rent?: TmdbWatchProviderItem[];
+  buy?: TmdbWatchProviderItem[];
+};
+
+type TmdbWatchProvidersResponse = {
+  results?: Record<string, TmdbWatchProviderCountry>;
+};
+
+type TmdbWatchRegionsResponse = {
+  results?: {
+    iso_3166_1?: string;
+    english_name?: string;
+    native_name?: string;
+  }[];
+};
+
 export function isTmdbConfigured(): boolean {
   return Boolean(ACCESS_TOKEN || API_KEY);
 }
@@ -117,6 +164,10 @@ export function posterUrl(
 
 export function backdropUrl(path: string | null | undefined): string | null {
   return path ? `${IMAGE_BASE}/w780${path}` : null;
+}
+
+function providerLogoUrl(path: string | null | undefined): string | null {
+  return path ? `${IMAGE_BASE}/w92${path}` : null;
 }
 
 function buildUrl(path: string, params: Record<string, string> = {}): string {
@@ -240,6 +291,82 @@ export async function getTitleDetails(
         : null,
     seasons,
     nextEpisode,
+  };
+}
+
+function normalizeWatchProviders(
+  items: TmdbWatchProviderItem[] | undefined,
+): WatchProvider[] {
+  return (items ?? [])
+    .filter(
+      (item): item is TmdbWatchProviderItem & {
+        provider_id: number;
+        provider_name: string;
+      } =>
+        Number.isInteger(item.provider_id) &&
+        Number(item.provider_id) > 0 &&
+        Boolean(item.provider_name?.trim()),
+    )
+    .map((item) => ({
+      id: item.provider_id,
+      name: item.provider_name.trim(),
+      logoUrl: providerLogoUrl(item.logo_path),
+      priority: item.display_priority ?? 1000,
+    }))
+    .sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
+}
+
+function mergeWatchProviders(
+  ...groups: (TmdbWatchProviderItem[] | undefined)[]
+): WatchProvider[] {
+  const providers = new Map<number, WatchProvider>();
+  for (const provider of groups.flatMap(normalizeWatchProviders)) {
+    const current = providers.get(provider.id);
+    if (!current || provider.priority < current.priority) {
+      providers.set(provider.id, provider);
+    }
+  }
+  return Array.from(providers.values()).sort(
+    (a, b) => a.priority - b.priority || a.name.localeCompare(b.name),
+  );
+}
+
+export async function fetchWatchProviderRegions(): Promise<WatchProviderRegion[]> {
+  const data = await request<TmdbWatchRegionsResponse>('/watch/providers/regions');
+  return (data.results ?? [])
+    .map((region) => {
+      const code = region.iso_3166_1?.trim().toUpperCase() ?? '';
+      const name =
+        region.native_name?.trim() || region.english_name?.trim() || code;
+      return { code, name };
+    })
+    .filter((region) => /^[A-Z]{2}$/.test(region.code) && Boolean(region.name))
+    .sort((a, b) => a.name.localeCompare(b.name, 'it'));
+}
+
+export async function fetchTitleWatchProviders(
+  mediaType: MediaType,
+  titleId: number,
+  region: string,
+): Promise<WatchProviderAvailability> {
+  if (!Number.isInteger(titleId) || titleId <= 0) {
+    throw new Error('Titolo non valido');
+  }
+  const normalizedRegion = region.trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(normalizedRegion)) {
+    throw new Error('Paese non valido');
+  }
+
+  const data = await request<TmdbWatchProvidersResponse>(
+    `/${mediaType}/${titleId}/watch/providers`,
+  );
+  const country = data.results?.[normalizedRegion];
+  return {
+    region: normalizedRegion,
+    subscription: normalizeWatchProviders(country?.flatrate),
+    free: mergeWatchProviders(country?.free, country?.ads),
+    rent: normalizeWatchProviders(country?.rent),
+    buy: normalizeWatchProviders(country?.buy),
   };
 }
 

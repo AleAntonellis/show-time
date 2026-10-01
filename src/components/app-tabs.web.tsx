@@ -42,6 +42,7 @@ export default function AppTabs() {
         <TabTrigger name="calendar" href="/calendar" />
         <TabTrigger name="contacts" href="/contacts" />
         <TabTrigger name="inbox" href="/inbox" />
+        <TabTrigger name="settings" href="/settings" />
       </TabList>
       <BurgerNavigation />
     </Tabs>
@@ -223,6 +224,11 @@ function BurgerNavigation() {
             </TabTrigger>
             <TabTrigger name="contacts" asChild>
               <MenuTabButton onSelected={() => setOpen(false)}>Contatti</MenuTabButton>
+            </TabTrigger>
+            <TabTrigger name="settings" asChild>
+              <MenuTabButton onSelected={() => setOpen(false)}>
+                Impostazioni
+              </MenuTabButton>
             </TabTrigger>
 
             <View style={styles.divider} />

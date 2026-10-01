@@ -23,6 +23,7 @@ import { SeriesEpisodesContent } from '@/components/series-episodes';
 import { ShareInviteBanner } from '@/components/share-invite-banner';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { WatchProvidersSection } from '@/components/watch-providers-section';
 import { BottomTabInset, Brand, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import {
@@ -105,7 +106,8 @@ export default function TitleScreen() {
     fromParam === '/diary' ||
     fromParam === '/calendar' ||
     fromParam === '/inbox' ||
-    fromParam === '/contacts'
+    fromParam === '/contacts' ||
+    fromParam === '/settings'
       ? fromParam
       : '/';
   const mediaType: MediaType | null =
@@ -669,6 +671,12 @@ export default function TitleScreen() {
                 <MetaChip key={genre} label={genre} />
               ))}
             </View>
+          )}
+          {canUseLibrary && (
+            <WatchProvidersSection
+              mediaType={details.mediaType}
+              tmdbId={details.id}
+            />
           )}
         </ThemedView>
 

@@ -137,7 +137,8 @@ Le liste personali e il login usano [Supabase](https://supabase.com) (free tier)
    `0003_episode_viewings.sql`, `0004_internal_sharing.sql`,
    `0005_share_invites.sql`, `0006_watch_origins.sql` e
    `0007_movie_imports.sql`, quindi `0008_follower_profiles.sql` e
-   `0009_followed_title_activity.sql`
+   `0009_followed_title_activity.sql`, infine
+   `0010_watch_region_preference.sql`
 3. In **Project Settings → API** copia *Project URL* e *anon public key*
 4. Aggiungili in `.env.local`:
    ```
@@ -171,7 +172,7 @@ spostato dietro un proxy Azure Function in una fase successiva.
 
 | Tabella | Contenuto | Note |
 |---|---|---|
-| `profiles` | Utenti | Estende `auth.users`, creato in automatico |
+| `profiles` | Utenti | Estende `auth.users`; include il paese privato per “Dove guardarlo” |
 | `titles` | Cache metadati TMDB | Condivisa; poster, durata, generi (per statistiche) |
 | `library_items` | Titolo salvato da un utente | Stato, priorità e conteggio visioni film importate |
 | `viewings` | Una riga per visione | Nota e voto **per singola visione** |
@@ -185,6 +186,11 @@ Sicurezza: **RLS** attiva ovunque — l’accesso diretto resta limitato ai prop
 RPC read-only con proiezioni esplicite permettono ai follower accettati di consultare
 Libreria, Diario e attività dei titoli, senza email, UUID o timestamp interni. Schema completo in
 [`supabase/migrations/`](supabase/migrations).
+
+“Dove guardarlo” usa i dati regionali TMDB forniti da JustWatch. La disponibilità dei
+titoli è salvata localmente per 24 ore, l’elenco paesi per 30 giorni; il refresh manuale
+ignora la cache. Le categorie sono accordion esclusivi con anteprima di tre provider e
+azione “Guarda tutte”. I dati non includono deep link ai singoli provider.
 
 ---
 
@@ -211,6 +217,7 @@ Libreria, Diario e attività dei titoli, senza email, UUID o timestamp interni. 
 - [x] Inviti da link esterno con consenso e contatto reciproco
 - [x] Profili follower read-only con Libreria e Diario
 - [x] Visioni e recensioni dei contatti nella scheda del titolo
+- [x] “Dove guardarlo” per paese con provider TMDB/JustWatch e cache persistente
 - [x] Centro reminder in-app per nuove stagioni / uscite entro 10 giorni
 - [x] Diario delle visioni commentate o valutate
 - [x] Calendario mensile delle prossime uscite TV

@@ -49,6 +49,7 @@ leggera, condivisione via link privato, dark mode.
 | D27 | Film già visti | Contatore importato separato dalle visioni datate | Permette import + revisioni future senza perdere ore o inquinare i trend |
 | D28 | Profilo follower | Libreria e Diario read-only per follower accettati, inclusi quelli esistenti | Estende il social senza rendere pubblici i dati personali |
 | D29 | Attività social titolo | Tre attività recenti + lista completa cronologica dei profili seguiti | Porta il contesto sociale nella scheda senza creare un feed separato |
+| D30 | Dove guardarlo | Paese privato configurabile, provider dentro Informazioni, cache 24 h | Dati regionali utili senza introdurre link esterni inaffidabili |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -81,7 +82,7 @@ Migrations in [`../supabase/migrations/`](../supabase/migrations).
 
 | Tabella | Contenuto |
 |---|---|
-| `profiles` | Utenti (estende `auth.users`, creato da trigger) |
+| `profiles` | Utenti (estende `auth.users`, creato da trigger, include `watch_region`) |
 | `titles` | Cache condivisa metadati TMDB (poster, durata, generi, `total_episodes`) |
 | `library_items` | Titolo salvato da un utente: stato, priorità, rating, note |
 | `viewings` | Una riga per visione (nota + voto per singola visione) |
@@ -293,6 +294,15 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   Ladies First (`1` visione, media `8,0`, nota completa), Breaking Bad (`2` revisioni
   S1E1, media `9,5`, importati esclusi) e Due spicci (`8` episodi, anteprima `3`,
   espansione completa e riduzione). Link al profilo e layout 390 px verificati.
+- ✅ Aggiunto **Dove guardarlo** dentro Informazioni per film e serie: categorie
+  abbonamento, gratis/con pubblicità, noleggio e acquisto con loghi provider e
+  attribuzione JustWatch. Le categorie usano accordion esclusivi: tre provider iniziali,
+  **Guarda tutte**, **Mostra meno** e reset passando a un'altra categoria. La nuova
+  pagina **Impostazioni** salva privatamente il paese tramite migration `0010` (Italia
+  predefinita). Cache persistente verificata: `24 h` per `tipo/id/paese`, `30 giorni`
+  per le regioni, nessuna nuova chiamata entro il TTL e refresh manuale forzato. Testati
+  cambio Italia/Francia e ripristino, Matrix e Breaking Bad in Italia, menu web, layout
+  390 px e assenza di overflow.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.
@@ -313,6 +323,7 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
 - [x] Condivisione singolo titolo via link
 - [x] Contatti e condivisione interna con Inbox
 - [x] Link monouso per contatto reciproco e registrazione Inbox
+- [x] Dove guardarlo per paese con TMDB/JustWatch
 - [x] Centro reminder in-app per nuove stagioni / uscite entro 10 giorni
 - [x] Diario delle visioni commentate o valutate
 - [x] Calendario mensile delle prossime uscite TV
