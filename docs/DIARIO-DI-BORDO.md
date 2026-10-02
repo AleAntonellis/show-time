@@ -315,6 +315,11 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   Calendario, Contatti, Inbox, Impostazioni, Profilo e dettagli film/serie. Tutte le
   altre route restano entro il viewport. Stress test superati anche per risultati Cerca
   con titoli lunghi e profilo `@arianna8` con `30` titoli.
+- ✅ Corretto anche il **Calendario** quando si apre l'agenda di un giorno: il 9 ottobre,
+  con “Hanno ucciso l'Uomo Ragno…”, portava la pagina da `390` a `473 px`. Vincolati
+  `ScrollView`, pannello mensile e card agenda; verificati a `390 px` tutti i 12 giorni
+  con eventi di ottobre, viewport telefono `390×844` e `360×800` con scroll verticale,
+  e desktop centrato a `800 px`.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

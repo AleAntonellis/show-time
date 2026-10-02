@@ -173,6 +173,7 @@ export default function CalendarTabScreen() {
   return (
     <ThemedView style={styles.container}>
       <ScrollView
+        style={styles.scroll}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.content,
@@ -389,8 +390,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
+  scroll: {
+    width: '100%',
+  },
   content: {
     width: '100%',
+    minWidth: 0,
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
     paddingHorizontal: Spacing.four,
@@ -406,6 +411,7 @@ const styles = StyleSheet.create({
   },
   heroCopy: {
     flex: 1,
+    minWidth: 0,
     gap: Spacing.one,
   },
   heroTitle: {
@@ -426,6 +432,8 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   calendarPanel: {
+    width: '100%',
+    minWidth: 0,
     borderRadius: Spacing.four,
     padding: Spacing.three,
     gap: Spacing.two,
@@ -507,6 +515,8 @@ const styles = StyleSheet.create({
     color: Brand.glowBlue,
   },
   agenda: {
+    width: '100%',
+    minWidth: 0,
     gap: Spacing.two,
   },
   emptyAgenda: {
@@ -514,6 +524,8 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
   },
   eventCard: {
+    width: '100%',
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
@@ -527,6 +539,7 @@ const styles = StyleSheet.create({
   },
   eventCopy: {
     flex: 1,
+    minWidth: 0,
     gap: Spacing.half,
   },
   eventHeadline: {
