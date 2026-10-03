@@ -108,7 +108,15 @@ export default function HomeTabScreen() {
     (item) => item.mediaType === 'tv' && item.status === 'watching',
   ).length;
   const watchlist = items.filter((item) => item.status === 'to_watch');
-  const completed = items.filter((item) => item.status === 'watched');
+  const completed = items
+    .filter(
+      (item) => item.status === 'watched' && item.lastRecordedOn != null,
+    )
+    .sort(
+      (a, b) =>
+        (b.lastRecordedOn ?? '').localeCompare(a.lastRecordedOn ?? '') ||
+        b.updatedAt.localeCompare(a.updatedAt),
+    );
   const watchedEpisodes = items.reduce(
     (total, item) => total + (item.mediaType === 'tv' ? item.watchedEpisodes : 0),
     0,
@@ -213,7 +221,7 @@ export default function HomeTabScreen() {
             {completed.length > 0 && (
               <PosterSection
                 title="Completati di recente"
-                subtitle="Film e serie già conclusi."
+                subtitle="Titoli con una visione registrata in ShowTime."
                 items={completed}
                 emptyMessage=""
               />

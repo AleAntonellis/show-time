@@ -45,6 +45,7 @@ export type LibraryItem = {
   watchedEpisodes: number;
   viewingCount: number;
   importedViewings: number;
+  lastRecordedOn: string | null;
 };
 
 export type Viewing = {
@@ -88,6 +89,7 @@ function toItem(
   row: LibraryRow,
   watchedByItem: Map<string, number>,
   viewingsByItem: Map<string, number>,
+  lastRecordedByItem: Map<string, string>,
 ): LibraryItem {
   const t = row.titles;
   const mediaType = t?.media_type ?? 'movie';
@@ -115,7 +117,19 @@ function toItem(
     watchedEpisodes,
     viewingCount: viewingsByItem.get(row.id) ?? 0,
     importedViewings: row.imported_viewings,
+    lastRecordedOn: lastRecordedByItem.get(row.id) ?? null,
   };
+}
+
+function recordLatestDate(
+  datesByItem: Map<string, string>,
+  itemId: string,
+  watchedOn: string,
+) {
+  const current = datesByItem.get(itemId);
+  if (!current || watchedOn > current) {
+    datesByItem.set(itemId, watchedOn);
+  }
 }
 
 function toViewing(row: ViewingRow): Viewing {
@@ -203,7 +217,7 @@ export async function addToLibrary(title: Title, status: LibraryStatus): Promise
 /** Ritorna tutti i titoli in libreria, con il conteggio episodi visti per le serie. */
 export async function getLibrary(): Promise<LibraryItem[]> {
   const supabase = getSupabase();
-  const [rawData, watches, viewings] = await Promise.all([
+  const [rawData, watches, viewings, episodeViewings] = await Promise.all([
     fetchAllPages<unknown>((from, to) =>
       supabase
         .from('library_items')
@@ -212,18 +226,30 @@ export async function getLibrary(): Promise<LibraryItem[]> {
         .order('id', { ascending: true })
         .range(from, to),
     ),
-    fetchAllPages<{ library_item_id: string }>((from, to) =>
+    fetchAllPages<{
+      library_item_id: string;
+      source: EpisodeWatchSource;
+      watched_on: string;
+    }>((from, to) =>
       supabase
         .from('episode_watches')
-        .select('library_item_id')
+        .select('library_item_id, source, watched_on')
         .order('created_at', { ascending: true })
         .order('id', { ascending: true })
         .range(from, to),
     ),
-    fetchAllPages<{ library_item_id: string }>((from, to) =>
+    fetchAllPages<{ library_item_id: string; watched_on: string }>((from, to) =>
       supabase
         .from('viewings')
-        .select('library_item_id')
+        .select('library_item_id, watched_on')
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to),
+    ),
+    fetchAllPages<{ library_item_id: string; watched_on: string }>((from, to) =>
+      supabase
+        .from('episode_viewings')
+        .select('library_item_id, watched_on')
         .order('created_at', { ascending: true })
         .order('id', { ascending: true })
         .range(from, to),
@@ -232,8 +258,12 @@ export async function getLibrary(): Promise<LibraryItem[]> {
   const data = rawData as LibraryRow[];
 
   const watchedByItem = new Map<string, number>();
+  const lastRecordedByItem = new Map<string, string>();
   for (const row of watches) {
     watchedByItem.set(row.library_item_id, (watchedByItem.get(row.library_item_id) ?? 0) + 1);
+    if (row.source === 'tracked') {
+      recordLatestDate(lastRecordedByItem, row.library_item_id, row.watched_on);
+    }
   }
   const viewingsByItem = new Map<string, number>();
   for (const row of viewings) {
@@ -241,31 +271,48 @@ export async function getLibrary(): Promise<LibraryItem[]> {
       row.library_item_id,
       (viewingsByItem.get(row.library_item_id) ?? 0) + 1,
     );
+    recordLatestDate(lastRecordedByItem, row.library_item_id, row.watched_on);
+  }
+  for (const row of episodeViewings) {
+    recordLatestDate(lastRecordedByItem, row.library_item_id, row.watched_on);
   }
 
   return data.map((row) =>
-    toItem(row, watchedByItem, viewingsByItem),
+    toItem(row, watchedByItem, viewingsByItem, lastRecordedByItem),
   );
 }
 
 /** Ritorna una singola voce di libreria per id. */
 export async function getLibraryItem(itemId: string): Promise<LibraryItem | null> {
   const supabase = getSupabase();
-  const [{ data, error }, watches, viewings] = await Promise.all([
+  const [{ data, error }, watches, viewings, episodeViewings] = await Promise.all([
     supabase.from('library_items').select(SELECT).eq('id', itemId).maybeSingle(),
-    fetchAllPages<{ library_item_id: string }>((from, to) =>
+    fetchAllPages<{
+      library_item_id: string;
+      source: EpisodeWatchSource;
+      watched_on: string;
+    }>((from, to) =>
       supabase
         .from('episode_watches')
-        .select('library_item_id')
+        .select('library_item_id, source, watched_on')
         .eq('library_item_id', itemId)
         .order('created_at', { ascending: true })
         .order('id', { ascending: true })
         .range(from, to),
     ),
-    fetchAllPages<{ library_item_id: string }>((from, to) =>
+    fetchAllPages<{ library_item_id: string; watched_on: string }>((from, to) =>
       supabase
         .from('viewings')
-        .select('library_item_id')
+        .select('library_item_id, watched_on')
+        .eq('library_item_id', itemId)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to),
+    ),
+    fetchAllPages<{ library_item_id: string; watched_on: string }>((from, to) =>
+      supabase
+        .from('episode_viewings')
+        .select('library_item_id, watched_on')
         .eq('library_item_id', itemId)
         .order('created_at', { ascending: true })
         .order('id', { ascending: true })
@@ -280,7 +327,21 @@ export async function getLibraryItem(itemId: string): Promise<LibraryItem | null
   }
   const watchedByItem = new Map<string, number>([[itemId, watches.length]]);
   const viewingsByItem = new Map<string, number>([[itemId, viewings.length]]);
-  return toItem(data as unknown as LibraryRow, watchedByItem, viewingsByItem);
+  const lastRecordedByItem = new Map<string, string>();
+  for (const row of watches) {
+    if (row.source === 'tracked') {
+      recordLatestDate(lastRecordedByItem, itemId, row.watched_on);
+    }
+  }
+  for (const row of [...viewings, ...episodeViewings]) {
+    recordLatestDate(lastRecordedByItem, itemId, row.watched_on);
+  }
+  return toItem(
+    data as unknown as LibraryRow,
+    watchedByItem,
+    viewingsByItem,
+    lastRecordedByItem,
+  );
 }
 
 /** Cerca una voce di libreria tramite la chiave TMDB del titolo. */

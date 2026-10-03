@@ -214,7 +214,7 @@ PostgREST di 1000 righe non tronca i contatori degli account con molto storico.
 - [x] Statistiche (ore catalogate, generi, trend mensili e riepilogo degli ultimi 30 giorni)
 - [x] Importazione storico senza contaminare trend e attività recente
 - [x] Importazione film già visti, riclassificabile dalla UI, con ore separate dalla timeline
-- [x] Home “living room” con “Continua a guardare” filtrato sugli episodi già pubblicati
+- [x] Home “living room” con backlog disponibile e completati basati su attività reali
 - [x] Navigazione web compatta con hamburger, ricerca globale e logout
 - [x] Ricerca per titolo, attore/attrice e regista
 - [x] Condivisione singolo titolo via link

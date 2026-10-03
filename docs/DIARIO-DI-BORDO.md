@@ -53,6 +53,7 @@ leggera, condivisione via link privato, dark mode.
 | D31 | Ricerca globale | Input espandibile nella barra web + fallback `/search`; titoli e crediti persone separati | Ricerca accessibile da ogni sezione senza perdere il contesto corrente |
 | D32 | Aggregazioni oltre 1000 righe | Paginazione PostgREST condivisa per libreria, episodi e statistiche | Evita contatori e progressi troncati negli account con molto storico |
 | D33 | Continua a guardare | Mostra solo serie con episodi non visti pubblicati entro oggi | Separa il backlog disponibile dalle uscite future gestite da Reminder/Calendario |
+| D34 | Completati di recente | Solo titoli con almeno una visione reale datata | Gli importati puri restano nel catalogo senza simulare attività recente |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -346,6 +347,10 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   Se data o richiesta non sono verificabili, la serie resta visibile con avviso.
   Test reale Alessio: `7` serie In corso, `4` con backlog disponibile (American Horror
   Story, Break Point, Futurama e Scrubs); richieste TMDB limitate a `4` concorrenti.
+- ✅ **Completati di recente** esclude film e serie con solo storico importato. Un titolo
+  misto torna visibile dopo una nuova visione reale; l'ordinamento usa l'ultima data
+  registrata da film viewings, episodi `tracked` o revisioni episodio. Test reale
+  Alessio: la sezione mostra solo Ladies First invece degli oltre cento importati.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.
