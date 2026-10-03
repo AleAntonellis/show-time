@@ -207,15 +207,17 @@ PostgREST di 1000 righe non tronca i contatori degli account con molto storico.
 - [x] Schema dati Supabase (profiles, titles, library_items, viewings) + RLS
 - [x] Login/registrazione (Supabase Auth)
 - [x] Salvataggio titoli nelle liste (visto / da vedere / in corso)
-- [x] Distinzione film / serie — film 2 stati, **serie con tracking per episodio**
+- [x] Distinzione film / serie — film con 3 stati, **serie con tracking per episodio**
 - [x] Note e voto per singola visione di film ed episodi
 - [x] TMDB — dettaglio titolo, uscite e nuove stagioni
 - [x] Azioni Libreria nella scheda titolo + tracking/note inline per gli episodi
-- [x] Statistiche (ore catalogate, generi, trend mensili e riepilogo degli ultimi 30 giorni)
+- [x] Statistiche contestuali per media (ore, generi, trend e ultimi 30 giorni)
 - [x] Importazione storico senza contaminare trend e attività recente
 - [x] Importazione film già visti, riclassificabile dalla UI, con ore separate dalla timeline
 - [x] Home “living room” con backlog disponibile e completati basati su attività reali
-- [x] Filtri Tutte / Film / Serie TV su Home, Libreria, Statistiche, Diario e Calendario
+- [x] Film “In corso” riprendibili dalla Home insieme alle serie
+- [x] Filtri All / Film / Serie TV su Home, Libreria, Statistiche, Diario e Calendario
+- [x] Trend settimanali TMDB filtrati, con slider Home e pagina dedicata dei primi 20
 - [x] Navigazione web compatta con hamburger, ricerca globale e logout
 - [x] Ricerca per titolo, attore/attrice e regista
 - [x] Condivisione singolo titolo via link

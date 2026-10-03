@@ -1,7 +1,7 @@
 /**
  * Livello dati della libreria personale (Supabase).
  *
- * Film  → stato: da vedere / visto.
+ * Film  → stato manuale: da vedere / in corso / visto.
  * Serie → tracking per episodio; lo stato è derivato dal progresso.
  */
 
@@ -23,8 +23,12 @@ export const STATUS_LABELS: Record<LibraryStatus, string> = {
 // Ordine di visualizzazione dei gruppi in libreria.
 export const STATUS_ORDER: LibraryStatus[] = ['watching', 'to_watch', 'watched'];
 
-// Stati selezionabili per i film (niente "in corso").
-export const MOVIE_STATUSES: LibraryStatus[] = ['to_watch', 'watched'];
+// Stati selezionabili manualmente per i film.
+export const MOVIE_STATUSES: LibraryStatus[] = [
+  'to_watch',
+  'watching',
+  'watched',
+];
 
 export type LibraryItem = {
   id: string;

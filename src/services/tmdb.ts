@@ -102,6 +102,15 @@ type TmdbSearchResponse = {
   results?: TmdbSearchItem[];
 };
 
+type TmdbTrendingItem = Omit<TmdbSearchItem, 'media_type'> & {
+  media_type?: string;
+  adult?: boolean;
+};
+
+type TmdbTrendingResponse = {
+  results?: TmdbTrendingItem[];
+};
+
 type TmdbPersonSearchItem = {
   id?: number;
   name?: string;
@@ -327,6 +336,53 @@ export async function searchTitles(query: string): Promise<Title[]> {
   return (data.results ?? [])
     .map(normalize)
     .filter((item): item is Title => item !== null);
+}
+
+export type TrendingMediaFilter = 'all' | MediaType;
+
+const WEEKLY_TREND_CACHE_TTL_MS = 60 * 60 * 1000;
+const weeklyTrendCache = new Map<
+  TrendingMediaFilter,
+  { expiresAt: number; promise: Promise<Title[]> }
+>();
+
+async function loadWeeklyTrendingTitles(
+  mediaFilter: TrendingMediaFilter,
+): Promise<Title[]> {
+  const data = await request<TmdbTrendingResponse>(
+    `/trending/${mediaFilter}/week`,
+  );
+  const fallbackMediaType = mediaFilter === 'all' ? null : mediaFilter;
+
+  return (data.results ?? [])
+    .filter((item) => !item.adult)
+    .map((item) =>
+      normalize({
+        ...item,
+        media_type: item.media_type ?? fallbackMediaType ?? '',
+      }),
+    )
+    .filter((item): item is Title => item !== null);
+}
+
+/** Titoli più in tendenza su TMDB nell'ultima settimana. */
+export function getWeeklyTrendingTitles(
+  mediaFilter: TrendingMediaFilter,
+): Promise<Title[]> {
+  const cached = weeklyTrendCache.get(mediaFilter);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.promise;
+  }
+
+  const promise = loadWeeklyTrendingTitles(mediaFilter).catch((error) => {
+    weeklyTrendCache.delete(mediaFilter);
+    throw error;
+  });
+  weeklyTrendCache.set(mediaFilter, {
+    expiresAt: Date.now() + WEEKLY_TREND_CACHE_TTL_MS,
+    promise,
+  });
+  return promise;
 }
 
 const personCreditsCache = new Map<number, Promise<TmdbCombinedCreditsResponse>>();

@@ -144,6 +144,20 @@ export default function StatisticsTabScreen() {
   const bottomInset = insets.bottom + BottomTabInset + Spacing.four;
   const statistics: PersonalStatistics | null =
     statisticsByMedia?.[mediaFilter] ?? null;
+  const catalogMediaLabel = statistics
+    ? mediaFilter === 'movie'
+      ? `${statistics.movies} film`
+      : mediaFilter === 'tv'
+        ? `${statistics.series} serie`
+        : `${statistics.movies} film · ${statistics.series} serie`
+    : '';
+  const recentMediaLabel = statistics
+    ? mediaFilter === 'movie'
+      ? `${statistics.lastThirtyDays.movies} film`
+      : mediaFilter === 'tv'
+        ? `${statistics.lastThirtyDays.series} serie`
+        : `${statistics.lastThirtyDays.movies} film · ${statistics.lastThirtyDays.series} serie`
+    : '';
 
   return (
     <ThemedView style={styles.container}>
@@ -218,16 +232,18 @@ export default function StatisticsTabScreen() {
               <View style={styles.summaryGrid}>
                 <SummaryCard
                   value={String(statistics.totalTitles)}
-                  label={`${statistics.movies} film · ${statistics.series} serie`}
+                  label={catalogMediaLabel}
                 />
-                <SummaryCard
-                  value={String(statistics.watchedEpisodes)}
-                  label={
-                    statistics.importedEpisodes > 0
-                      ? `Episodi completati · ${statistics.importedEpisodes} importati`
-                      : 'Episodi completati'
-                  }
-                />
+                {mediaFilter !== 'movie' && (
+                  <SummaryCard
+                    value={String(statistics.watchedEpisodes)}
+                    label={
+                      statistics.importedEpisodes > 0
+                        ? `Episodi completati · ${statistics.importedEpisodes} importati`
+                        : 'Episodi completati'
+                    }
+                  />
+                )}
                 <SummaryCard
                   value={`${formatHours(statistics.estimatedMinutes)} h`}
                   label="Tempo catalogato"
@@ -264,7 +280,9 @@ export default function StatisticsTabScreen() {
               <View>
                 <ThemedText type="smallBold">Attività negli ultimi 6 mesi</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  Attività con una data reale; gli episodi importati sono esclusi.
+                  {mediaFilter === 'movie'
+                    ? 'Attività con una data reale.'
+                    : 'Attività con una data reale; gli episodi importati sono esclusi.'}
                 </ThemedText>
               </View>
               <ActivityChart months={statistics.monthlyActivity} />
@@ -285,12 +303,14 @@ export default function StatisticsTabScreen() {
                     statistics.lastThirtyDays.movies +
                       statistics.lastThirtyDays.series,
                   )}
-                  label={`${statistics.lastThirtyDays.movies} film · ${statistics.lastThirtyDays.series} serie`}
+                  label={recentMediaLabel}
                 />
-                <SummaryCard
-                  value={String(statistics.lastThirtyDays.episodes)}
-                  label="Episodi completati"
-                />
+                {mediaFilter !== 'movie' && (
+                  <SummaryCard
+                    value={String(statistics.lastThirtyDays.episodes)}
+                    label="Episodi completati"
+                  />
+                )}
                 <SummaryCard
                   value={`${formatHours(
                     statistics.lastThirtyDays.estimatedMinutes,

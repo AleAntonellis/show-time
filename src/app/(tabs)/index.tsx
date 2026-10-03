@@ -25,8 +25,10 @@ import {
   WebTabTopInset,
 } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
+import { useWeeklyTrends } from '@/hooks/use-weekly-trends';
 import { filterContinueWatching } from '@/services/continue-watching';
 import { getLibrary, type LibraryItem } from '@/services/library';
+import { type MediaType, type Title } from '@/services/tmdb';
 
 function greeting(): string {
   const hour = new Date().getHours();
@@ -40,11 +42,15 @@ function greeting(): string {
 }
 
 function openDetails(item: LibraryItem) {
+  openTitleDetails(item.mediaType, item.tmdbId);
+}
+
+function openTitleDetails(mediaType: MediaType, tmdbId: number) {
   router.push({
     pathname: '/title',
     params: {
-      mediaType: item.mediaType,
-      id: String(item.tmdbId),
+      mediaType,
+      id: String(tmdbId),
       from: '/',
     },
   });
@@ -100,6 +106,13 @@ export default function HomeTabScreen() {
     }, [load]),
   );
 
+  const {
+    titles: trendingTitles,
+    loading: trendingLoading,
+    error: trendingError,
+    retry: retryWeeklyTrend,
+  } = useWeeklyTrends(mediaFilter, configured && Boolean(session));
+
   if (configured && !session) {
     return null;
   }
@@ -114,7 +127,7 @@ export default function HomeTabScreen() {
       ? items
       : items.filter((item) => item.mediaType === mediaFilter);
   const watchingCount = filteredItems.filter(
-    (item) => item.mediaType === 'tv' && item.status === 'watching',
+    (item) => item.status === 'watching',
   ).length;
   const watchlist = filteredItems.filter((item) => item.status === 'to_watch');
   const completed = filteredItems
@@ -130,6 +143,22 @@ export default function HomeTabScreen() {
     (total, item) => total + (item.mediaType === 'tv' ? item.watchedEpisodes : 0),
     0,
   );
+  const filteredContinueWatching =
+    mediaFilter === 'all'
+      ? continueWatching
+      : continueWatching.filter((item) => item.mediaType === mediaFilter);
+  const continueWatchingSubtitle =
+    mediaFilter === 'movie'
+      ? 'Film che hai iniziato e devi ancora finire.'
+      : mediaFilter === 'tv'
+        ? 'Serie con episodi non visti già disponibili.'
+        : 'Film interrotti e serie con episodi non visti già disponibili.';
+  const continueWatchingEmptyMessage =
+    mediaFilter === 'movie'
+      ? 'Nessun film in corso da terminare.'
+      : mediaFilter === 'tv'
+        ? 'Nessun episodio già disponibile da recuperare.'
+        : 'Nessun film o episodio disponibile da riprendere.';
   const topInset = Platform.OS === 'web' ? WebTabTopInset : insets.top + Spacing.three;
   const bottomInset = insets.bottom + BottomTabInset + Spacing.four;
 
@@ -186,16 +215,17 @@ export default function HomeTabScreen() {
               <Stat value={String(filteredItems.length)} label="Titoli" />
               <Stat value={String(watchingCount)} label="In corso" />
               <Stat value={String(watchlist.length)} label="Da vedere" />
-              <Stat value={String(watchedEpisodes)} label="Episodi visti" />
+              {mediaFilter !== 'movie' && (
+                <Stat value={String(watchedEpisodes)} label="Episodi visti" />
+              )}
             </View>
 
-            {mediaFilter !== 'movie' && (
-              <View style={styles.section}>
+            <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <View>
                   <ThemedText type="smallBold">Continua a guardare</ThemedText>
                   <ThemedText type="small" themeColor="textSecondary">
-                    Serie con episodi non visti già disponibili.
+                    {continueWatchingSubtitle}
                   </ThemedText>
                 </View>
                 <Pressable onPress={() => router.push('/library')} hitSlop={8}>
@@ -205,30 +235,36 @@ export default function HomeTabScreen() {
                 </Pressable>
               </View>
 
-              {continueWatching.length === 0 ? (
+              {filteredContinueWatching.length === 0 ? (
                 <ThemedView type="backgroundElement" style={styles.emptySection}>
                   <ThemedText type="small" themeColor="textSecondary">
-                    Nessun episodio già disponibile da recuperare.
+                    {continueWatchingEmptyMessage}
                   </ThemedText>
                 </ThemedView>
               ) : (
-                continueWatching.map((item) => (
+                filteredContinueWatching.map((item) => (
                   <ContinueCard key={item.id} item={item} />
                 ))
               )}
-              {availabilityWarning && (
+              {mediaFilter !== 'movie' && availabilityWarning && (
                 <ThemedText type="small" style={styles.warning}>
                   {availabilityWarning}
                 </ThemedText>
               )}
-              </View>
-            )}
+            </View>
 
             <PosterSection
               title="Da vedere"
               subtitle="La tua selezione per le prossime serate."
               items={watchlist}
               emptyMessage="La lista è vuota: aggiungi qualcosa dalla ricerca."
+            />
+
+            <WeeklyTrendSection
+              items={trendingTitles}
+              loading={trendingLoading}
+              error={trendingError}
+              onRetry={retryWeeklyTrend}
             />
 
             {completed.length > 0 && (
@@ -252,7 +288,76 @@ export default function HomeTabScreen() {
   );
 }
 
+function WeeklyTrendSection({
+  items,
+  loading,
+  error,
+  onRetry,
+}: {
+  items: Title[];
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
+}) {
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <ThemedText type="smallBold">Trend della settimana</ThemedText>
+        <Pressable onPress={() => router.push('/trends')} hitSlop={8}>
+          <ThemedText type="small" style={styles.linkText}>
+            Mostra tutti ›
+          </ThemedText>
+        </Pressable>
+      </View>
+      {loading ? (
+        <ThemedView
+          type="backgroundElement"
+          style={[styles.emptySection, styles.trendLoading]}>
+          <ActivityIndicator color={Brand.glowBlue} />
+        </ThemedView>
+      ) : error ? (
+        <ThemedView
+          type="backgroundElement"
+          style={[styles.emptySection, styles.trendStatus]}>
+          <ThemedText type="small" themeColor="textSecondary">
+            Trend non disponibili: {error}
+          </ThemedText>
+          <Pressable onPress={onRetry} hitSlop={8}>
+            <ThemedText type="smallBold" style={styles.linkText}>
+              Riprova
+            </ThemedText>
+          </Pressable>
+        </ThemedView>
+      ) : items.length === 0 ? (
+        <ThemedView type="backgroundElement" style={styles.emptySection}>
+          <ThemedText type="small" themeColor="textSecondary">
+            Nessun titolo disponibile.
+          </ThemedText>
+        </ThemedView>
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.posterScroller}
+          contentContainerStyle={styles.posterList}>
+          {items.map((item) => (
+            <PosterCard
+              key={`${item.mediaType}-${item.id}`}
+              title={item.title}
+              mediaType={item.mediaType}
+              year={item.year}
+              posterUrl={item.posterUrl}
+              onPress={() => openTitleDetails(item.mediaType, item.id)}
+            />
+          ))}
+        </ScrollView>
+      )}
+    </View>
+  );
+}
+
 function ContinueCard({ item }: { item: LibraryItem }) {
+  const isMovie = item.mediaType === 'movie';
   const progress =
     item.totalEpisodes && item.totalEpisodes > 0
       ? Math.min(item.watchedEpisodes / item.totalEpisodes, 1)
@@ -273,17 +378,19 @@ function ContinueCard({ item }: { item: LibraryItem }) {
             {item.title}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            {item.totalEpisodes != null
+            {isMovie
+              ? 'Film · In corso'
+              : item.totalEpisodes != null
               ? `${item.watchedEpisodes}/${item.totalEpisodes} episodi`
               : `${item.watchedEpisodes} episodi`}
           </ThemedText>
-          {item.totalEpisodes != null && item.totalEpisodes > 0 && (
+          {!isMovie && item.totalEpisodes != null && item.totalEpisodes > 0 && (
             <View style={styles.progressTrack}>
               <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
             </View>
           )}
           <ThemedText type="small" style={styles.continueLink}>
-            Continua ›
+            {isMovie ? 'Riprendi ›' : 'Continua ›'}
           </ThemedText>
         </View>
       </ThemedView>
@@ -325,31 +432,55 @@ function PosterSection({
           style={styles.posterScroller}
           contentContainerStyle={styles.posterList}>
           {items.map((item) => (
-            <Pressable
+            <PosterCard
               key={item.id}
+              title={item.title}
+              mediaType={item.mediaType}
+              year={item.year}
+              posterUrl={item.posterUrl}
               onPress={() => openDetails(item)}
-              style={({ pressed }) => [styles.posterCard, pressed && styles.pressed]}>
-              {item.posterUrl ? (
-                <Image
-                  source={{ uri: item.posterUrl }}
-                  contentFit="cover"
-                  style={styles.poster}
-                />
-              ) : (
-                <ThemedView type="backgroundSelected" style={styles.poster} />
-              )}
-              <ThemedText type="smallBold" numberOfLines={2}>
-                {item.title}
-              </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                {item.mediaType === 'movie' ? 'Film' : 'Serie TV'}
-                {item.year ? ` · ${item.year}` : ''}
-              </ThemedText>
-            </Pressable>
+            />
           ))}
         </ScrollView>
       )}
     </View>
+  );
+}
+
+function PosterCard({
+  title,
+  mediaType,
+  year,
+  posterUrl,
+  onPress,
+}: {
+  title: string;
+  mediaType: MediaType;
+  year: string | null;
+  posterUrl: string | null;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.posterCard, pressed && styles.pressed]}>
+      {posterUrl ? (
+        <Image
+          source={{ uri: posterUrl }}
+          contentFit="cover"
+          style={styles.poster}
+        />
+      ) : (
+        <ThemedView type="backgroundSelected" style={styles.poster} />
+      )}
+      <ThemedText type="smallBold" numberOfLines={2}>
+        {title}
+      </ThemedText>
+      <ThemedText type="small" themeColor="textSecondary">
+        {mediaType === 'movie' ? 'Film' : 'Serie TV'}
+        {year ? ` · ${year}` : ''}
+      </ThemedText>
+    </Pressable>
   );
 }
 
@@ -495,6 +626,12 @@ const styles = StyleSheet.create({
   emptySection: {
     padding: Spacing.three,
     borderRadius: Spacing.three,
+  },
+  trendLoading: {
+    alignItems: 'center',
+  },
+  trendStatus: {
+    gap: Spacing.two,
   },
   emptyLibrary: {
     alignItems: 'center',

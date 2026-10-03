@@ -7,7 +7,7 @@ import type { MediaType } from '@/services/tmdb';
 export type MediaFilterValue = 'all' | MediaType;
 
 const OPTIONS: { value: MediaFilterValue; label: string }[] = [
-  { value: 'all', label: 'Tutte' },
+  { value: 'all', label: 'All' },
   { value: 'movie', label: 'Film' },
   { value: 'tv', label: 'Serie TV' },
 ];

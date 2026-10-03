@@ -102,6 +102,7 @@ export default function TitleScreen() {
     fromParam === '/library' ||
     fromParam === '/search' ||
     fromParam === '/stats' ||
+    fromParam === '/trends' ||
     fromParam === '/reminders' ||
     fromParam === '/diary' ||
     fromParam === '/calendar' ||

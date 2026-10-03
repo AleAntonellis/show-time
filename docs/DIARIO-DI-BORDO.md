@@ -29,7 +29,7 @@ leggera, condivisione via link privato, tema dark esclusivo.
 | D6 | Gestione segreti | Chiavi in **`.env.local`** (gitignored) | Mai committare credenziali; `.env.example` come modello |
 | D7 | Autenticazione v1 | Email/password Supabase, **conferma email disattivata** | Semplicità massima per 2 utenti |
 | D8 | Colore di sfondo | `#040212` (aggiornato dal precedente `#0B0E1A`) | Preferenza estetica dell'utente |
-| D9 | Distinzione film / serie | Film: *Da vedere* / *Visto*. Serie: **tracking per episodio** | Richiesta dell'utente (in lavorazione) |
+| D9 | Distinzione film / serie | Film: *Da vedere* / *In corso* / *Visto*. Serie: **tracking per episodio** | Stati manuali per i film, progresso derivato per le serie |
 | D10 | Revisioni degli episodi | Tracking in `episode_watches`, storico multiplo in `episode_viewings` | Conserva progresso e più visioni con note/voti separati |
 | D11 | Navigazione dettaglio | `Stack` radice + gruppo `(tabs)` + route statica `/title` | Query TMDB condivisibile e compatibile con export PWA statico |
 | D12 | UX episodi condivisa | Tracking inline nel dettaglio, stesso contenuto dentro il modal Libreria | Un'unica implementazione, meno cambi di contesto |
@@ -55,8 +55,11 @@ leggera, condivisione via link privato, tema dark esclusivo.
 | D33 | Continua a guardare | Mostra solo serie con episodi non visti pubblicati entro oggi | Separa il backlog disponibile dalle uscite future gestite da Reminder/Calendario |
 | D34 | Completati di recente | Solo titoli con almeno una visione reale datata | Gli importati puri restano nel catalogo senza simulare attività recente |
 | D35 | Tema applicazione | Solo dark “living room”, senza adattamento al sistema | Identità cinematografica coerente e nessun flash/sfondo bianco cross-device |
-| D36 | Filtri media | Tutte/Film/Serie TV indipendenti per pagina | Lettura coerente di catalogo, attività e statistiche senza stato globale implicito |
+| D36 | Filtri media | All/Film/Serie TV indipendenti per pagina | Lettura coerente di catalogo, attività e statistiche senza stato globale implicito |
 | D37 | Indicatori Calendario | Anello arancione Film, viola Serie TV, split per giorni misti | Il tipo di uscita è leggibile direttamente nella griglia mensile |
+| D38 | Trend settimanali | Slider Home + pagina dedicata con i primi 20 TMDB, filtri media e cache oraria | Offre scoperta aggiornata senza rallentare né bloccare i contenuti personali |
+| D39 | Film interrotti | Stato manuale In corso e presenza in Continua a guardare | Consente di ricordare un film iniziato senza registrare una visione completata |
+| D40 | Metriche contestuali | Con filtro Film, nascondere card e testi esclusivamente episodici | Evita valori irrilevanti e rende Home e Statistiche coerenti col media selezionato |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -122,7 +125,7 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
 - ✅ Cambiato sfondo a `#040212` (tema + splash + PWA).
 - ✅ Aggiunto questo diario di bordo in `docs/`.
 - ✅ **Tracking per episodio (serie TV)** — migration `0002`, endpoint TMDB tv/stagioni,
-  servizio episodi, Libreria differenziata (film 2 stati, serie con progresso) e modale
+  servizio episodi, Libreria differenziata (film con stati manuali, serie con progresso) e modale
   episodi con checklist per stagione. **Testato end-to-end**: salvataggio serie con
   totale episodi (62), spunta/desunta episodi, stato derivato (Da vedere → In corso),
   progresso `X/Y` e persistenza dopo reload. Rimossa query HEAD di conteggio (usato il
@@ -358,7 +361,7 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   HTML/PWA e CSS usano sempre `#040212` e `color-scheme: dark`. Rimossi gli hook di tema
   automatico. Verificati sistema light/dark, primo frame, hydration, login senza sessione,
   viewport 390 px, export statico e Expo Doctor `21/21`.
-- ✅ Estratto il filtro condiviso **Tutte / Film / Serie TV** e applicato a Diario, Home,
+- ✅ Estratto il filtro condiviso **All / Film / Serie TV** e applicato a Diario, Home,
   Libreria, Statistiche e Calendario. Home filtra contatori e liste; Statistiche ricalcola
   ogni sezione dalla stessa fotografia dati; Calendario include ora anche le uscite film.
   Testati dati reali Alessio (`152` totali, `12` film, `140` serie), layout 390 px e,
@@ -367,6 +370,25 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   giorno: arancione per Film, viola per Serie TV e bordi divisi sui giorni misti.
   Gli eventi multipli mantengono un badge numerico nell'angolo; aggiunta anche la legenda.
   Verificati ottobre 2026 (serie e badge) e maggio 2026 (Ladies First, anello film).
+- ✅ Aggiunto in Home lo slider **Trend della settimana** dopo “Da vedere” e prima di
+  “Completati di recente”. `All` usa la classifica mista TMDB, mentre Film e Serie TV
+  usano gli endpoint dedicati; persone e contenuti adulti sono esclusi e le risposte
+  restano in cache per un'ora. Un errore mostra un messaggio con riprova senza bloccare
+  la Home. Test reale: `All` 12 film + 8 serie, Film 20, Serie TV 20; dettaglio titolo,
+  ritorno alla Home e viewport 390 px verificati.
+- ✅ Aggiunto **Mostra tutti** allo slider Trend: la route `/trends` presenta i primi
+  20 risultati in una lista verticale nello stile Libreria, con posizione in classifica
+  e filtri indipendenti `All / Film / Serie TV`. Verificati dettaglio, ritorno con filtro
+  preservato, ritorno alla Home e assenza di overflow a 390 px.
+- ✅ Aggiunto lo stato manuale **In corso** anche ai film, già supportato dal vincolo
+  database e quindi senza migration. I film interrotti contribuiscono ai contatori,
+  appaiono in “Continua a guardare” con CTA “Riprendi” e rispettano i filtri media.
+  Test end-to-end con Digger: aggiunta, cambio stato, Home, gruppo Libreria e successiva
+  rimozione completa del dato di prova; viewport 390 px senza overflow.
+- ✅ Con il filtro **Film**, Home nasconde “Episodi visti” e Statistiche nasconde le
+  card “Episodi completati” sia nei totali sia negli ultimi 30 giorni. Le etichette
+  mostrano solo i film e la descrizione del trend mensile non cita gli episodi importati.
+  Con `All` e `Serie TV` le metriche episodiche restano disponibili. Verificato a 390 px.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

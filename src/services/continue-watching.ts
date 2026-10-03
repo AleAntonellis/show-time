@@ -92,17 +92,17 @@ export async function filterContinueWatching(
   items: LibraryItem[],
   today = new Date(),
 ): Promise<ContinueWatchingResult> {
-  const candidates = items.filter(
+  const seriesCandidates = items.filter(
     (item) => item.mediaType === 'tv' && item.status === 'watching',
   );
   const checks: AvailabilityCheck[] = [];
   let cursor = 0;
 
   async function worker() {
-    while (cursor < candidates.length) {
+    while (cursor < seriesCandidates.length) {
       const index = cursor;
       cursor += 1;
-      const item = candidates[index];
+      const item = seriesCandidates[index];
       try {
         const details = await getCachedTitleDetails('tv', item.tmdbId);
         const airedEpisodes = getAiredEpisodeCount(details, today);
@@ -123,13 +123,26 @@ export async function filterContinueWatching(
 
   await Promise.all(
     Array.from(
-      { length: Math.min(MAX_CONCURRENCY, Math.max(candidates.length, 1)) },
+      {
+        length: Math.min(
+          MAX_CONCURRENCY,
+          Math.max(seriesCandidates.length, 1),
+        ),
+      },
       () => worker(),
     ),
   );
 
+  const availableSeriesIds = new Set(
+    checks.filter((check) => check.visible).map((check) => check.item.id),
+  );
+
   return {
-    items: checks.filter((check) => check.visible).map((check) => check.item),
+    items: items.filter(
+      (item) =>
+        item.status === 'watching' &&
+        (item.mediaType === 'movie' || availableSeriesIds.has(item.id)),
+    ),
     unverifiedTitles: checks
       .filter((check) => check.unverified)
       .map((check) => check.item.title),
