@@ -37,6 +37,20 @@ export type WatchProviderAvailability = {
   buy: WatchProvider[];
 };
 
+export type PersonTitleSection = {
+  id: string;
+  personId: number;
+  personName: string;
+  kind: 'cast' | 'director';
+  title: string;
+  titles: Title[];
+};
+
+export type CatalogSearchResult = {
+  titles: Title[];
+  personSections: PersonTitleSection[];
+};
+
 export type Title = {
   id: number;
   mediaType: MediaType;
@@ -85,6 +99,31 @@ type TmdbSearchItem = {
 
 type TmdbSearchResponse = {
   results?: TmdbSearchItem[];
+};
+
+type TmdbPersonSearchItem = {
+  id?: number;
+  name?: string;
+  adult?: boolean;
+  popularity?: number;
+};
+
+type TmdbPersonSearchResponse = {
+  results?: TmdbPersonSearchItem[];
+};
+
+type TmdbCreditItem = TmdbSearchItem & {
+  adult?: boolean;
+  popularity?: number;
+  vote_count?: number;
+  character?: string;
+  job?: string;
+  department?: string;
+};
+
+type TmdbCombinedCreditsResponse = {
+  cast?: TmdbCreditItem[];
+  crew?: TmdbCreditItem[];
 };
 
 type TmdbTitleDetailsResponse = {
@@ -214,6 +253,61 @@ function normalize(item: TmdbSearchItem): Title | null {
   };
 }
 
+function normalizeCredit(item: TmdbCreditItem): Title | null {
+  if (item.adult || (item.media_type !== 'movie' && item.media_type !== 'tv')) {
+    return null;
+  }
+  return normalize(item);
+}
+
+function titleKey(title: Title): string {
+  return `${title.mediaType}-${title.id}`;
+}
+
+function rankedCreditTitles(
+  items: TmdbCreditItem[],
+  excludedKeys: Set<string> = new Set(),
+  limit = 12,
+): Title[] {
+  const byKey = new Map<
+    string,
+    { title: Title; popularity: number; voteCount: number }
+  >();
+  for (const item of items) {
+    const title = normalizeCredit(item);
+    if (!title) {
+      continue;
+    }
+    const key = titleKey(title);
+    if (excludedKeys.has(key)) {
+      continue;
+    }
+    const candidate = {
+      title,
+      popularity: item.popularity ?? 0,
+      voteCount: item.vote_count ?? 0,
+    };
+    const current = byKey.get(key);
+    if (
+      !current ||
+      candidate.popularity > current.popularity ||
+      (candidate.popularity === current.popularity &&
+        candidate.voteCount > current.voteCount)
+    ) {
+      byKey.set(key, candidate);
+    }
+  }
+  return Array.from(byKey.values())
+    .sort(
+      (a, b) =>
+        b.voteCount - a.voteCount ||
+        b.popularity - a.popularity ||
+        a.title.title.localeCompare(b.title.title, 'it'),
+    )
+    .slice(0, limit)
+    .map((entry) => entry.title);
+}
+
 /** Cerca film e serie TV per titolo. */
 export async function searchTitles(query: string): Promise<Title[]> {
   const trimmed = query.trim();
@@ -228,6 +322,96 @@ export async function searchTitles(query: string): Promise<Title[]> {
   return (data.results ?? [])
     .map(normalize)
     .filter((item): item is Title => item !== null);
+}
+
+const personCreditsCache = new Map<number, Promise<TmdbCombinedCreditsResponse>>();
+
+function getPersonCredits(personId: number): Promise<TmdbCombinedCreditsResponse> {
+  const cached = personCreditsCache.get(personId);
+  if (cached) {
+    return cached;
+  }
+  const requestPromise = request<TmdbCombinedCreditsResponse>(
+    `/person/${personId}/combined_credits`,
+  ).catch((error) => {
+    personCreditsCache.delete(personId);
+    throw error;
+  });
+  personCreditsCache.set(personId, requestPromise);
+  return requestPromise;
+}
+
+/** Cerca titoli direttamente e tramite cast/regia delle prime persone corrispondenti. */
+export async function searchCatalog(query: string): Promise<CatalogSearchResult> {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return { titles: [], personSections: [] };
+  }
+
+  const [titles, peopleResponse] = await Promise.all([
+    searchTitles(trimmed),
+    request<TmdbPersonSearchResponse>('/search/person', {
+      query: trimmed,
+      include_adult: 'false',
+      page: '1',
+    }),
+  ]);
+  const people = (peopleResponse.results ?? [])
+    .filter(
+      (person): person is TmdbPersonSearchItem & { id: number; name: string } =>
+        !person.adult &&
+        Number.isInteger(person.id) &&
+        Number(person.id) > 0 &&
+        Boolean(person.name?.trim()),
+    )
+    .slice(0, 3);
+
+  const creditsByPerson = await Promise.all(
+    people.map(async (person) => ({
+      person,
+      credits: await getPersonCredits(person.id),
+    })),
+  );
+  const personSections: PersonTitleSection[] = [];
+
+  for (const { person, credits } of creditsByPerson) {
+    const directedTitles = rankedCreditTitles(
+      (credits.crew ?? []).filter((credit) => credit.job === 'Director'),
+    );
+    const directedKeys = new Set(directedTitles.map(titleKey));
+    const castTitles = rankedCreditTitles(
+      (credits.cast ?? []).filter(
+        (credit) =>
+          !/\b(self|himself|herself|themself|themselves)\b/i.test(
+            credit.character ?? '',
+          ),
+      ),
+      directedKeys,
+    );
+
+    if (castTitles.length > 0) {
+      personSections.push({
+        id: `${person.id}-cast`,
+        personId: person.id,
+        personName: person.name.trim(),
+        kind: 'cast',
+        title: `Con ${person.name.trim()}`,
+        titles: castTitles,
+      });
+    }
+    if (directedTitles.length > 0) {
+      personSections.push({
+        id: `${person.id}-director`,
+        personId: person.id,
+        personName: person.name.trim(),
+        kind: 'director',
+        title: `Diretto da ${person.name.trim()}`,
+        titles: directedTitles,
+      });
+    }
+  }
+
+  return { titles, personSections };
 }
 
 /** Dettaglio completo di un film o una serie TV. */

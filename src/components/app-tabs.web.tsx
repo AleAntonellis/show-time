@@ -1,4 +1,4 @@
-import { usePathname } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import {
   Tabs,
   TabList,
@@ -12,12 +12,14 @@ import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
+  TextInput,
   View,
   type GestureResponderEvent,
 } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { TitleSearchResults } from '@/components/title-search-results';
 import { Brand, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
@@ -27,6 +29,7 @@ import {
   subscribeToInternalShares,
   unsubscribeFromInternalShares,
 } from '@/services/social';
+import type { Title } from '@/services/tmdb';
 
 export default function AppTabs() {
   return (
@@ -53,6 +56,8 @@ function BurgerNavigation() {
   const { signOut, session, configured } = useAuth();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [signingOut, setSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reminderCount, setReminderCount] = useState(0);
@@ -149,6 +154,8 @@ function BurgerNavigation() {
     try {
       await signOut();
       setOpen(false);
+      setSearchOpen(false);
+      setSearchQuery('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Impossibile uscire');
     } finally {
@@ -156,59 +163,146 @@ function BurgerNavigation() {
     }
   }
 
+  function closeSearch() {
+    setSearchOpen(false);
+    setSearchQuery('');
+  }
+
+  function openSearchResult(title: Title) {
+    closeSearch();
+    router.push({
+      pathname: '/title',
+      params: {
+        mediaType: title.mediaType,
+        id: String(title.id),
+        from: pathname,
+      },
+    });
+  }
+
   return (
     <View style={styles.menuRoot}>
-      {open && (
+      {(open || searchOpen) && (
         <Pressable
-          accessibilityLabel="Chiudi menu"
-          onPress={() => setOpen(false)}
+          accessibilityLabel={searchOpen ? 'Chiudi ricerca' : 'Chiudi menu'}
+          onPress={() => {
+            setOpen(false);
+            closeSearch();
+          }}
           style={styles.backdrop}
         />
       )}
 
       <View style={styles.menuFrame}>
-        <ThemedView type="backgroundElement" style={styles.topBar}>
-          <View style={styles.topBarPrimaryActions}>
-            <TabTrigger name="home" asChild>
-              <HomeTabButton onSelected={() => setOpen(false)} />
-            </TabTrigger>
-            <TabTrigger name="search" asChild>
-              <SearchTabButton onSelected={() => setOpen(false)} />
-            </TabTrigger>
-          </View>
-          <View style={styles.topBarActions}>
-            <TabTrigger name="inbox" asChild>
-              <InboxButton
-                count={shareUnreadCount}
-                hasError={shareError != null}
-                onSelected={() => setOpen(false)}
-              />
-            </TabTrigger>
-            <TabTrigger name="reminders" asChild>
-              <ReminderBellButton
-                count={reminderCount}
-                hasError={reminderError != null}
-                onSelected={() => setOpen(false)}
-              />
-            </TabTrigger>
+        {searchOpen ? (
+          <ThemedView
+            type="backgroundElement"
+            style={[styles.topBar, styles.searchTopBar]}>
+            <SymbolView
+              name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
+              tintColor={Brand.glowBlue}
+              size={20}
+            />
+            <TextInput
+              autoFocus
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Titolo, attore, attrice o regista…"
+              placeholderTextColor="rgba(167,173,196,0.78)"
+              autoCorrect={false}
+              returnKeyType="search"
+              onKeyPress={(event) => {
+                if (event.nativeEvent.key === 'Escape') {
+                  closeSearch();
+                }
+              }}
+              style={styles.searchInput}
+            />
+            {searchQuery.length > 0 && (
+              <Pressable
+                accessibilityLabel="Cancella ricerca"
+                onPress={() => setSearchQuery('')}
+                hitSlop={8}
+                style={({ pressed }) => [
+                  styles.clearSearchButton,
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText type="smallBold" themeColor="textSecondary">
+                  ✕
+                </ThemedText>
+              </Pressable>
+            )}
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={open ? 'Chiudi menu' : 'Apri menu'}
-              onPress={() => setOpen((current) => !current)}
+              accessibilityLabel="Chiudi ricerca"
+              onPress={closeSearch}
               hitSlop={8}
               style={({ pressed }) => [
-                styles.burgerButton,
-                open && styles.burgerButtonOpen,
+                styles.closeSearchButton,
                 pressed && styles.pressed,
               ]}>
-              <ThemedText type="smallBold" style={styles.burgerIcon}>
-                {open ? '✕' : '☰'}
+              <ThemedText type="smallBold" style={styles.closeSearchText}>
+                Chiudi
               </ThemedText>
             </Pressable>
-          </View>
-        </ThemedView>
+          </ThemedView>
+        ) : (
+          <ThemedView type="backgroundElement" style={styles.topBar}>
+            <View style={styles.topBarPrimaryActions}>
+              <TabTrigger name="home" asChild>
+                <HomeTabButton onSelected={() => setOpen(false)} />
+              </TabTrigger>
+              <SearchActionButton
+                onPress={() => {
+                  setOpen(false);
+                  setSearchOpen(true);
+                }}
+              />
+            </View>
+            <View style={styles.topBarActions}>
+              <TabTrigger name="inbox" asChild>
+                <InboxButton
+                  count={shareUnreadCount}
+                  hasError={shareError != null}
+                  onSelected={() => setOpen(false)}
+                />
+              </TabTrigger>
+              <TabTrigger name="reminders" asChild>
+                <ReminderBellButton
+                  count={reminderCount}
+                  hasError={reminderError != null}
+                  onSelected={() => setOpen(false)}
+                />
+              </TabTrigger>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={open ? 'Chiudi menu' : 'Apri menu'}
+                onPress={() => setOpen((current) => !current)}
+                hitSlop={8}
+                style={({ pressed }) => [
+                  styles.burgerButton,
+                  open && styles.burgerButtonOpen,
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText type="smallBold" style={styles.burgerIcon}>
+                  {open ? '✕' : '☰'}
+                </ThemedText>
+              </Pressable>
+            </View>
+          </ThemedView>
+        )}
 
-        {open && (
+        {searchOpen && (
+          <ThemedView type="backgroundElement" style={styles.searchPanel}>
+            <TitleSearchResults
+              query={searchQuery}
+              onOpenTitle={openSearchResult}
+              contentContainerStyle={styles.searchResultsContent}
+            />
+          </ThemedView>
+        )}
+
+        {open && !searchOpen && (
           <ThemedView type="backgroundElement" style={styles.dropdown}>
             <TabTrigger name="library" asChild>
               <MenuTabButton onSelected={() => setOpen(false)}>Libreria</MenuTabButton>
@@ -422,39 +516,24 @@ function HomeTabButton({
   );
 }
 
-function SearchTabButton({
-  isFocused,
-  onSelected,
-  onPress,
-  ...props
-}: TabTriggerSlotProps & { onSelected: () => void }) {
+function SearchActionButton({ onPress }: { onPress: () => void }) {
   const theme = useTheme();
-
-  function handlePress(event: GestureResponderEvent) {
-    onPress?.(event);
-    onSelected();
-  }
 
   return (
     <Pressable
-      {...props}
       accessibilityLabel="Cerca film e serie TV"
-      onPress={handlePress}
+      onPress={onPress}
       hitSlop={8}
       style={({ pressed }) => [
         styles.searchActionButton,
-        isFocused && styles.primaryActionButtonFocused,
         pressed && styles.pressed,
       ]}>
       <SymbolView
         name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
-        tintColor={isFocused ? Brand.glowBlue : theme.textSecondary}
+        tintColor={theme.textSecondary}
         size={19}
       />
-      <ThemedText
-        type="smallBold"
-        style={isFocused ? styles.primaryActionTextFocused : undefined}
-        themeColor={isFocused ? 'text' : 'textSecondary'}>
+      <ThemedText type="smallBold" themeColor="textSecondary">
         Cerca
       </ThemedText>
     </Pressable>
@@ -519,12 +598,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(4,2,18,0.55)',
   },
   menuFrame: {
+    flex: 1,
+    minHeight: 0,
     width: '100%',
     maxWidth: MaxContentWidth,
     paddingTop: Spacing.three,
     pointerEvents: 'box-none',
   },
   topBar: {
+    flexShrink: 0,
     minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
@@ -555,6 +637,49 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.three,
     paddingHorizontal: Spacing.three,
     backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  searchTopBar: {
+    gap: Spacing.two,
+    paddingLeft: Spacing.three,
+  },
+  searchInput: {
+    minWidth: 0,
+    flex: 1,
+    color: Brand.pureWhite,
+    fontSize: 16,
+    paddingVertical: Spacing.two,
+  },
+  clearSearchButton: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Spacing.two,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  closeSearchButton: {
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.two,
+    borderRadius: Spacing.three,
+    backgroundColor: 'rgba(47,107,255,0.16)',
+  },
+  closeSearchText: {
+    color: Brand.glowBlue,
+  },
+  searchPanel: {
+    flex: 1,
+    minHeight: 0,
+    marginTop: Spacing.two,
+    marginBottom: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.four,
+    overflow: 'hidden',
+    boxShadow: '0 12px 32px rgba(0,0,0,0.38)',
+  },
+  searchResultsContent: {
+    paddingBottom: Spacing.four,
   },
   primaryActionButtonFocused: {
     backgroundColor: 'rgba(47,107,255,0.14)',

@@ -50,6 +50,7 @@ leggera, condivisione via link privato, dark mode.
 | D28 | Profilo follower | Libreria e Diario read-only per follower accettati, inclusi quelli esistenti | Estende il social senza rendere pubblici i dati personali |
 | D29 | Attività social titolo | Tre attività recenti + lista completa cronologica dei profili seguiti | Porta il contesto sociale nella scheda senza creare un feed separato |
 | D30 | Dove guardarlo | Paese privato configurabile, provider dentro Informazioni, cache 24 h | Dati regionali utili senza introdurre link esterni inaffidabili |
+| D31 | Ricerca globale | Input espandibile nella barra web + fallback `/search`; titoli e crediti persone separati | Ricerca accessibile da ogni sezione senza perdere il contesto corrente |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -320,6 +321,15 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   `ScrollView`, pannello mensile e card agenda; verificati a `390 px` tutti i 12 giorni
   con eventi di ottobre, viewport telefono `390×844` e `360×800` con scroll verticale,
   e desktop centrato a `800 px`.
+- ✅ La ricerca web ora vive nella barra superiore: al tap occupa tutta la barra,
+  nasconde le altre azioni e apre un overlay quasi full-screen con focus automatico,
+  cancellazione, `Esc`/Chiudi e pagina sottostante preservata. `/search` resta il
+  fallback Expo Router/mobile.
+- ✅ Estesa la ricerca a persone TMDB: sezioni **Titoli**, **Con …** e **Diretto da …**
+  per le prime tre persone corrispondenti, massimo 12 titoli rilevanti per sezione,
+  duplicati cast/regia rimossi e apparizioni “Self” escluse. Testati Matrix, Tom Hanks
+  (Forrest Gump/Toy Story/Il miglio verde), Christopher Nolan, query parziale `Chris`
+  con tre persone, stato In libreria, apertura dettaglio e viewport `360×800`.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.
@@ -337,6 +347,7 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
 - [x] Statistiche (ore viste, generi, trend mensili)
 - [x] Home “living room” operativa
 - [x] Navigazione web compatta con hamburger e logout
+- [x] Ricerca globale per titolo, attore/attrice e regista
 - [x] Condivisione singolo titolo via link
 - [x] Contatti e condivisione interna con Inbox
 - [x] Link monouso per contatto reciproco e registrazione Inbox

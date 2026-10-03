@@ -211,7 +211,8 @@ azione “Guarda tutte”. I dati non includono deep link ai singoli provider.
 - [x] Importazione storico senza contaminare trend e attività recente
 - [x] Importazione film già visti, riclassificabile dalla UI, con ore separate dalla timeline
 - [x] Home “living room” operativa
-- [x] Navigazione web compatta con hamburger e logout
+- [x] Navigazione web compatta con hamburger, ricerca globale e logout
+- [x] Ricerca per titolo, attore/attrice e regista
 - [x] Condivisione singolo titolo via link
 - [x] Contatti e condivisione interna con Inbox
 - [x] Inviti da link esterno con consenso e contatto reciproco
