@@ -1,26 +1,46 @@
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
 import Head from 'expo-router/head';
 import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, useColorScheme, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthScreen } from '@/components/auth-screen';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { UsernameSetupScreen } from '@/components/username-setup-screen';
-import { Brand } from '@/constants/theme';
+import { Brand, Colors } from '@/constants/theme';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import { getMyPublicAccount, type PublicAccount } from '@/services/social';
 
 SplashScreen.preventAutoHideAsync();
+
+const SHOWTIME_THEME = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: Brand.glowBlue,
+    background: Colors.dark.background,
+    card: Colors.dark.backgroundElement,
+    text: Colors.dark.text,
+    border: Colors.dark.backgroundSelected,
+    notification: Brand.sunsetOrange,
+  },
+};
 
 function AuthGate() {
   const { session, loading, configured } = useAuth();
 
   if (configured && loading) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: Colors.dark.background,
+        }}>
         <ActivityIndicator color={Brand.glowBlue} />
       </View>
     );
@@ -72,7 +92,13 @@ function UsernameGate({ children }: { children: ReactNode }) {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: Colors.dark.background,
+        }}>
         <ActivityIndicator color={Brand.glowBlue} />
       </View>
     );
@@ -116,12 +142,12 @@ function UsernameGate({ children }: { children: ReactNode }) {
 }
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={SHOWTIME_THEME}>
       <Head>
         <title>ShowTime</title>
       </Head>
+      <StatusBar style="light" />
       <AuthProvider>
         <AnimatedSplashOverlay />
         <AuthGate />

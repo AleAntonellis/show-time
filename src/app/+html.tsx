@@ -3,7 +3,7 @@ import type { PropsWithChildren } from 'react';
 
 export default function RootHtml({ children }: PropsWithChildren) {
   return (
-    <html lang="it">
+    <html lang="it" style={{ backgroundColor: '#040212', colorScheme: 'dark' }}>
       <head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
@@ -12,7 +12,7 @@ export default function RootHtml({ children }: PropsWithChildren) {
           content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover"
         />
         <meta name="theme-color" content="#040212" />
-        <meta name="color-scheme" content="dark light" />
+        <meta name="color-scheme" content="dark" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="ShowTime" />
@@ -25,7 +25,7 @@ export default function RootHtml({ children }: PropsWithChildren) {
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <ScrollViewStyleReset />
       </head>
-      <body>{children}</body>
+      <body style={{ margin: 0, backgroundColor: '#040212' }}>{children}</body>
     </html>
   );
 }

@@ -48,7 +48,7 @@ Deve essere **intuitiva, visivamente piacevole e veloce**, con un'esperienza da 
 
 ### 🌙 Interfaccia cinematografica
 - Layout *"living room"*: TV centrale, card dei titoli come poster
-- Modalità notte automatica
+- Tema dark esclusivo, indipendente dalle preferenze del dispositivo
 
 ---
 

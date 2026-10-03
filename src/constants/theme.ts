@@ -21,15 +21,6 @@ export const Brand = {
 } as const;
 
 export const Colors = {
-  light: {
-    text: '#121528',
-    background: '#F4F5FA',
-    backgroundElement: '#E6E8F2',
-    backgroundSelected: '#D6DAEC',
-    textSecondary: '#5A5F73',
-    tint: Brand.glowBlue,
-    accent: Brand.sunsetOrange,
-  },
   dark: {
     text: '#FFFFFF',
     background: '#040212',
@@ -41,7 +32,7 @@ export const Colors = {
   },
 } as const;
 
-export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+export type ThemeColor = keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({
   ios: {

@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "showtime",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "backgroundColor": "#040212",
     "ios": {
       "icon": "./assets/expo.icon",
@@ -40,6 +40,13 @@
           "backgroundColor": "#040212",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 160
+        }
+      ],
+      [
+        "expo-status-bar",
+        {
+          "hidden": false,
+          "style": "light"
         }
       ]
     ],

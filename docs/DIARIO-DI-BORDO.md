@@ -13,7 +13,7 @@ App **personale** per tracciare film e serie TV visti / da vedere, per **poche p
 Esperienza da *"serata sul divano"*: intuitiva, curata, veloce. Estetica cinematografica *living room*.
 
 Requisiti chiave: catalogo personale, lista "Da vedere", storico visioni, statistiche, multi-utenza
-leggera, condivisione via link privato, dark mode.
+leggera, condivisione via link privato, tema dark esclusivo.
 
 ---
 
@@ -54,6 +54,7 @@ leggera, condivisione via link privato, dark mode.
 | D32 | Aggregazioni oltre 1000 righe | Paginazione PostgREST condivisa per libreria, episodi e statistiche | Evita contatori e progressi troncati negli account con molto storico |
 | D33 | Continua a guardare | Mostra solo serie con episodi non visti pubblicati entro oggi | Separa il backlog disponibile dalle uscite future gestite da Reminder/Calendario |
 | D34 | Completati di recente | Solo titoli con almeno una visione reale datata | Gli importati puri restano nel catalogo senza simulare attività recente |
+| D35 | Tema applicazione | Solo dark “living room”, senza adattamento al sistema | Identità cinematografica coerente e nessun flash/sfondo bianco cross-device |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -351,6 +352,10 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   misto torna visibile dopo una nuova visione reale; l'ordinamento usa l'ultima data
   registrata da film viewings, episodi `tracked` o revisioni episodio. Test reale
   Alessio: la sezione mostra solo Ladies First invece degli oltre cento importati.
+- ✅ Eliminato il profilo light: `DarkTheme`, palette, Native Tabs, Expo config, StatusBar,
+  HTML/PWA e CSS usano sempre `#040212` e `color-scheme: dark`. Rimossi gli hook di tema
+  automatico. Verificati sistema light/dark, primo frame, hydration, login senza sessione,
+  viewport 390 px, export statico e Expo Doctor `21/21`.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.
