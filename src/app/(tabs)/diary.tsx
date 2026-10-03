@@ -14,6 +14,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
+  MediaFilter,
+  type MediaFilterValue,
+} from '@/components/media-filter';
+import {
   BottomTabInset,
   Brand,
   MaxContentWidth,
@@ -22,15 +26,6 @@ import {
 } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { getDiaryEntries, type RecentActivity } from '@/services/statistics';
-import type { MediaType } from '@/services/tmdb';
-
-type Filter = 'all' | MediaType;
-
-const FILTERS: { value: Filter; label: string }[] = [
-  { value: 'all', label: 'Tutto' },
-  { value: 'movie', label: 'Film' },
-  { value: 'tv', label: 'Serie TV' },
-];
 
 function formatDay(value: string): string {
   const [year, month, day] = value.split('-').map(Number);
@@ -59,7 +54,7 @@ export default function DiaryTabScreen() {
   const insets = useSafeAreaInsets();
   const { session, configured } = useAuth();
   const [entries, setEntries] = useState<RecentActivity[]>([]);
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilter] = useState<MediaFilterValue>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -149,23 +144,7 @@ export default function DiaryTabScreen() {
           </View>
         </ThemedView>
 
-        <View style={styles.filters}>
-          {FILTERS.map((option) => {
-            const active = option.value === filter;
-            return (
-              <Pressable
-                key={option.value}
-                onPress={() => setFilter(option.value)}
-                style={[styles.filter, active && styles.filterActive]}>
-                <ThemedText
-                  type="smallBold"
-                  style={active ? styles.filterTextActive : undefined}>
-                  {option.label}
-                </ThemedText>
-              </Pressable>
-            );
-          })}
-        </View>
+        <MediaFilter value={filter} onChange={setFilter} />
 
         {!configured ? (
           <StateMessage
@@ -295,23 +274,6 @@ const styles = StyleSheet.create({
     color: Brand.softViolet,
     fontSize: 24,
     lineHeight: 28,
-  },
-  filters: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  filter: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.three,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  filterActive: {
-    backgroundColor: Brand.softViolet,
-  },
-  filterTextActive: {
-    color: Brand.pureWhite,
   },
   center: {
     alignItems: 'center',

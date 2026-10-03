@@ -14,6 +14,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
+  MediaFilter,
+  type MediaFilterValue,
+} from '@/components/media-filter';
+import {
   BottomTabInset,
   Brand,
   MaxContentWidth,
@@ -61,7 +65,7 @@ function openEvent(event: CalendarEvent) {
   router.push({
     pathname: '/title',
     params: {
-      mediaType: 'tv',
+      mediaType: event.mediaType,
       id: String(event.tmdbId),
       from: '/calendar',
     },
@@ -77,6 +81,7 @@ export default function CalendarTabScreen() {
     [now],
   );
   const [displayedMonth, setDisplayedMonth] = useState(initialMonth);
+  const [mediaFilter, setMediaFilter] = useState<MediaFilterValue>('all');
   const [selectedDate, setSelectedDate] = useState(currentDateString);
   const [calendar, setCalendar] = useState<CalendarMonth | null>(null);
   const [loading, setLoading] = useState(true);
@@ -145,12 +150,29 @@ export default function CalendarTabScreen() {
   while (cells.length % 7 !== 0) {
     cells.push(null);
   }
-  const eventCountByDate = new Map<string, number>();
-  for (const event of calendar?.events ?? []) {
-    eventCountByDate.set(event.date, (eventCountByDate.get(event.date) ?? 0) + 1);
+  const filteredEvents =
+    mediaFilter === 'all'
+      ? (calendar?.events ?? [])
+      : (calendar?.events ?? []).filter(
+          (event) => event.mediaType === mediaFilter,
+        );
+  const eventSummaryByDate = new Map<
+    string,
+    { count: number; hasMovie: boolean; hasTv: boolean }
+  >();
+  for (const event of filteredEvents) {
+    const summary = eventSummaryByDate.get(event.date) ?? {
+      count: 0,
+      hasMovie: false,
+      hasTv: false,
+    };
+    summary.count += 1;
+    summary.hasMovie ||= event.mediaType === 'movie';
+    summary.hasTv ||= event.mediaType === 'tv';
+    eventSummaryByDate.set(event.date, summary);
   }
   const selectedEvents =
-    calendar?.events.filter((event) => event.date === selectedDate) ?? [];
+    filteredEvents.filter((event) => event.date === selectedDate);
   const currentMonthIndex = now.getFullYear() * 12 + now.getMonth();
   const displayedMonthIndex = year * 12 + (month - 1);
   const canGoPrevious = displayedMonthIndex > currentMonthIndex;
@@ -188,18 +210,20 @@ export default function CalendarTabScreen() {
               Calendario
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              Gli episodi futuri delle serie presenti nella tua libreria.
+              Film ed episodi futuri dei titoli presenti nella tua libreria.
             </ThemedText>
           </View>
           <View style={styles.countBadge}>
             <ThemedText type="smallBold" style={styles.countValue}>
-              {calendar?.events.length ?? 0}
+              {filteredEvents.length}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               nel mese
             </ThemedText>
           </View>
         </ThemedView>
+
+        <MediaFilter value={mediaFilter} onChange={setMediaFilter} />
 
         <ThemedView type="backgroundElement" style={styles.calendarPanel}>
           <View style={styles.monthHeader}>
@@ -218,6 +242,25 @@ export default function CalendarTabScreen() {
               style={[styles.monthButton, !canGoNext && styles.disabled]}>
               <ThemedText type="smallBold">›</ThemedText>
             </Pressable>
+          </View>
+
+          <View style={styles.legend}>
+            {mediaFilter !== 'tv' && (
+              <View style={styles.legendItem}>
+                <View style={[styles.legendRing, styles.movieRing]} />
+                <ThemedText type="small" themeColor="textSecondary">
+                  Film
+                </ThemedText>
+              </View>
+            )}
+            {mediaFilter !== 'movie' && (
+              <View style={styles.legendItem}>
+                <View style={[styles.legendRing, styles.tvRing]} />
+                <ThemedText type="small" themeColor="textSecondary">
+                  Serie TV
+                </ThemedText>
+              </View>
+            )}
           </View>
 
           <View style={styles.weekRow}>
@@ -240,29 +283,51 @@ export default function CalendarTabScreen() {
               const date = `${monthPrefix}-${String(day).padStart(2, '0')}`;
               const selected = selectedDate === date;
               const past = date < today;
-              const eventCount = eventCountByDate.get(date) ?? 0;
+              const eventSummary = eventSummaryByDate.get(date);
+              const eventCount = eventSummary?.count ?? 0;
+              const hasMovie = eventSummary?.hasMovie ?? false;
+              const hasTv = eventSummary?.hasTv ?? false;
+              const eventTypeLabel =
+                hasMovie && hasTv
+                  ? 'film e serie TV'
+                  : hasMovie
+                    ? 'film'
+                    : 'serie TV';
               return (
                 <Pressable
                   key={date}
                   onPress={() => setSelectedDate(date)}
                   disabled={past}
+                  accessibilityLabel={
+                    eventCount > 0
+                      ? `${day}, ${eventCount} ${
+                          eventCount === 1 ? 'evento' : 'eventi'
+                        } ${eventTypeLabel}`
+                      : String(day)
+                  }
                   style={[
                     styles.dayCell,
-                    selected && styles.dayCellSelected,
                     past && styles.dayCellPast,
                   ]}>
-                  <ThemedText
-                    type="small"
-                    style={selected ? styles.dayTextSelected : undefined}>
-                    {day}
-                  </ThemedText>
-                  {eventCount > 0 && (
-                    <View style={styles.eventDot}>
-                      {eventCount > 1 && (
-                        <ThemedText type="small" style={styles.eventCount}>
-                          {eventCount}
-                        </ThemedText>
-                      )}
+                  <View
+                    style={[
+                      styles.dayNumberRing,
+                      selected && styles.dayNumberSelected,
+                      hasMovie && !hasTv && styles.movieRing,
+                      hasTv && !hasMovie && styles.tvRing,
+                      hasMovie && hasTv && styles.mixedRing,
+                    ]}>
+                    <ThemedText
+                      type="small"
+                      style={selected ? styles.dayTextSelected : undefined}>
+                      {day}
+                    </ThemedText>
+                  </View>
+                  {eventCount > 1 && (
+                    <View style={styles.eventCountBadge}>
+                      <ThemedText type="small" style={styles.eventCount}>
+                        {eventCount}
+                      </ThemedText>
                     </View>
                   )}
                 </Pressable>
@@ -367,7 +432,7 @@ export default function CalendarTabScreen() {
         )}
 
         <ThemedText type="small" themeColor="textSecondary" style={styles.disclaimer}>
-          Sono mostrati solo episodi futuri con una data pubblicata da TMDB.
+          Sono mostrate solo uscite future con una data pubblicata da TMDB.
         </ThemedText>
       </ScrollView>
     </ThemedView>
@@ -458,6 +523,23 @@ const styles = StyleSheet.create({
   weekRow: {
     flexDirection: 'row',
   },
+  legend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.three,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  legendRing: {
+    width: 14,
+    height: 14,
+    borderWidth: 2,
+    borderRadius: 7,
+  },
   weekday: {
     width: `${100 / 7}%`,
     textAlign: 'center',
@@ -467,15 +549,25 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   dayCell: {
+    position: 'relative',
     width: `${100 / 7}%`,
     aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.half,
     borderRadius: Spacing.two,
   },
-  dayCellSelected: {
+  dayNumberRing: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    borderRadius: 17,
+  },
+  dayNumberSelected: {
     backgroundColor: Brand.glowBlue,
+    borderColor: Brand.glowBlue,
   },
   dayCellPast: {
     opacity: 0.28,
@@ -483,13 +575,31 @@ const styles = StyleSheet.create({
   dayTextSelected: {
     color: Brand.pureWhite,
   },
-  eventDot: {
-    minWidth: 6,
-    height: 6,
+  movieRing: {
+    borderColor: Brand.sunsetOrange,
+  },
+  tvRing: {
+    borderColor: Brand.softViolet,
+  },
+  mixedRing: {
+    borderTopColor: Brand.sunsetOrange,
+    borderRightColor: Brand.sunsetOrange,
+    borderBottomColor: Brand.softViolet,
+    borderLeftColor: Brand.softViolet,
+  },
+  eventCountBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    minWidth: 16,
+    height: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Spacing.one,
-    backgroundColor: Brand.sunsetOrange,
+    paddingHorizontal: 3,
+    borderWidth: 1,
+    borderColor: Brand.pureWhite,
+    borderRadius: 8,
+    backgroundColor: Brand.deepBlue,
   },
   eventCount: {
     color: Brand.pureWhite,

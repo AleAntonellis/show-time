@@ -3,19 +3,20 @@ import {
   getCachedSeasonEpisodes,
   getCachedTitleDetails,
 } from '@/services/tmdb-cache';
-import type { DetailSeason, TitleDetails } from '@/services/tmdb';
+import type { DetailSeason, MediaType, TitleDetails } from '@/services/tmdb';
 
-export type CalendarEventKind = 'episode' | 'season_premiere';
+export type CalendarEventKind = 'episode' | 'season_premiere' | 'movie_release';
 
 export type CalendarEvent = {
   id: string;
   kind: CalendarEventKind;
+  mediaType: MediaType;
   libraryItemId: string;
   tmdbId: number;
   title: string;
   posterUrl: string | null;
   date: string;
-  seasonNumber: number;
+  seasonNumber: number | null;
   episodeNumber: number | null;
   headline: string;
   description: string;
@@ -99,6 +100,7 @@ function seasonPremiereFallback(
   return {
     id: `season-${item.id}-${season.seasonNumber}-${season.airDate}`,
     kind: 'season_premiere',
+    mediaType: 'tv',
     libraryItemId: item.id,
     tmdbId: item.tmdbId,
     title: item.title,
@@ -140,6 +142,7 @@ async function eventsForSeries(
         events.push({
           id: `episode-${item.id}-${seasonNumber}-${episode.episodeNumber}-${episode.airDate}`,
           kind: 'episode',
+          mediaType: 'tv',
           libraryItemId: item.id,
           tmdbId: item.tmdbId,
           title: item.title,
@@ -176,6 +179,7 @@ async function eventsForSeries(
     events.push({
       id: `episode-${item.id}-${nextEpisode.seasonNumber}-${nextEpisode.episodeNumber}-${nextEpisodeAirDate}`,
       kind: 'episode',
+      mediaType: 'tv',
       libraryItemId: item.id,
       tmdbId: item.tmdbId,
       title: item.title,
@@ -208,6 +212,41 @@ async function eventsForSeries(
   return { events, failures };
 }
 
+async function eventsForMovie(
+  item: LibraryItem,
+  year: number,
+  month: number,
+  forceRefresh: boolean,
+  now: Date,
+): Promise<CalendarEvent[]> {
+  const details = await getCachedTitleDetails('movie', item.tmdbId, forceRefresh);
+  const { start, end } = monthBounds(year, month);
+  const today = todayString(now);
+  const rangeStart = start > today ? start : today;
+  if (
+    !details.releaseDate ||
+    !isInRange(details.releaseDate, rangeStart, end)
+  ) {
+    return [];
+  }
+  return [
+    {
+      id: `movie-${item.id}-${details.releaseDate}`,
+      kind: 'movie_release',
+      mediaType: 'movie',
+      libraryItemId: item.id,
+      tmdbId: item.tmdbId,
+      title: item.title,
+      posterUrl: item.posterUrl ?? details.posterUrl,
+      date: details.releaseDate,
+      seasonNumber: null,
+      episodeNumber: null,
+      headline: 'Uscita film',
+      description: 'Data di uscita prevista',
+    },
+  ];
+}
+
 export async function getCalendarMonth({
   year,
   month,
@@ -223,25 +262,31 @@ export async function getCalendarMonth({
     throw new Error('Mese del calendario non valido');
   }
 
-  const series = (await getLibrary()).filter((item) => item.mediaType === 'tv');
+  const items = await getLibrary();
   const events: CalendarEvent[] = [];
   const failures: string[] = [];
   let cursor = 0;
 
   async function worker() {
-    while (cursor < series.length) {
-      const item = series[cursor];
+    while (cursor < items.length) {
+      const item = items[cursor];
       cursor += 1;
       try {
-        const result = await eventsForSeries(
-          item,
-          year,
-          month,
-          forceRefresh,
-          now,
-        );
-        events.push(...result.events);
-        failures.push(...result.failures);
+        if (item.mediaType === 'tv') {
+          const result = await eventsForSeries(
+            item,
+            year,
+            month,
+            forceRefresh,
+            now,
+          );
+          events.push(...result.events);
+          failures.push(...result.failures);
+        } else {
+          events.push(
+            ...(await eventsForMovie(item, year, month, forceRefresh, now)),
+          );
+        }
       } catch (err) {
         failures.push(
           `${item.title}: ${
@@ -252,7 +297,7 @@ export async function getCalendarMonth({
     }
   }
 
-  const workerCount = Math.min(MAX_CONCURRENCY, Math.max(series.length, 1));
+  const workerCount = Math.min(MAX_CONCURRENCY, Math.max(items.length, 1));
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
   events.sort(

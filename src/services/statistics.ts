@@ -30,6 +30,8 @@ export type RecentActivity = {
   posterUrl: string | null;
 };
 
+export type StatisticsMediaFilter = 'all' | MediaType;
+
 export type RecentPeriodStatistics = {
   fromDate: string;
   toDate: string;
@@ -60,6 +62,11 @@ export type PersonalStatistics = {
   recentActivity: RecentActivity[];
   missingMetadata: number;
 };
+
+export type PersonalStatisticsByMedia = Record<
+  StatisticsMediaFilter,
+  PersonalStatistics
+>;
 
 type MovieViewingRow = {
   id: string;
@@ -198,7 +205,14 @@ function lastThirtyDays(
   };
 }
 
-export async function getPersonalStatistics(): Promise<PersonalStatistics> {
+type StatisticsSourceData = {
+  items: LibraryItem[];
+  movieRows: MovieViewingRow[];
+  episodeWatchRows: EpisodeWatchRow[];
+  episodeViewingRows: EpisodeViewingRow[];
+};
+
+async function loadStatisticsSource(): Promise<StatisticsSourceData> {
   const supabase = getSupabase();
   const [items, movieRows, episodeWatchRows, episodeViewingRows] = await Promise.all([
     getLibrary(),
@@ -231,8 +245,27 @@ export async function getPersonalStatistics(): Promise<PersonalStatistics> {
         .range(from, to),
     ),
   ]);
+  return { items, movieRows, episodeWatchRows, episodeViewingRows };
+}
 
+function buildPersonalStatistics(
+  source: StatisticsSourceData,
+  mediaFilter: StatisticsMediaFilter,
+): PersonalStatistics {
+  const items =
+    mediaFilter === 'all'
+    ? source.items
+    : source.items.filter((item) => item.mediaType === mediaFilter);
   const itemById = new Map(items.map((item) => [item.id, item]));
+  const movieRows = source.movieRows.filter((row) =>
+    itemById.has(row.library_item_id),
+  );
+  const episodeWatchRows = source.episodeWatchRows.filter((row) =>
+    itemById.has(row.library_item_id),
+  );
+  const episodeViewingRows = source.episodeViewingRows.filter((row) =>
+    itemById.has(row.library_item_id),
+  );
   const events: ActivityEvent[] = [];
 
   for (const row of movieRows) {
@@ -376,6 +409,21 @@ export async function getPersonalStatistics(): Promise<PersonalStatistics> {
     missingMetadata: items.filter(
       (item) => item.runtime == null || item.genres.length === 0,
     ).length,
+  };
+}
+
+export async function getPersonalStatistics(
+  mediaFilter: StatisticsMediaFilter = 'all',
+): Promise<PersonalStatistics> {
+  return buildPersonalStatistics(await loadStatisticsSource(), mediaFilter);
+}
+
+export async function getPersonalStatisticsByMedia(): Promise<PersonalStatisticsByMedia> {
+  const source = await loadStatisticsSource();
+  return {
+    all: buildPersonalStatistics(source, 'all'),
+    movie: buildPersonalStatistics(source, 'movie'),
+    tv: buildPersonalStatistics(source, 'tv'),
   };
 }
 

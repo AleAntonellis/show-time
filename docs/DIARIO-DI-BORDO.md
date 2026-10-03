@@ -55,6 +55,8 @@ leggera, condivisione via link privato, tema dark esclusivo.
 | D33 | Continua a guardare | Mostra solo serie con episodi non visti pubblicati entro oggi | Separa il backlog disponibile dalle uscite future gestite da Reminder/Calendario |
 | D34 | Completati di recente | Solo titoli con almeno una visione reale datata | Gli importati puri restano nel catalogo senza simulare attività recente |
 | D35 | Tema applicazione | Solo dark “living room”, senza adattamento al sistema | Identità cinematografica coerente e nessun flash/sfondo bianco cross-device |
+| D36 | Filtri media | Tutte/Film/Serie TV indipendenti per pagina | Lettura coerente di catalogo, attività e statistiche senza stato globale implicito |
+| D37 | Indicatori Calendario | Anello arancione Film, viola Serie TV, split per giorni misti | Il tipo di uscita è leggibile direttamente nella griglia mensile |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -356,6 +358,15 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   HTML/PWA e CSS usano sempre `#040212` e `color-scheme: dark`. Rimossi gli hook di tema
   automatico. Verificati sistema light/dark, primo frame, hydration, login senza sessione,
   viewport 390 px, export statico e Expo Doctor `21/21`.
+- ✅ Estratto il filtro condiviso **Tutte / Film / Serie TV** e applicato a Diario, Home,
+  Libreria, Statistiche e Calendario. Home filtra contatori e liste; Statistiche ricalcola
+  ogni sezione dalla stessa fotografia dati; Calendario include ora anche le uscite film.
+  Testati dati reali Alessio (`152` totali, `12` film, `140` serie), layout 390 px e,
+  con data simulata al 1° maggio 2026, uscita Ladies First il 21 maggio.
+- ✅ Nel Calendario i piccoli dot sono stati sostituiti da anelli completi attorno al
+  giorno: arancione per Film, viola per Serie TV e bordi divisi sui giorni misti.
+  Gli eventi multipli mantengono un badge numerico nell'angolo; aggiunta anche la legenda.
+  Verificati ottobre 2026 (serie e badge) e maggio 2026 (Ladies First, anello film).
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

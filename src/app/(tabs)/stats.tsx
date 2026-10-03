@@ -14,6 +14,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
+  MediaFilter,
+  type MediaFilterValue,
+} from '@/components/media-filter';
+import {
   BottomTabInset,
   Brand,
   MaxContentWidth,
@@ -23,10 +27,11 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import {
   enrichStatisticsMetadata,
-  getPersonalStatistics,
+  getPersonalStatisticsByMedia,
   type GenreStatistic,
   type MonthlyActivity,
   type PersonalStatistics,
+  type PersonalStatisticsByMedia,
   type RecentActivity,
 } from '@/services/statistics';
 
@@ -60,7 +65,9 @@ function openActivity(activity: RecentActivity) {
 export default function StatisticsTabScreen() {
   const insets = useSafeAreaInsets();
   const { session, configured } = useAuth();
-  const [statistics, setStatistics] = useState<PersonalStatistics | null>(null);
+  const [statisticsByMedia, setStatisticsByMedia] =
+    useState<PersonalStatisticsByMedia | null>(null);
+  const [mediaFilter, setMediaFilter] = useState<MediaFilterValue>('all');
   const [loading, setLoading] = useState(true);
   const [enriching, setEnriching] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,20 +86,20 @@ export default function StatisticsTabScreen() {
         setError(null);
         setMetadataWarning(null);
         try {
-          let next = await getPersonalStatistics();
+          let next = await getPersonalStatisticsByMedia();
           if (cancelled) {
             return;
           }
-          setStatistics(next);
+          setStatisticsByMedia(next);
 
-          if (next.missingMetadata > 0) {
+          if (next.all.missingMetadata > 0) {
             setEnriching(true);
             try {
               const enriched = await enrichStatisticsMetadata();
               if (enriched > 0) {
-                next = await getPersonalStatistics();
+                next = await getPersonalStatisticsByMedia();
                 if (!cancelled) {
-                  setStatistics(next);
+                  setStatisticsByMedia(next);
                 }
               }
             } catch (err) {
@@ -135,6 +142,8 @@ export default function StatisticsTabScreen() {
 
   const topInset = Platform.OS === 'web' ? WebTabTopInset : insets.top + Spacing.three;
   const bottomInset = insets.bottom + BottomTabInset + Spacing.four;
+  const statistics: PersonalStatistics | null =
+    statisticsByMedia?.[mediaFilter] ?? null;
 
   return (
     <ThemedView style={styles.container}>
@@ -151,6 +160,8 @@ export default function StatisticsTabScreen() {
           </ThemedText>
         </View>
 
+        <MediaFilter value={mediaFilter} onChange={setMediaFilter} />
+
         {!configured ? (
           <StateMessage
             title="Supabase non configurato"
@@ -165,7 +176,13 @@ export default function StatisticsTabScreen() {
         ) : !statistics || statistics.totalTitles === 0 ? (
           <StateMessage
             title="Nessun dato da analizzare"
-            body="Aggiungi film e serie alla libreria per iniziare."
+            body={
+              mediaFilter === 'all'
+                ? 'Aggiungi film e serie alla libreria per iniziare.'
+                : `Non ci sono ${
+                    mediaFilter === 'movie' ? 'film' : 'serie TV'
+                  } da analizzare.`
+            }
           />
         ) : (
           <>

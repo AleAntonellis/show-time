@@ -16,6 +16,10 @@ import {
   MovieWatchChoiceModal,
   type MovieWatchChoiceMode,
 } from '@/components/movie-watch-choice-modal';
+import {
+  MediaFilter,
+  type MediaFilterValue,
+} from '@/components/media-filter';
 import { SeriesEpisodes } from '@/components/series-episodes';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -49,6 +53,7 @@ export default function LibraryTabScreen() {
   const { session, configured, signOut } = useAuth();
 
   const [items, setItems] = useState<LibraryItem[]>([]);
+  const [mediaFilter, setMediaFilter] = useState<MediaFilterValue>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedSeries, setSelectedSeries] = useState<LibraryItem | null>(null);
@@ -121,6 +126,10 @@ export default function LibraryTabScreen() {
   const topInset =
     Platform.OS === 'web' ? WebTabTopInset : safeAreaInsets.top + Spacing.three;
   const bottomInset = safeAreaInsets.bottom + BottomTabInset + Spacing.four;
+  const filteredItems =
+    mediaFilter === 'all'
+      ? items
+      : items.filter((item) => item.mediaType === mediaFilter);
 
   if (configured && !session) {
     return null; // il gate mostra il login
@@ -148,6 +157,8 @@ export default function LibraryTabScreen() {
           )}
         </View>
 
+        <MediaFilter value={mediaFilter} onChange={setMediaFilter} />
+
         {!configured ? (
           <Message
             title="Supabase non configurato"
@@ -164,9 +175,14 @@ export default function LibraryTabScreen() {
             title="Libreria vuota"
             body="Cerca un film o una serie e premi “＋ Salva” per aggiungerlo."
           />
+        ) : filteredItems.length === 0 ? (
+          <Message
+            title={mediaFilter === 'movie' ? 'Nessun film' : 'Nessuna serie TV'}
+            body="Non ci sono titoli di questo tipo nella tua libreria."
+          />
         ) : (
           STATUS_ORDER.map((status) => {
-            const group = items.filter((item) => item.status === status);
+            const group = filteredItems.filter((item) => item.status === status);
             if (group.length === 0) {
               return null;
             }

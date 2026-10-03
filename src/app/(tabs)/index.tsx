@@ -14,6 +14,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
+  MediaFilter,
+  type MediaFilterValue,
+} from '@/components/media-filter';
+import {
   BottomTabInset,
   Brand,
   MaxContentWidth,
@@ -50,6 +54,7 @@ export default function HomeTabScreen() {
   const insets = useSafeAreaInsets();
   const { session, configured } = useAuth();
   const [items, setItems] = useState<LibraryItem[]>([]);
+  const [mediaFilter, setMediaFilter] = useState<MediaFilterValue>('all');
   const [continueWatching, setContinueWatching] = useState<LibraryItem[]>([]);
   const [availabilityWarning, setAvailabilityWarning] = useState<string | null>(
     null,
@@ -104,11 +109,15 @@ export default function HomeTabScreen() {
     typeof rawDisplayName === 'string' && rawDisplayName.trim()
       ? rawDisplayName.trim()
       : session?.user.email?.split('@')[0];
-  const watchingCount = items.filter(
+  const filteredItems =
+    mediaFilter === 'all'
+      ? items
+      : items.filter((item) => item.mediaType === mediaFilter);
+  const watchingCount = filteredItems.filter(
     (item) => item.mediaType === 'tv' && item.status === 'watching',
   ).length;
-  const watchlist = items.filter((item) => item.status === 'to_watch');
-  const completed = items
+  const watchlist = filteredItems.filter((item) => item.status === 'to_watch');
+  const completed = filteredItems
     .filter(
       (item) => item.status === 'watched' && item.lastRecordedOn != null,
     )
@@ -117,7 +126,7 @@ export default function HomeTabScreen() {
         (b.lastRecordedOn ?? '').localeCompare(a.lastRecordedOn ?? '') ||
         b.updatedAt.localeCompare(a.updatedAt),
     );
-  const watchedEpisodes = items.reduce(
+  const watchedEpisodes = filteredItems.reduce(
     (total, item) => total + (item.mediaType === 'tv' ? item.watchedEpisodes : 0),
     0,
   );
@@ -171,14 +180,17 @@ export default function HomeTabScreen() {
           </ThemedView>
         ) : (
           <>
+            <MediaFilter value={mediaFilter} onChange={setMediaFilter} />
+
             <View style={styles.stats}>
-              <Stat value={String(items.length)} label="Titoli" />
+              <Stat value={String(filteredItems.length)} label="Titoli" />
               <Stat value={String(watchingCount)} label="In corso" />
               <Stat value={String(watchlist.length)} label="Da vedere" />
               <Stat value={String(watchedEpisodes)} label="Episodi visti" />
             </View>
 
-            <View style={styles.section}>
+            {mediaFilter !== 'movie' && (
+              <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <View>
                   <ThemedText type="smallBold">Continua a guardare</ThemedText>
@@ -209,7 +221,8 @@ export default function HomeTabScreen() {
                   {availabilityWarning}
                 </ThemedText>
               )}
-            </View>
+              </View>
+            )}
 
             <PosterSection
               title="Da vedere"
