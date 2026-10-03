@@ -52,6 +52,7 @@ leggera, condivisione via link privato, dark mode.
 | D30 | Dove guardarlo | Paese privato configurabile, provider dentro Informazioni, cache 24 h | Dati regionali utili senza introdurre link esterni inaffidabili |
 | D31 | Ricerca globale | Input espandibile nella barra web + fallback `/search`; titoli e crediti persone separati | Ricerca accessibile da ogni sezione senza perdere il contesto corrente |
 | D32 | Aggregazioni oltre 1000 righe | Paginazione PostgREST condivisa per libreria, episodi e statistiche | Evita contatori e progressi troncati negli account con molto storico |
+| D33 | Continua a guardare | Mostra solo serie con episodi non visti pubblicati entro oggi | Separa il backlog disponibile dalle uscite future gestite da Reminder/Calendario |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -340,6 +341,11 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   Verificato sull'account Alessio durante l'importazione: Home da `1000` a `4658`
   episodi, Young Sheldon `127/141`, Statistiche oltre `4596` importati e layout mobile
   ancora a `390 px`. La migration `0011` riallinea inoltre gli stati serie al progresso.
+- ✅ **Continua a guardare** ora confronta progresso e ultimo episodio pubblicato da
+  TMDB, includendo le uscite di oggi ed escludendo serie con soli episodi futuri.
+  Se data o richiesta non sono verificabili, la serie resta visibile con avviso.
+  Test reale Alessio: `7` serie In corso, `4` con backlog disponibile (American Horror
+  Story, Break Point, Futurama e Scrubs); richieste TMDB limitate a `4` concorrenti.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

@@ -21,6 +21,7 @@ import {
   WebTabTopInset,
 } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
+import { filterContinueWatching } from '@/services/continue-watching';
 import { getLibrary, type LibraryItem } from '@/services/library';
 
 function greeting(): string {
@@ -49,27 +50,48 @@ export default function HomeTabScreen() {
   const insets = useSafeAreaInsets();
   const { session, configured } = useAuth();
   const [items, setItems] = useState<LibraryItem[]>([]);
+  const [continueWatching, setContinueWatching] = useState<LibraryItem[]>([]);
+  const [availabilityWarning, setAvailabilityWarning] = useState<string | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     if (!configured || !session) {
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
-    getLibrary()
-      .then(setItems)
-      .catch((err: unknown) =>
-        setError(err instanceof Error ? err.message : 'Impossibile caricare la Home'),
-      )
-      .finally(() => setLoading(false));
+    setAvailabilityWarning(null);
+    try {
+      const nextItems = await getLibrary();
+      const continueResult = await filterContinueWatching(nextItems);
+      setItems(nextItems);
+      setContinueWatching(continueResult.items);
+      if (continueResult.unverifiedTitles.length > 0) {
+        const titles = continueResult.unverifiedTitles.slice(0, 3).join(', ');
+        const remaining =
+          continueResult.unverifiedTitles.length > 3
+            ? ` e altre ${continueResult.unverifiedTitles.length - 3}`
+            : '';
+        setAvailabilityWarning(
+          `Disponibilità non verificabile per ${
+            continueResult.unverifiedTitles.length
+          } serie (${titles}${remaining}): vengono mostrate comunque.`,
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Impossibile caricare la Home');
+    } finally {
+      setLoading(false);
+    }
   }, [configured, session]);
 
   useFocusEffect(
     useCallback(() => {
-      load();
+      void load();
     }, [load]),
   );
 
@@ -82,9 +104,9 @@ export default function HomeTabScreen() {
     typeof rawDisplayName === 'string' && rawDisplayName.trim()
       ? rawDisplayName.trim()
       : session?.user.email?.split('@')[0];
-  const watching = items.filter(
+  const watchingCount = items.filter(
     (item) => item.mediaType === 'tv' && item.status === 'watching',
-  );
+  ).length;
   const watchlist = items.filter((item) => item.status === 'to_watch');
   const completed = items.filter((item) => item.status === 'watched');
   const watchedEpisodes = items.reduce(
@@ -143,7 +165,7 @@ export default function HomeTabScreen() {
           <>
             <View style={styles.stats}>
               <Stat value={String(items.length)} label="Titoli" />
-              <Stat value={String(watching.length)} label="In corso" />
+              <Stat value={String(watchingCount)} label="In corso" />
               <Stat value={String(watchlist.length)} label="Da vedere" />
               <Stat value={String(watchedEpisodes)} label="Episodi visti" />
             </View>
@@ -153,7 +175,7 @@ export default function HomeTabScreen() {
                 <View>
                   <ThemedText type="smallBold">Continua a guardare</ThemedText>
                   <ThemedText type="small" themeColor="textSecondary">
-                    Le serie che hai già iniziato.
+                    Serie con episodi non visti già disponibili.
                   </ThemedText>
                 </View>
                 <Pressable onPress={() => router.push('/library')} hitSlop={8}>
@@ -163,14 +185,21 @@ export default function HomeTabScreen() {
                 </Pressable>
               </View>
 
-              {watching.length === 0 ? (
+              {continueWatching.length === 0 ? (
                 <ThemedView type="backgroundElement" style={styles.emptySection}>
                   <ThemedText type="small" themeColor="textSecondary">
-                    Nessuna serie in corso. Apri una serie e segna il primo episodio.
+                    Nessun episodio già disponibile da recuperare.
                   </ThemedText>
                 </ThemedView>
               ) : (
-                watching.map((item) => <ContinueCard key={item.id} item={item} />)
+                continueWatching.map((item) => (
+                  <ContinueCard key={item.id} item={item} />
+                ))
+              )}
+              {availabilityWarning && (
+                <ThemedText type="small" style={styles.warning}>
+                  {availabilityWarning}
+                </ThemedText>
               )}
             </View>
 
@@ -386,6 +415,9 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   linkText: {
+    color: Brand.sunsetOrange,
+  },
+  warning: {
     color: Brand.sunsetOrange,
   },
   continueCard: {

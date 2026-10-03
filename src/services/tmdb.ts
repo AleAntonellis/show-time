@@ -82,6 +82,7 @@ export type TitleDetails = Title & {
   numberOfSeasons: number | null;
   numberOfEpisodes: number | null;
   seasons: DetailSeason[];
+  lastEpisode: NextEpisode | null;
   nextEpisode: NextEpisode | null;
 };
 
@@ -159,6 +160,10 @@ type TmdbTitleDetailsResponse = {
     runtime?: number | null;
   } | null;
   last_episode_to_air?: {
+    season_number: number;
+    episode_number: number;
+    name?: string;
+    air_date?: string | null;
     runtime?: number | null;
   } | null;
 };
@@ -465,6 +470,16 @@ export async function getTitleDetails(
         airDate: data.next_episode_to_air.air_date ?? null,
       }
     : null;
+  const lastEpisode = data.last_episode_to_air
+    ? {
+        seasonNumber: data.last_episode_to_air.season_number,
+        episodeNumber: data.last_episode_to_air.episode_number,
+        name:
+          data.last_episode_to_air.name ??
+          `Episodio ${data.last_episode_to_air.episode_number}`,
+        airDate: data.last_episode_to_air.air_date ?? null,
+      }
+    : null;
 
   return {
     id: data.id,
@@ -496,6 +511,7 @@ export async function getTitleDetails(
           seasons.reduce((total, season) => total + season.episodeCount, 0))
         : null,
     seasons,
+    lastEpisode,
     nextEpisode,
   };
 }
