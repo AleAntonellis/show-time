@@ -330,6 +330,9 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   duplicati cast/regia rimossi e apparizioni “Self” escluse. Testati Matrix, Tom Hanks
   (Forrest Gump/Toy Story/Il miglio verde), Christopher Nolan, query parziale `Chris`
   con tre persone, stato In libreria, apertura dettaglio e viewport `360×800`.
+- ✅ Aprendo un risultato e tornando dal dettaglio, la ricerca globale ripristina
+  overlay, query, risultati e posizione di scroll; **Chiudi** o una nuova ricerca
+  cancellano lo stato sospeso. La cache di sessione evita nuove chiamate TMDB al back.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

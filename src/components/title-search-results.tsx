@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -33,11 +33,17 @@ export function TitleSearchResults({
   query,
   onOpenTitle,
   contentContainerStyle,
+  initialScrollOffset = 0,
+  onScrollOffsetChange,
 }: {
   query: string;
   onOpenTitle: (title: Title) => void;
   contentContainerStyle?: StyleProp<ViewStyle>;
+  initialScrollOffset?: number;
+  onScrollOffsetChange?: (offset: number) => void;
 }) {
+  const scrollerRef = useRef<ScrollView>(null);
+  const restoredQueryRef = useRef<string | null>(null);
   const { session, configured: supabaseConfigured } = useAuth();
   const tmdbConfigured = useMemo(() => isTmdbConfigured(), []);
   const canSave = supabaseConfigured && Boolean(session);
@@ -134,12 +140,33 @@ export function TitleSearchResults({
     searchState.result.titles.length > 0 ||
     searchState.result.personSections.length > 0;
 
+  function restoreScrollOffset() {
+    if (
+      initialScrollOffset <= 0 ||
+      searchState.query !== trimmedQuery ||
+      restoredQueryRef.current === trimmedQuery
+    ) {
+      return;
+    }
+    scrollerRef.current?.scrollTo({
+      y: initialScrollOffset,
+      animated: false,
+    });
+    restoredQueryRef.current = trimmedQuery;
+  }
+
   return (
     <ScrollView
+      ref={scrollerRef}
       style={styles.scroller}
       contentContainerStyle={[styles.content, contentContainerStyle]}
       showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled">
+      keyboardShouldPersistTaps="handled"
+      scrollEventThrottle={100}
+      onContentSizeChange={restoreScrollOffset}
+      onScroll={(event) =>
+        onScrollOffsetChange?.(event.nativeEvent.contentOffset.y)
+      }>
       {!tmdbConfigured ? (
         <StateMessage
           title="TMDB non configurato"

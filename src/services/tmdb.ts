@@ -325,6 +325,8 @@ export async function searchTitles(query: string): Promise<Title[]> {
 }
 
 const personCreditsCache = new Map<number, Promise<TmdbCombinedCreditsResponse>>();
+const catalogSearchCache = new Map<string, Promise<CatalogSearchResult>>();
+const MAX_CATALOG_SEARCH_CACHE_ENTRIES = 50;
 
 function getPersonCredits(personId: number): Promise<TmdbCombinedCreditsResponse> {
   const cached = personCreditsCache.get(personId);
@@ -341,13 +343,7 @@ function getPersonCredits(personId: number): Promise<TmdbCombinedCreditsResponse
   return requestPromise;
 }
 
-/** Cerca titoli direttamente e tramite cast/regia delle prime persone corrispondenti. */
-export async function searchCatalog(query: string): Promise<CatalogSearchResult> {
-  const trimmed = query.trim();
-  if (!trimmed) {
-    return { titles: [], personSections: [] };
-  }
-
+async function loadCatalogSearch(trimmed: string): Promise<CatalogSearchResult> {
   const [titles, peopleResponse] = await Promise.all([
     searchTitles(trimmed),
     request<TmdbPersonSearchResponse>('/search/person', {
@@ -412,6 +408,32 @@ export async function searchCatalog(query: string): Promise<CatalogSearchResult>
   }
 
   return { titles, personSections };
+}
+
+/** Cerca titoli direttamente e tramite cast/regia delle prime persone corrispondenti. */
+export function searchCatalog(query: string): Promise<CatalogSearchResult> {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return Promise.resolve({ titles: [], personSections: [] });
+  }
+  const cacheKey = trimmed.toLocaleLowerCase('it');
+  const cached = catalogSearchCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  if (catalogSearchCache.size >= MAX_CATALOG_SEARCH_CACHE_ENTRIES) {
+    const oldestKey = catalogSearchCache.keys().next().value;
+    if (oldestKey) {
+      catalogSearchCache.delete(oldestKey);
+    }
+  }
+  const requestPromise = loadCatalogSearch(trimmed).catch((error) => {
+    catalogSearchCache.delete(cacheKey);
+    throw error;
+  });
+  catalogSearchCache.set(cacheKey, requestPromise);
+  return requestPromise;
 }
 
 /** Dettaglio completo di un film o una serie TV. */

@@ -7,7 +7,7 @@ import {
   type TabTriggerSlotProps,
 } from 'expo-router/ui';
 import { SymbolView } from 'expo-symbols';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -30,6 +30,14 @@ import {
   unsubscribeFromInternalShares,
 } from '@/services/social';
 import type { Title } from '@/services/tmdb';
+
+type SuspendedSearch = {
+  pathname: string;
+  query: string;
+  scrollOffset: number;
+};
+
+let suspendedSearch: SuspendedSearch | null = null;
 
 export default function AppTabs() {
   return (
@@ -55,15 +63,31 @@ export default function AppTabs() {
 function BurgerNavigation() {
   const { signOut, session, configured } = useAuth();
   const pathname = usePathname();
+  const restoredSearch =
+    suspendedSearch && suspendedSearch.pathname === pathname
+      ? suspendedSearch
+      : null;
   const [open, setOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(() => restoredSearch != null);
+  const [searchQuery, setSearchQuery] = useState(
+    () => restoredSearch?.query ?? '',
+  );
+  const [searchRestoreOffset, setSearchRestoreOffset] = useState(
+    () => restoredSearch?.scrollOffset ?? 0,
+  );
+  const searchScrollOffsetRef = useRef(restoredSearch?.scrollOffset ?? 0);
   const [signingOut, setSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reminderCount, setReminderCount] = useState(0);
   const [reminderError, setReminderError] = useState<string | null>(null);
   const [shareUnreadCount, setShareUnreadCount] = useState(0);
   const [shareError, setShareError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (restoredSearch) {
+      suspendedSearch = null;
+    }
+  }, [restoredSearch]);
 
   useEffect(() => {
     if (!configured || !session) {
@@ -156,6 +180,9 @@ function BurgerNavigation() {
       setOpen(false);
       setSearchOpen(false);
       setSearchQuery('');
+      setSearchRestoreOffset(0);
+      searchScrollOffsetRef.current = 0;
+      suspendedSearch = null;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Impossibile uscire');
     } finally {
@@ -166,10 +193,17 @@ function BurgerNavigation() {
   function closeSearch() {
     setSearchOpen(false);
     setSearchQuery('');
+    setSearchRestoreOffset(0);
+    searchScrollOffsetRef.current = 0;
+    suspendedSearch = null;
   }
 
   function openSearchResult(title: Title) {
-    closeSearch();
+    suspendedSearch = {
+      pathname,
+      query: searchQuery,
+      scrollOffset: searchScrollOffsetRef.current,
+    };
     router.push({
       pathname: '/title',
       params: {
@@ -206,7 +240,11 @@ function BurgerNavigation() {
             <TextInput
               autoFocus
               value={searchQuery}
-              onChangeText={setSearchQuery}
+              onChangeText={(value) => {
+                setSearchQuery(value);
+                setSearchRestoreOffset(0);
+                searchScrollOffsetRef.current = 0;
+              }}
               placeholder="Titolo, attore, attrice o regista…"
               placeholderTextColor="rgba(167,173,196,0.78)"
               autoCorrect={false}
@@ -221,7 +259,11 @@ function BurgerNavigation() {
             {searchQuery.length > 0 && (
               <Pressable
                 accessibilityLabel="Cancella ricerca"
-                onPress={() => setSearchQuery('')}
+                onPress={() => {
+                  setSearchQuery('');
+                  setSearchRestoreOffset(0);
+                  searchScrollOffsetRef.current = 0;
+                }}
                 hitSlop={8}
                 style={({ pressed }) => [
                   styles.clearSearchButton,
@@ -254,7 +296,11 @@ function BurgerNavigation() {
               </TabTrigger>
               <SearchActionButton
                 onPress={() => {
+                  suspendedSearch = null;
                   setOpen(false);
+                  setSearchQuery('');
+                  setSearchRestoreOffset(0);
+                  searchScrollOffsetRef.current = 0;
                   setSearchOpen(true);
                 }}
               />
@@ -297,6 +343,10 @@ function BurgerNavigation() {
             <TitleSearchResults
               query={searchQuery}
               onOpenTitle={openSearchResult}
+              initialScrollOffset={searchRestoreOffset}
+              onScrollOffsetChange={(offset) => {
+                searchScrollOffsetRef.current = offset;
+              }}
               contentContainerStyle={styles.searchResultsContent}
             />
           </ThemedView>
