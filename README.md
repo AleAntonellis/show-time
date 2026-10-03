@@ -138,7 +138,8 @@ Le liste personali e il login usano [Supabase](https://supabase.com) (free tier)
    `0005_share_invites.sql`, `0006_watch_origins.sql` e
    `0007_movie_imports.sql`, quindi `0008_follower_profiles.sql` e
    `0009_followed_title_activity.sql`, infine
-   `0010_watch_region_preference.sql`
+   `0010_watch_region_preference.sql` e
+   `0011_reconcile_series_status.sql`
 3. In **Project Settings → API** copia *Project URL* e *anon public key*
 4. Aggiungili in `.env.local`:
    ```
@@ -191,6 +192,9 @@ Libreria, Diario e attività dei titoli, senza email, UUID o timestamp interni. 
 titoli è salvata localmente per 24 ore, l’elenco paesi per 30 giorni; il refresh manuale
 ignora la cache. Le categorie sono accordion esclusivi con anteprima di tre provider e
 azione “Guarda tutte”. I dati non includono deep link ai singoli provider.
+
+Le query che aggregano libreria, episodi e statistiche sono paginate: il limite
+PostgREST di 1000 righe non tronca i contatori degli account con molto storico.
 
 ---
 

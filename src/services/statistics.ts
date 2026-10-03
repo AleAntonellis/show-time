@@ -3,6 +3,7 @@ import {
   type EpisodeWatchSource,
   type LibraryItem,
 } from '@/services/library';
+import { fetchAllPages } from '@/services/pagination';
 import { getSupabase } from '@/services/supabase';
 import { getTitleDetails, type MediaType } from '@/services/tmdb';
 
@@ -199,37 +200,39 @@ function lastThirtyDays(
 
 export async function getPersonalStatistics(): Promise<PersonalStatistics> {
   const supabase = getSupabase();
-  const [items, movieResult, episodeWatchResult, episodeViewingResult] = await Promise.all([
+  const [items, movieRows, episodeWatchRows, episodeViewingRows] = await Promise.all([
     getLibrary(),
-    supabase
-      .from('viewings')
-      .select('id, library_item_id, watched_on, rating, note, created_at'),
-    supabase
-      .from('episode_watches')
-      .select(
-        'id, library_item_id, season_number, episode_number, watched_on, source, created_at',
-      ),
-    supabase
-      .from('episode_viewings')
-      .select(
-        'id, library_item_id, season_number, episode_number, watched_on, rating, note, created_at',
-      ),
+    fetchAllPages<MovieViewingRow>((from, to) =>
+      supabase
+        .from('viewings')
+        .select('id, library_item_id, watched_on, rating, note, created_at')
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to),
+    ),
+    fetchAllPages<EpisodeWatchRow>((from, to) =>
+      supabase
+        .from('episode_watches')
+        .select(
+          'id, library_item_id, season_number, episode_number, watched_on, source, created_at',
+        )
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to),
+    ),
+    fetchAllPages<EpisodeViewingRow>((from, to) =>
+      supabase
+        .from('episode_viewings')
+        .select(
+          'id, library_item_id, season_number, episode_number, watched_on, rating, note, created_at',
+        )
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to),
+    ),
   ]);
 
-  if (movieResult.error) {
-    throw new Error(movieResult.error.message);
-  }
-  if (episodeWatchResult.error) {
-    throw new Error(episodeWatchResult.error.message);
-  }
-  if (episodeViewingResult.error) {
-    throw new Error(episodeViewingResult.error.message);
-  }
-
   const itemById = new Map(items.map((item) => [item.id, item]));
-  const movieRows = (movieResult.data ?? []) as MovieViewingRow[];
-  const episodeWatchRows = (episodeWatchResult.data ?? []) as EpisodeWatchRow[];
-  const episodeViewingRows = (episodeViewingResult.data ?? []) as EpisodeViewingRow[];
   const events: ActivityEvent[] = [];
 
   for (const row of movieRows) {

@@ -5,6 +5,7 @@
  * Serie → tracking per episodio; lo stato è derivato dal progresso.
  */
 
+import { fetchAllPages } from '@/services/pagination';
 import { getSupabase } from '@/services/supabase';
 import { getTvDetails, posterUrl, type MediaType, type Title } from '@/services/tmdb';
 
@@ -89,23 +90,29 @@ function toItem(
   viewingsByItem: Map<string, number>,
 ): LibraryItem {
   const t = row.titles;
+  const mediaType = t?.media_type ?? 'movie';
+  const watchedEpisodes = watchedByItem.get(row.id) ?? 0;
+  const totalEpisodes = t?.total_episodes ?? null;
   return {
     id: row.id,
-    status: row.status,
+    status:
+      mediaType === 'tv'
+        ? deriveSeriesStatus(watchedEpisodes, totalEpisodes)
+        : row.status,
     rating: row.rating,
     notes: row.notes,
     addedAt: row.added_at,
     updatedAt: row.updated_at,
     tmdbId: t?.tmdb_id ?? 0,
-    mediaType: t?.media_type ?? 'movie',
+    mediaType,
     title: t?.title ?? 'Senza titolo',
     year: t?.year ?? null,
     posterUrl: posterUrl(t?.poster_path),
     overview: t?.overview ?? '',
     runtime: t?.runtime ?? null,
     genres: t?.genres ?? [],
-    totalEpisodes: t?.total_episodes ?? null,
-    watchedEpisodes: watchedByItem.get(row.id) ?? 0,
+    totalEpisodes,
+    watchedEpisodes,
     viewingCount: viewingsByItem.get(row.id) ?? 0,
     importedViewings: row.imported_viewings,
   };
@@ -196,34 +203,47 @@ export async function addToLibrary(title: Title, status: LibraryStatus): Promise
 /** Ritorna tutti i titoli in libreria, con il conteggio episodi visti per le serie. */
 export async function getLibrary(): Promise<LibraryItem[]> {
   const supabase = getSupabase();
-  const [{ data, error }, watches, viewings] = await Promise.all([
-    supabase.from('library_items').select(SELECT).order('updated_at', { ascending: false }),
-    supabase.from('episode_watches').select('library_item_id'),
-    supabase.from('viewings').select('library_item_id'),
+  const [rawData, watches, viewings] = await Promise.all([
+    fetchAllPages<unknown>((from, to) =>
+      supabase
+        .from('library_items')
+        .select(SELECT)
+        .order('updated_at', { ascending: false })
+        .order('id', { ascending: true })
+        .range(from, to),
+    ),
+    fetchAllPages<{ library_item_id: string }>((from, to) =>
+      supabase
+        .from('episode_watches')
+        .select('library_item_id')
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to),
+    ),
+    fetchAllPages<{ library_item_id: string }>((from, to) =>
+      supabase
+        .from('viewings')
+        .select('library_item_id')
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to),
+    ),
   ]);
-  if (error) {
-    throw new Error(error.message);
-  }
-  if (watches.error) {
-    throw new Error(watches.error.message);
-  }
-  if (viewings.error) {
-    throw new Error(viewings.error.message);
-  }
+  const data = rawData as LibraryRow[];
 
   const watchedByItem = new Map<string, number>();
-  for (const row of (watches.data ?? []) as { library_item_id: string }[]) {
+  for (const row of watches) {
     watchedByItem.set(row.library_item_id, (watchedByItem.get(row.library_item_id) ?? 0) + 1);
   }
   const viewingsByItem = new Map<string, number>();
-  for (const row of (viewings.data ?? []) as { library_item_id: string }[]) {
+  for (const row of viewings) {
     viewingsByItem.set(
       row.library_item_id,
       (viewingsByItem.get(row.library_item_id) ?? 0) + 1,
     );
   }
 
-  return (data as unknown as LibraryRow[]).map((row) =>
+  return data.map((row) =>
     toItem(row, watchedByItem, viewingsByItem),
   );
 }
@@ -233,23 +253,33 @@ export async function getLibraryItem(itemId: string): Promise<LibraryItem | null
   const supabase = getSupabase();
   const [{ data, error }, watches, viewings] = await Promise.all([
     supabase.from('library_items').select(SELECT).eq('id', itemId).maybeSingle(),
-    supabase.from('episode_watches').select('library_item_id').eq('library_item_id', itemId),
-    supabase.from('viewings').select('library_item_id').eq('library_item_id', itemId),
+    fetchAllPages<{ library_item_id: string }>((from, to) =>
+      supabase
+        .from('episode_watches')
+        .select('library_item_id')
+        .eq('library_item_id', itemId)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to),
+    ),
+    fetchAllPages<{ library_item_id: string }>((from, to) =>
+      supabase
+        .from('viewings')
+        .select('library_item_id')
+        .eq('library_item_id', itemId)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to),
+    ),
   ]);
   if (error) {
     throw new Error(error.message);
   }
-  if (watches.error) {
-    throw new Error(watches.error.message);
-  }
-  if (viewings.error) {
-    throw new Error(viewings.error.message);
-  }
   if (!data) {
     return null;
   }
-  const watchedByItem = new Map<string, number>([[itemId, (watches.data ?? []).length]]);
-  const viewingsByItem = new Map<string, number>([[itemId, (viewings.data ?? []).length]]);
+  const watchedByItem = new Map<string, number>([[itemId, watches.length]]);
+  const viewingsByItem = new Map<string, number>([[itemId, viewings.length]]);
   return toItem(data as unknown as LibraryRow, watchedByItem, viewingsByItem);
 }
 
@@ -415,16 +445,18 @@ export async function removeFromLibrary(itemId: string): Promise<void> {
 
 /** Ritorna lo storico delle visioni di un film, dalla piu' recente. */
 export async function getViewings(itemId: string): Promise<Viewing[]> {
-  const { data, error } = await getSupabase()
-    .from('viewings')
-    .select('id, watched_on, note, rating, created_at')
-    .eq('library_item_id', itemId)
-    .order('watched_on', { ascending: false })
-    .order('created_at', { ascending: false });
-  if (error) {
-    throw new Error(error.message);
-  }
-  return ((data ?? []) as ViewingRow[]).map(toViewing);
+  const supabase = getSupabase();
+  const rows = await fetchAllPages<ViewingRow>((from, to) =>
+    supabase
+      .from('viewings')
+      .select('id, watched_on, note, rating, created_at')
+      .eq('library_item_id', itemId)
+      .order('watched_on', { ascending: false })
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, to),
+  );
+  return rows.map(toViewing);
 }
 
 /** Registra una visione e marca il film come visto. */
@@ -479,18 +511,20 @@ export async function getEpisodeViewings(
   season: number,
   episode: number,
 ): Promise<Viewing[]> {
-  const { data, error } = await getSupabase()
-    .from('episode_viewings')
-    .select('id, watched_on, note, rating, created_at')
-    .eq('library_item_id', itemId)
-    .eq('season_number', season)
-    .eq('episode_number', episode)
-    .order('watched_on', { ascending: false })
-    .order('created_at', { ascending: false });
-  if (error) {
-    throw new Error(error.message);
-  }
-  return ((data ?? []) as ViewingRow[]).map(toViewing);
+  const supabase = getSupabase();
+  const rows = await fetchAllPages<ViewingRow>((from, to) =>
+    supabase
+      .from('episode_viewings')
+      .select('id, watched_on, note, rating, created_at')
+      .eq('library_item_id', itemId)
+      .eq('season_number', season)
+      .eq('episode_number', episode)
+      .order('watched_on', { ascending: false })
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, to),
+  );
+  return rows.map(toViewing);
 }
 
 /**
@@ -525,18 +559,30 @@ export async function addEpisodeViewing(
     throw new Error(error.message);
   }
 
-  const { data: watchedRows, error: watchedError } = await supabase
-    .from('episode_watches')
-    .select('season_number, episode_number')
-    .eq('library_item_id', itemId);
-  if (watchedError) {
-    await rollbackEpisodeViewing(data.id, watchedError.message);
+  let watchedRows: { season_number: number; episode_number: number }[] = [];
+  try {
+    watchedRows = await fetchAllPages<{
+      season_number: number;
+      episode_number: number;
+    }>((from, to) =>
+      supabase
+        .from('episode_watches')
+        .select('season_number, episode_number')
+        .eq('library_item_id', itemId)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to),
+    );
+  } catch (err) {
+    await rollbackEpisodeViewing(
+      data.id,
+      err instanceof Error ? err.message : 'Impossibile leggere il progresso',
+    );
   }
 
   const watchedKeys = new Set(
-    (watchedRows ?? []).map(
-      (row: { season_number: number; episode_number: number }) =>
-        `${row.season_number}-${row.episode_number}`,
+    watchedRows.map(
+      (row) => `${row.season_number}-${row.episode_number}`,
     ),
   );
   const key = `${season}-${episode}`;
@@ -599,21 +645,22 @@ function localDateString(): string {
 
 /** Chiavi `season-episode` e origine degli episodi visti per una serie. */
 export async function getWatchedEpisodes(itemId: string): Promise<WatchedEpisodes> {
-  const { data, error } = await getSupabase()
-    .from('episode_watches')
-    .select('season_number, episode_number, source')
-    .eq('library_item_id', itemId);
-  if (error) {
-    throw new Error(error.message);
-  }
+  const supabase = getSupabase();
+  const rows = await fetchAllPages<{
+    season_number: number;
+    episode_number: number;
+    source: EpisodeWatchSource;
+  }>((from, to) =>
+    supabase
+      .from('episode_watches')
+      .select('season_number, episode_number, source')
+      .eq('library_item_id', itemId)
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, to),
+  );
   return new Map(
-    (
-      (data ?? []) as {
-        season_number: number;
-        episode_number: number;
-        source: EpisodeWatchSource;
-      }[]
-    ).map((row) => [
+    rows.map((row) => [
       episodeKey(row.season_number, row.episode_number),
       row.source,
     ]),

@@ -51,6 +51,7 @@ leggera, condivisione via link privato, dark mode.
 | D29 | Attività social titolo | Tre attività recenti + lista completa cronologica dei profili seguiti | Porta il contesto sociale nella scheda senza creare un feed separato |
 | D30 | Dove guardarlo | Paese privato configurabile, provider dentro Informazioni, cache 24 h | Dati regionali utili senza introdurre link esterni inaffidabili |
 | D31 | Ricerca globale | Input espandibile nella barra web + fallback `/search`; titoli e crediti persone separati | Ricerca accessibile da ogni sezione senza perdere il contesto corrente |
+| D32 | Aggregazioni oltre 1000 righe | Paginazione PostgREST condivisa per libreria, episodi e statistiche | Evita contatori e progressi troncati negli account con molto storico |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -333,6 +334,12 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
 - ✅ Aprendo un risultato e tornando dal dettaglio, la ricerca globale ripristina
   overlay, query, risultati e posizione di scroll; **Chiudi** o una nuova ricerca
   cancellano lo stato sospeso. La cache di sessione evita nuove chiamate TMDB al back.
+- ✅ Corretto il limite PostgREST di `1000` righe: Home, Libreria, singola serie,
+  storici e Statistiche recuperano ora tutte le pagine con ordinamento stabile. Il
+  limite faceva apparire serie a `0` episodi e bloccava il totale Home a `1000`.
+  Verificato sull'account Alessio durante l'importazione: Home da `1000` a `4658`
+  episodi, Young Sheldon `127/141`, Statistiche oltre `4596` importati e layout mobile
+  ancora a `390 px`. La migration `0011` riallinea inoltre gli stati serie al progresso.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.
