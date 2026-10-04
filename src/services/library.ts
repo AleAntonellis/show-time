@@ -60,7 +60,23 @@ export type Viewing = {
   createdAt: string;
 };
 
+export type SeriesViewing = {
+  id: string;
+  watchedOn: string;
+  note: string | null;
+  rating: number | null;
+  createdAt: string;
+};
+
 type ViewingRow = {
+  id: string;
+  watched_on: string;
+  note: string | null;
+  rating: number | null;
+  created_at: string;
+};
+
+type SeriesViewingRow = {
   id: string;
   watched_on: string;
   note: string | null;
@@ -137,6 +153,16 @@ function recordLatestDate(
 }
 
 function toViewing(row: ViewingRow): Viewing {
+  return {
+    id: row.id,
+    watchedOn: row.watched_on,
+    note: row.note,
+    rating: row.rating,
+    createdAt: row.created_at,
+  };
+}
+
+function toSeriesViewing(row: SeriesViewingRow): SeriesViewing {
   return {
     id: row.id,
     watchedOn: row.watched_on,
@@ -711,6 +737,68 @@ export async function getSavedKeys(): Promise<Set<string>> {
         : [],
     ),
   );
+}
+
+/** Storico delle visioni complete di una serie. */
+export async function getSeriesViewings(
+  itemId: string,
+): Promise<SeriesViewing[]> {
+  const supabase = getSupabase();
+  const rows = await fetchAllPages<SeriesViewingRow>((from, to) =>
+    supabase
+      .from('series_viewings')
+      .select('id, watched_on, note, rating, created_at')
+      .eq('library_item_id', itemId)
+      .order('watched_on', { ascending: false })
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, to),
+  );
+  return rows.map(toSeriesViewing);
+}
+
+export async function addSeriesViewing(
+  itemId: string,
+  watchedOn: string,
+  note: string | null,
+  rating: number | null,
+): Promise<SeriesViewing> {
+  const trimmedNote = note?.trim() || null;
+  if (trimmedNote == null && rating == null) {
+    throw new Error('Inserisci una nota o un voto');
+  }
+  if (trimmedNote && trimmedNote.length > 1000) {
+    throw new Error('La nota può contenere al massimo 1000 caratteri');
+  }
+  if (rating != null && (!Number.isFinite(rating) || rating < 0 || rating > 10)) {
+    throw new Error('Il voto deve essere compreso tra 0 e 10');
+  }
+  const userId = await getUserId();
+  const { data, error } = await getSupabase()
+    .from('series_viewings')
+    .insert({
+      library_item_id: itemId,
+      user_id: userId,
+      watched_on: watchedOn,
+      note: trimmedNote,
+      rating,
+    })
+    .select('id, watched_on, note, rating, created_at')
+    .single();
+  if (error) {
+    throw new Error(error.message);
+  }
+  return toSeriesViewing(data as SeriesViewingRow);
+}
+
+export async function removeSeriesViewing(viewingId: string): Promise<void> {
+  const { error } = await getSupabase()
+    .from('series_viewings')
+    .delete()
+    .eq('id', viewingId);
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 // ---------------------------------------------------------------------------

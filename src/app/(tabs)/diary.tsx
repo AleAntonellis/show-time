@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ExpandableQuotedText } from '@/components/expandable-quoted-text';
 import {
   MediaFilter,
   type MediaFilterValue,
@@ -200,9 +201,7 @@ export default function DiaryTabScreen() {
                         {entry.detail}
                       </ThemedText>
                       {entry.note ? (
-                        <ThemedText type="small" style={styles.note}>
-                          “{entry.note}”
-                        </ThemedText>
+                        <ExpandableQuotedText text={entry.note} />
                       ) : (
                         <ThemedText type="small" themeColor="textSecondary">
                           Visione valutata senza commento.
@@ -307,6 +306,7 @@ const styles = StyleSheet.create({
   },
   entryCopy: {
     flex: 1,
+    minWidth: 0,
     gap: Spacing.half,
   },
   entryHeading: {
@@ -319,9 +319,6 @@ const styles = StyleSheet.create({
   },
   rating: {
     color: Brand.sunsetOrange,
-  },
-  note: {
-    fontStyle: 'italic',
   },
   pressed: {
     opacity: 0.8,

@@ -20,6 +20,7 @@ import {
 import { FollowedTitleActivity } from '@/components/followed-title-activity';
 import { InternalShareModal } from '@/components/internal-share-modal';
 import { SeriesEpisodesContent } from '@/components/series-episodes';
+import { SeriesViewings } from '@/components/series-viewings';
 import { ShareInviteBanner } from '@/components/share-invite-banner';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -127,6 +128,7 @@ export default function TitleScreen() {
   const [actionBusy, setActionBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showMovieViewings, setShowMovieViewings] = useState(false);
+  const [showSeriesViewings, setShowSeriesViewings] = useState(false);
   const [movieWatchChoiceMode, setMovieWatchChoiceMode] =
     useState<MovieWatchChoiceMode | null>(null);
   const [sharing, setSharing] = useState(false);
@@ -651,6 +653,13 @@ export default function TitleScreen() {
               <ThemedText type="small" themeColor="textSecondary">
                 Tracking, note e visioni sono integrati nelle stagioni qui sotto.
               </ThemedText>
+              <Pressable
+                onPress={() => setShowSeriesViewings(true)}
+                style={styles.secondaryButton}>
+                <ThemedText type="smallBold" style={styles.secondaryButtonText}>
+                  Note e visioni ›
+                </ThemedText>
+              </Pressable>
             </View>
           )}
 
@@ -748,6 +757,13 @@ export default function TitleScreen() {
         <MovieViewings
           item={libraryItem}
           onClose={() => setShowMovieViewings(false)}
+          onChanged={refreshLibraryItem}
+        />
+      )}
+      {libraryItem && showSeriesViewings && (
+        <SeriesViewings
+          item={libraryItem}
+          onClose={() => setShowSeriesViewings(false)}
           onChanged={refreshLibraryItem}
         />
       )}

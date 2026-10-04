@@ -118,14 +118,14 @@ export function FollowedTitleActivity({
         <View style={styles.headingCopy}>
           <ThemedText type="smallBold">Dai tuoi contatti</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Solo visioni con una data reale, dalla più recente.
+            Solo visioni e recensioni con commento, dalla più recente.
           </ThemedText>
         </View>
         {!loading && totalCount > 0 && (
           <View style={styles.summary}>
             <ThemedText type="smallBold">
               {contactCount} {contactCount === 1 ? 'contatto' : 'contatti'} ·{' '}
-              {totalCount} {totalCount === 1 ? 'visione' : 'visioni'}
+              {totalCount} {totalCount === 1 ? 'commento' : 'commenti'}
             </ThemedText>
             {averageRating != null && (
               <ThemedText type="small" style={styles.averageRating}>
@@ -144,7 +144,7 @@ export function FollowedTitleActivity({
         </ThemedText>
       ) : entries.length === 0 ? (
         <ThemedText type="small" themeColor="textSecondary">
-          Nessuno dei tuoi contatti ha ancora registrato una visione.
+          Nessuno dei tuoi contatti ha ancora lasciato un commento.
         </ThemedText>
       ) : (
         <>
@@ -172,7 +172,7 @@ export function FollowedTitleActivity({
                 <ActivityIndicator color={Brand.glowBlue} size="small" />
               ) : (
                 <ThemedText type="smallBold" style={styles.actionText}>
-                  Vedi tutte le visioni · {totalCount}
+                  Vedi tutti i commenti · {totalCount}
                 </ThemedText>
               )}
             </Pressable>
@@ -190,7 +190,7 @@ export function FollowedTitleActivity({
                 <ActivityIndicator color={Brand.glowBlue} size="small" />
               ) : (
                 <ThemedText type="smallBold" style={styles.actionText}>
-                  Carica altre visioni
+                  Carica altri commenti
                 </ThemedText>
               )}
             </Pressable>
@@ -267,7 +267,7 @@ function ActivityCard({ entry }: { entry: FollowedTitleActivityEntry }) {
         </ThemedText>
       ) : (
         <ThemedText type="small" themeColor="textSecondary">
-          Visione registrata senza commento.
+          Commento non disponibile.
         </ThemedText>
       )}
     </ThemedView>

@@ -5,7 +5,11 @@ import {
 } from '@/services/library';
 import { fetchAllPages } from '@/services/pagination';
 import { getSupabase } from '@/services/supabase';
-import { getTitleDetails, type MediaType } from '@/services/tmdb';
+import {
+  getTitleDetails,
+  posterUrl,
+  type MediaType,
+} from '@/services/tmdb';
 
 export type MonthlyActivity = {
   key: string;
@@ -91,6 +95,22 @@ type EpisodeViewingRow = Omit<EpisodeWatchRow, 'source' | 'watched_on'> & {
   watched_on: string;
   rating: number | null;
   note: string | null;
+};
+
+type SeriesViewingDiaryRow = {
+  id: string;
+  watched_on: string;
+  rating: number | null;
+  note: string | null;
+  created_at: string;
+  library_items: {
+    titles: {
+      tmdb_id: number;
+      media_type: MediaType;
+      title: string;
+      poster_path: string | null;
+    } | null;
+  } | null;
 };
 
 type ActivityEvent = RecentActivity & {
@@ -428,9 +448,47 @@ export async function getPersonalStatisticsByMedia(): Promise<PersonalStatistics
 }
 
 export async function getDiaryEntries(): Promise<RecentActivity[]> {
-  const statistics = await getPersonalStatistics();
-  return statistics.recentActivity.filter(
-    (activity) => activity.rating != null || Boolean(activity.note?.trim()),
+  const supabase = getSupabase();
+  const [statistics, rawSeriesViewings] = await Promise.all([
+    getPersonalStatistics(),
+    fetchAllPages<unknown>((from, to) =>
+      supabase
+        .from('series_viewings')
+        .select(
+          'id, watched_on, rating, note, created_at, library_items ( titles ( tmdb_id, media_type, title, poster_path ) )',
+        )
+        .order('watched_on', { ascending: false })
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
+        .range(from, to),
+    ),
+  ]);
+  const seriesViewings = (rawSeriesViewings as SeriesViewingDiaryRow[])
+    .map((row): RecentActivity | null => {
+      const title = row.library_items?.titles;
+      if (!title || title.media_type !== 'tv') {
+        return null;
+      }
+      return {
+        id: `series-${row.id}`,
+        title: title.title,
+        detail: 'Serie completa',
+        watchedOn: row.watched_on,
+        rating: row.rating,
+        note: row.note,
+        mediaType: 'tv',
+        tmdbId: title.tmdb_id,
+        posterUrl: posterUrl(title.poster_path),
+      };
+    })
+    .filter((entry): entry is RecentActivity => entry != null);
+  return [
+    ...statistics.recentActivity.filter(
+      (activity) => activity.rating != null || Boolean(activity.note?.trim()),
+    ),
+    ...seriesViewings,
+  ].sort(
+    (a, b) => b.watchedOn.localeCompare(a.watchedOn),
   );
 }
 

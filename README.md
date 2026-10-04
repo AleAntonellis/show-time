@@ -139,7 +139,9 @@ Le liste personali e il login usano [Supabase](https://supabase.com) (free tier)
    `0007_movie_imports.sql`, quindi `0008_follower_profiles.sql` e
    `0009_followed_title_activity.sql`, infine
    `0010_watch_region_preference.sql` e
-   `0011_reconcile_series_status.sql`
+   `0011_reconcile_series_status.sql`, poi
+   `0012_series_reviews.sql`, `0013_series_viewings.sql` e
+   `0014_followed_commented_activity.sql`
 3. In **Project Settings → API** copia *Project URL* e *anon public key*
 4. Aggiungili in `.env.local`:
    ```
@@ -209,6 +211,7 @@ PostgREST di 1000 righe non tronca i contatori degli account con molto storico.
 - [x] Salvataggio titoli nelle liste (visto / da vedere / in corso)
 - [x] Distinzione film / serie — film con 3 stati, **serie con tracking per episodio**
 - [x] Note e voto per singola visione di film ed episodi
+- [x] Note e voti per più visioni complete delle serie, inclusi i rewatch
 - [x] TMDB — dettaglio titolo, cast, regia, uscite e nuove stagioni
 - [x] Azioni Libreria nella scheda titolo + tracking/note inline per gli episodi
 - [x] Statistiche contestuali per media (ore, generi, trend e ultimi 30 giorni)
@@ -223,9 +226,11 @@ PostgREST di 1000 righe non tronca i contatori degli account con molto storico.
 - [x] Scheda persona TMDB con biografia, filmografie e stato Libreria
 - [x] Condivisione singolo titolo via link
 - [x] Contatti e condivisione interna con Inbox
+- [x] Messaggi Inbox e commenti Diario espandibili inline
 - [x] Inviti da link esterno con consenso e contatto reciproco
 - [x] Profili follower read-only con Libreria e Diario
 - [x] Visioni e recensioni dei contatti nella scheda del titolo
+- [x] “Dai tuoi contatti” limitato alle attività con commento testuale
 - [x] “Dove guardarlo” per paese con provider TMDB/JustWatch e cache persistente
 - [x] Centro reminder in-app per nuove stagioni / uscite entro 10 giorni
 - [x] Diario delle visioni commentate o valutate

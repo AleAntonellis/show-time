@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ExpandableQuotedText } from '@/components/expandable-quoted-text';
 import {
   BottomTabInset,
   Brand,
@@ -332,9 +333,7 @@ export default function InboxTabScreen() {
                         )}
                       </View>
                       {share.message && (
-                        <ThemedText type="small" numberOfLines={3} style={styles.message}>
-                          “{share.message}”
-                        </ThemedText>
+                        <ExpandableQuotedText text={share.message} />
                       )}
                       <ThemedText type="small" themeColor="textSecondary">
                         {formatDate(share.createdAt)}
@@ -465,6 +464,7 @@ const styles = StyleSheet.create({
   },
   cardCopy: {
     flex: 1,
+    minWidth: 0,
     gap: Spacing.half,
   },
   cardHeading: {
@@ -493,9 +493,6 @@ const styles = StyleSheet.create({
   warning: {
     color: Brand.sunsetOrange,
     textAlign: 'center',
-  },
-  message: {
-    fontStyle: 'italic',
   },
   pressed: {
     opacity: 0.8,

@@ -63,6 +63,9 @@ leggera, condivisione via link privato, tema dark esclusivo.
 | D41 | Cast e regia nei dettagli | Primi 10 interpreti seguiti dallo slider dei registi; crediti aggregati per le serie | Mostra foto, nomi, personaggi ed episodi diretti senza bloccare il dettaglio principale |
 | D42 | Dettaglio persona | Profilo TMDB con tab Interprete/Regia, filtri media indipendenti e 30 titoli progressivi | Gestisce persone con più ruoli e filmografie estese senza sovraccaricare la pagina |
 | D43 | Libreria nella filmografia | Badge esplicito In libreria / Non in libreria, aggiornato al ritorno dal titolo | Consente di distinguere subito i titoli già gestiti senza caricare storico episodi e visioni |
+| D44 | Testi lunghi social/Diario | Tre righe iniziali con Leggi tutto / Mostra meno direttamente nella card | Rende leggibile il testo completo senza nuove route né navigazioni involontarie |
+| D45 | Visioni complete serie | Storico multiplo con data, nota e voto, separato dal tracking episodio | Allinea l’UX ai film e supporta i rewatch senza duplicare progresso o ore |
+| D46 | Commenti dei contatti | “Dai tuoi contatti” mostra solo visioni e recensioni con nota testuale | Elimina spunte e voti isolati, lasciando solo contenuti social leggibili |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -101,6 +104,7 @@ Migrations in [`../supabase/migrations/`](../supabase/migrations).
 | `viewings` | Una riga per visione (nota + voto per singola visione) |
 | `episode_watches` | Episodi visti per le serie (per il tracking per episodio) |
 | `episode_viewings` | Più visioni dello stesso episodio, ciascuna con data, nota e voto |
+| `series_viewings` | Più visioni complete della serie, ciascuna con data, nota e voto |
 | `user_follows` | Richieste e relazioni accettate tra profili pubblici |
 | `title_shares` | Titoli inviati tra contatti, messaggio e stato letto |
 | `title_share_invites` | Inviti esterni monouso con hash, scadenza e account destinatario |
@@ -411,6 +415,24 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   Il controllo usa una query paginata sulle sole chiavi media/TMDB, senza aggregare
   episodi e visioni, e si aggiorna a ogni ritorno sulla pagina. Test end-to-end con
   Breaking Bad già presente e Special Unit aggiunto/rimosso temporaneamente; dati puliti.
+- ✅ Messaggi Inbox e commenti Diario mostrano tre righe e possono essere espansi inline
+  con **Leggi tutto / Mostra meno**. Il toggle ferma la propagazione, quindi non apre
+  involontariamente il titolo; lo stesso comportamento è usato nel Diario dei follower.
+  L'espandibilità è rilevata misurando le righe reali, non il numero di caratteri.
+  Verificati il messaggio Inbox su Matthew Perry (60→80→60 px) e una nota Diario
+  temporanea sotto i 120 caratteri; URL invariati, viewport 390 px senza overflow e
+  successiva rimozione completa del dato di prova.
+- ✅ Aggiunto **Note e visioni** anche alle serie, con lo stesso modal dei film e storico
+  multiplo per i rewatch. `0012` introduce la struttura iniziale e `0013` la converte in
+  `series_viewings`, rimuovendo l’unicità e aggiornando RPC follower/attività titolo.
+  Le visioni complete entrano nel Diario personale e condiviso come “Serie completa”,
+  ma ore, progresso e Statistiche restano basati sugli episodi. Test end-to-end su
+  I Simpson con due visioni (8,0 e 9,0): Diario da 3 a 5, profilo `@ale` a 5, esclusione
+  dalle Statistiche e ritorno a 3 dopo la rimozione; dati temporanei completamente puliti.
+- ✅ **Dai tuoi contatti** ora restituisce solo film, episodi e visioni complete di serie
+  con una nota testuale non vuota. `0014` filtra lato RPC dopo aver calcolato il numero
+  revisione sullo storico completo. Test reali: Ted Lasso da 34 spunte senza commento
+  a zero risultati; Aftersun mantiene il commento di Arianna come Revisione 2, voto 5,0.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.
@@ -424,6 +446,7 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
 ## 6. Prossimi passi (backlog)
 
 - [x] Note e voto per singola visione di film ed episodi
+- [x] Storico delle visioni complete delle serie nel Diario
 - [x] Dettaglio titolo TMDB (trama, uscite, nuove stagioni)
 - [x] Statistiche (ore viste, generi, trend mensili)
 - [x] Home “living room” operativa

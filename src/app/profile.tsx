@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ExpandableQuotedText } from '@/components/expandable-quoted-text';
 import { Brand, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import {
@@ -429,9 +430,7 @@ function DiaryCard({
             {entry.detail}
           </ThemedText>
           {entry.note ? (
-            <ThemedText type="small" style={styles.note}>
-              “{entry.note}”
-            </ThemedText>
+            <ExpandableQuotedText text={entry.note} />
           ) : (
             <ThemedText type="small" themeColor="textSecondary">
               Visione valutata senza commento.
@@ -566,6 +565,7 @@ const styles = StyleSheet.create({
   },
   cardCopy: {
     flex: 1,
+    minWidth: 0,
     gap: Spacing.half,
   },
   diaryDay: {
@@ -588,9 +588,6 @@ const styles = StyleSheet.create({
   },
   rating: {
     color: Brand.sunsetOrange,
-  },
-  note: {
-    fontStyle: 'italic',
   },
   loadMore: {
     minHeight: 44,
