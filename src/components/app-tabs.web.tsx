@@ -214,6 +214,21 @@ function BurgerNavigation() {
     });
   }
 
+  function openSearchPerson(personId: number) {
+    suspendedSearch = {
+      pathname,
+      query: searchQuery,
+      scrollOffset: searchScrollOffsetRef.current,
+    };
+    router.push({
+      pathname: '/person',
+      params: {
+        id: String(personId),
+        from: pathname,
+      },
+    });
+  }
+
   return (
     <View style={styles.menuRoot}>
       {(open || searchOpen) && (
@@ -343,6 +358,7 @@ function BurgerNavigation() {
             <TitleSearchResults
               query={searchQuery}
               onOpenTitle={openSearchResult}
+              onOpenPerson={openSearchPerson}
               initialScrollOffset={searchRestoreOffset}
               onScrollOffsetChange={(offset) => {
                 searchScrollOffsetRef.current = offset;

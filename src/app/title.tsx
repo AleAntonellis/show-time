@@ -23,6 +23,7 @@ import { SeriesEpisodesContent } from '@/components/series-episodes';
 import { ShareInviteBanner } from '@/components/share-invite-banner';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { TitleCreditsSections } from '@/components/title-credits-sections';
 import { WatchProvidersSection } from '@/components/watch-providers-section';
 import { BottomTabInset, Brand, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
@@ -90,6 +91,7 @@ export default function TitleScreen() {
     id?: string | string[];
     from?: string | string[];
     invite?: string | string[];
+    personId?: string | string[];
   }>();
   const insets = useSafeAreaInsets();
   const { session, configured: supabaseConfigured } = useAuth();
@@ -97,6 +99,7 @@ export default function TitleScreen() {
   const idParam = firstParam(params.id);
   const fromParam = firstParam(params.from);
   const inviteToken = firstParam(params.invite);
+  const personIdParam = firstParam(params.personId);
   const backTarget =
     fromParam === '/' ||
     fromParam === '/library' ||
@@ -200,6 +203,18 @@ export default function TitleScreen() {
   function goBack() {
     if (router.canGoBack()) {
       router.back();
+      return;
+    }
+    const personId = personIdParam ? Number(personIdParam) : Number.NaN;
+    if (
+      fromParam === '/person' &&
+      Number.isInteger(personId) &&
+      personId > 0
+    ) {
+      router.replace({
+        pathname: '/person',
+        params: { id: String(personId) },
+      });
       return;
     }
     router.replace(backTarget);
@@ -382,6 +397,7 @@ export default function TitleScreen() {
   return (
     <ThemedView style={styles.container}>
       <ScrollView
+        style={styles.scroll}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.content,
@@ -681,6 +697,12 @@ export default function TitleScreen() {
           )}
         </ThemedView>
 
+        <TitleCreditsSections
+          key={`credits-${details.mediaType}-${details.id}`}
+          mediaType={details.mediaType}
+          tmdbId={details.id}
+        />
+
         {details.nextEpisode && (
           <ThemedView type="backgroundElement" style={styles.section}>
             <ThemedText type="smallBold">Prossimo episodio</ThemedText>
@@ -802,8 +824,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
+  scroll: {
+    width: '100%',
+  },
   content: {
     width: '100%',
+    minWidth: 0,
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
     paddingHorizontal: Spacing.four,

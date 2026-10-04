@@ -688,10 +688,29 @@ export async function removeEpisodeViewing(viewingId: string): Promise<void> {
   }
 }
 
-/** Insieme delle chiavi `mediaType-tmdbId` gia' in libreria (per la UI di ricerca). */
+type SavedLibraryRow = {
+  titles: {
+    tmdb_id: number;
+    media_type: MediaType;
+  } | null;
+};
+
+/** Insieme delle chiavi `mediaType-tmdbId` già presenti in libreria. */
 export async function getSavedKeys(): Promise<Set<string>> {
-  const items = await getLibrary();
-  return new Set(items.map((item) => `${item.mediaType}-${item.tmdbId}`));
+  const rows = (await fetchAllPages<unknown>((from, to) =>
+    getSupabase()
+      .from('library_items')
+      .select('titles ( tmdb_id, media_type )')
+      .order('id', { ascending: true })
+      .range(from, to),
+  )) as SavedLibraryRow[];
+  return new Set(
+    rows.flatMap((row) =>
+      row.titles
+        ? [`${row.titles.media_type}-${row.titles.tmdb_id}`]
+        : [],
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------

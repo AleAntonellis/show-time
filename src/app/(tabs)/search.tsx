@@ -56,6 +56,15 @@ export default function SearchTabScreen() {
         <TitleSearchResults
           query={query}
           contentContainerStyle={{ paddingBottom: bottomInset }}
+          onOpenPerson={(personId) =>
+            router.push({
+              pathname: '/person',
+              params: {
+                id: String(personId),
+                from: '/search',
+              },
+            })
+          }
           onOpenTitle={(title: Title) =>
             router.push({
               pathname: '/title',

@@ -1,8 +1,10 @@
 import {
   getSeasonEpisodes,
+  getTitleCredits,
   getTitleDetails,
   type Episode,
   type MediaType,
+  type TitleCredits,
   type TitleDetails,
 } from '@/services/tmdb';
 
@@ -14,6 +16,7 @@ type CachedValue<T> = {
 const CACHE_TTL_MS = 15 * 60 * 1000;
 const detailCache = new Map<string, CachedValue<TitleDetails>>();
 const seasonCache = new Map<string, CachedValue<Episode[]>>();
+const creditsCache = new Map<string, CachedValue<TitleCredits>>();
 
 async function fromCache<T>(
   cache: Map<string, CachedValue<T>>,
@@ -56,5 +59,18 @@ export function getCachedSeasonEpisodes(
     `${tvId}-${seasonNumber}`,
     forceRefresh,
     () => getSeasonEpisodes(tvId, seasonNumber),
+  );
+}
+
+export function getCachedTitleCredits(
+  mediaType: MediaType,
+  tmdbId: number,
+  forceRefresh = false,
+): Promise<TitleCredits> {
+  return fromCache(
+    creditsCache,
+    `${mediaType}-${tmdbId}`,
+    forceRefresh,
+    () => getTitleCredits(mediaType, tmdbId),
   );
 }

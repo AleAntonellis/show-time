@@ -60,6 +60,9 @@ leggera, condivisione via link privato, tema dark esclusivo.
 | D38 | Trend settimanali | Slider Home + pagina dedicata con i primi 20 TMDB, filtri media e cache oraria | Offre scoperta aggiornata senza rallentare né bloccare i contenuti personali |
 | D39 | Film interrotti | Stato manuale In corso e presenza in Continua a guardare | Consente di ricordare un film iniziato senza registrare una visione completata |
 | D40 | Metriche contestuali | Con filtro Film, nascondere card e testi esclusivamente episodici | Evita valori irrilevanti e rende Home e Statistiche coerenti col media selezionato |
+| D41 | Cast e regia nei dettagli | Primi 10 interpreti seguiti dallo slider dei registi; crediti aggregati per le serie | Mostra foto, nomi, personaggi ed episodi diretti senza bloccare il dettaglio principale |
+| D42 | Dettaglio persona | Profilo TMDB con tab Interprete/Regia, filtri media indipendenti e 30 titoli progressivi | Gestisce persone con più ruoli e filmografie estese senza sovraccaricare la pagina |
+| D43 | Libreria nella filmografia | Badge esplicito In libreria / Non in libreria, aggiornato al ritorno dal titolo | Consente di distinguere subito i titoli già gestiti senza caricare storico episodi e visioni |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -389,6 +392,25 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   card “Episodi completati” sia nei totali sia negli ultimi 30 giorni. Le etichette
   mostrano solo i film e la descrizione del trend mensile non cita gli episodi importati.
   Con `All` e `Serie TV` le metriche episodiche restano disponibili. Verificato a 390 px.
+- ✅ Aggiunti **Cast** e **Diretto da** nella scheda titolo. Dopo i primi 10 interpreti,
+  il secondo slider mostra tutti i registi accreditati con foto; nelle serie sono ordinati per episodi diretti e ne
+  mostrano il conteggio. Il Cast resta limitato ai primi 10 con nome e personaggio.
+  L'ordine della scheda è Trama, Informazioni, Cast e Diretto da.
+  Film e serie condividono un'unica richiesta a `/movie/{id}/credits` o
+  `/tv/{id}/aggregate_credits`, con cache di 15 minuti ed errore con riprova che non
+  blocca il dettaglio. Verificati Digger (1 regista) e Breaking Bad (25 registi),
+  ordine, ruoli, console pulita e assenza di overflow a 390 px.
+- ✅ Aggiunta la route `/person` raggiungibile da Cast, Diretto da e ricerca. Mostra
+  foto, professione, nascita, luogo e biografia espandibile, quindi tab indipendenti
+  **Interprete** e **Regia** con filtri `All / Film / Serie TV`. Le filmografie complete
+  sono deduplicate, ordinate per data e mostrate 30 alla volta con “Mostra altri”.
+  Verificato Bryan Cranston: 155 titoli interpretati dopo esclusione delle apparizioni
+  “Self”, 9 diretti, filtri ruolo/media preservati tornando dai dettagli, ricerca e query
+  ripristinate, console pulita e viewport 390 px senza overflow.
+- ✅ Ogni titolo della filmografia persona mostra **In libreria** o **Non in libreria**.
+  Il controllo usa una query paginata sulle sole chiavi media/TMDB, senza aggregare
+  episodi e visioni, e si aggiorna a ogni ritorno sulla pagina. Test end-to-end con
+  Breaking Bad già presente e Special Unit aggiunto/rimosso temporaneamente; dati puliti.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.
@@ -407,6 +429,7 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
 - [x] Home “living room” operativa
 - [x] Navigazione web compatta con hamburger e logout
 - [x] Ricerca globale per titolo, attore/attrice e regista
+- [x] Dettaglio persona con biografia e filmografie complete
 - [x] Condivisione singolo titolo via link
 - [x] Contatti e condivisione interna con Inbox
 - [x] Link monouso per contatto reciproco e registrazione Inbox

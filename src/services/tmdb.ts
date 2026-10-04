@@ -51,6 +51,24 @@ export type CatalogSearchResult = {
   personSections: PersonTitleSection[];
 };
 
+export type PersonTitleCredit = Title & {
+  credit: string | null;
+  releaseDate: string | null;
+};
+
+export type PersonDetails = {
+  id: number;
+  name: string;
+  biography: string;
+  birthday: string | null;
+  deathday: string | null;
+  placeOfBirth: string | null;
+  knownForDepartment: string | null;
+  profileUrl: string | null;
+  acting: PersonTitleCredit[];
+  directing: PersonTitleCredit[];
+};
+
 export type Title = {
   id: number;
   mediaType: MediaType;
@@ -69,6 +87,25 @@ export type NextEpisode = {
   episodeNumber: number;
   name: string;
   airDate: string | null;
+};
+
+export type CastMember = {
+  id: number;
+  name: string;
+  character: string | null;
+  profileUrl: string | null;
+};
+
+export type DirectorCredit = {
+  id: number;
+  name: string;
+  episodeCount: number | null;
+  profileUrl: string | null;
+};
+
+export type TitleCredits = {
+  cast: CastMember[];
+  directors: DirectorCredit[];
 };
 
 export type TitleDetails = Title & {
@@ -122,6 +159,17 @@ type TmdbPersonSearchResponse = {
   results?: TmdbPersonSearchItem[];
 };
 
+type TmdbPersonDetailsResponse = {
+  id: number;
+  name?: string;
+  biography?: string;
+  birthday?: string | null;
+  deathday?: string | null;
+  place_of_birth?: string | null;
+  profile_path?: string | null;
+  known_for_department?: string;
+};
+
 type TmdbCreditItem = TmdbSearchItem & {
   adult?: boolean;
   popularity?: number;
@@ -134,6 +182,48 @@ type TmdbCreditItem = TmdbSearchItem & {
 type TmdbCombinedCreditsResponse = {
   cast?: TmdbCreditItem[];
   crew?: TmdbCreditItem[];
+};
+
+type TmdbPersonCreditItem = {
+  id?: number;
+  name?: string;
+  profile_path?: string | null;
+  adult?: boolean;
+};
+
+type TmdbMovieCastItem = TmdbPersonCreditItem & {
+  character?: string;
+  order?: number;
+};
+
+type TmdbMovieCrewItem = TmdbPersonCreditItem & {
+  job?: string;
+};
+
+type TmdbTvCastItem = TmdbPersonCreditItem & {
+  order?: number;
+  roles?: {
+    character?: string;
+    episode_count?: number;
+  }[];
+  total_episode_count?: number;
+};
+
+type TmdbTvCrewItem = TmdbPersonCreditItem & {
+  jobs?: {
+    job?: string;
+    episode_count?: number;
+  }[];
+};
+
+type TmdbMovieCreditsResponse = {
+  cast?: TmdbMovieCastItem[];
+  crew?: TmdbMovieCrewItem[];
+};
+
+type TmdbTvAggregateCreditsResponse = {
+  cast?: TmdbTvCastItem[];
+  crew?: TmdbTvCrewItem[];
 };
 
 type TmdbTitleDetailsResponse = {
@@ -221,6 +311,10 @@ export function backdropUrl(path: string | null | undefined): string | null {
 
 function providerLogoUrl(path: string | null | undefined): string | null {
   return path ? `${IMAGE_BASE}/w92${path}` : null;
+}
+
+function profileUrl(path: string | null | undefined): string | null {
+  return path ? `${IMAGE_BASE}/w185${path}` : null;
 }
 
 function buildUrl(path: string, params: Record<string, string> = {}): string {
@@ -322,6 +416,59 @@ function rankedCreditTitles(
     .map((entry) => entry.title);
 }
 
+function personTitleCredits(
+  items: TmdbCreditItem[],
+  creditFor: (item: TmdbCreditItem) => string | null,
+): PersonTitleCredit[] {
+  const byKey = new Map<
+    string,
+    {
+      value: PersonTitleCredit;
+      popularity: number;
+      voteCount: number;
+    }
+  >();
+
+  for (const item of items) {
+    const title = normalizeCredit(item);
+    if (!title) {
+      continue;
+    }
+    const value: PersonTitleCredit = {
+      ...title,
+      credit: creditFor(item),
+      releaseDate: item.release_date ?? item.first_air_date ?? null,
+    };
+    const key = titleKey(title);
+    const candidate = {
+      value,
+      popularity: item.popularity ?? 0,
+      voteCount: item.vote_count ?? 0,
+    };
+    const current = byKey.get(key);
+    if (
+      !current ||
+      (!current.value.credit && Boolean(value.credit)) ||
+      (Boolean(current.value.credit) === Boolean(value.credit) &&
+        candidate.popularity > current.popularity)
+    ) {
+      byKey.set(key, candidate);
+    }
+  }
+
+  return Array.from(byKey.values())
+    .sort(
+      (a, b) =>
+        (b.value.releaseDate ?? '').localeCompare(
+          a.value.releaseDate ?? '',
+        ) ||
+        b.voteCount - a.voteCount ||
+        b.popularity - a.popularity ||
+        a.value.title.localeCompare(b.value.title, 'it'),
+    )
+    .map((entry) => entry.value);
+}
+
 /** Cerca film e serie TV per titolo. */
 export async function searchTitles(query: string): Promise<Title[]> {
   const trimmed = query.trim();
@@ -386,6 +533,7 @@ export function getWeeklyTrendingTitles(
 }
 
 const personCreditsCache = new Map<number, Promise<TmdbCombinedCreditsResponse>>();
+const personDetailsCache = new Map<number, Promise<PersonDetails>>();
 const catalogSearchCache = new Map<string, Promise<CatalogSearchResult>>();
 const MAX_CATALOG_SEARCH_CACHE_ENTRIES = 50;
 
@@ -401,6 +549,58 @@ function getPersonCredits(personId: number): Promise<TmdbCombinedCreditsResponse
     throw error;
   });
   personCreditsCache.set(personId, requestPromise);
+  return requestPromise;
+}
+
+async function loadPersonDetails(personId: number): Promise<PersonDetails> {
+  const [person, credits] = await Promise.all([
+    request<TmdbPersonDetailsResponse>(`/person/${personId}`),
+    getPersonCredits(personId),
+  ]);
+  const name = person.name?.trim();
+  if (!name) {
+    throw new Error('Profilo TMDB non valido');
+  }
+
+  const acting = personTitleCredits(
+    (credits.cast ?? []).filter(
+      (credit) =>
+        !/\b(self|himself|herself|themself|themselves)\b/i.test(
+          credit.character ?? '',
+        ),
+    ),
+    (credit) => credit.character?.trim() || null,
+  );
+  const directing = personTitleCredits(
+    (credits.crew ?? []).filter((credit) => credit.job === 'Director'),
+    () => 'Regia',
+  );
+
+  return {
+    id: person.id,
+    name,
+    biography: person.biography?.trim() ?? '',
+    birthday: person.birthday ?? null,
+    deathday: person.deathday ?? null,
+    placeOfBirth: person.place_of_birth?.trim() || null,
+    knownForDepartment: person.known_for_department?.trim() || null,
+    profileUrl: profileUrl(person.profile_path),
+    acting,
+    directing,
+  };
+}
+
+/** Profilo TMDB con filmografie complete come interprete e regista. */
+export function getPersonDetails(personId: number): Promise<PersonDetails> {
+  const cached = personDetailsCache.get(personId);
+  if (cached) {
+    return cached;
+  }
+  const requestPromise = loadPersonDetails(personId).catch((error) => {
+    personDetailsCache.delete(personId);
+    throw error;
+  });
+  personDetailsCache.set(personId, requestPromise);
   return requestPromise;
 }
 
@@ -570,6 +770,120 @@ export async function getTitleDetails(
     lastEpisode,
     nextEpisode,
   };
+}
+
+/** Regia e primi dieci interpreti di un film o dell'intera serie TV. */
+export async function getTitleCredits(
+  mediaType: MediaType,
+  titleId: number,
+): Promise<TitleCredits> {
+  if (mediaType === 'movie') {
+    const data = await request<TmdbMovieCreditsResponse>(
+      `/movie/${titleId}/credits`,
+    );
+    const cast = (data.cast ?? [])
+      .filter(
+        (member): member is TmdbMovieCastItem & { id: number; name: string } =>
+          !member.adult &&
+          Number.isInteger(member.id) &&
+          Number(member.id) > 0 &&
+          Boolean(member.name?.trim()),
+      )
+      .sort(
+        (a, b) =>
+          (a.order ?? Number.MAX_SAFE_INTEGER) -
+          (b.order ?? Number.MAX_SAFE_INTEGER),
+      )
+      .slice(0, 10)
+      .map((member) => ({
+        id: member.id,
+        name: member.name.trim(),
+        character: member.character?.trim() || null,
+        profileUrl: profileUrl(member.profile_path),
+      }));
+    const directors = (data.crew ?? [])
+      .filter(
+        (
+          member,
+        ): member is TmdbMovieCrewItem & { id: number; name: string } =>
+          !member.adult &&
+          member.job === 'Director' &&
+          Number.isInteger(member.id) &&
+          Number(member.id) > 0 &&
+          Boolean(member.name?.trim()),
+      )
+      .filter(
+        (member, index, members) =>
+          members.findIndex((candidate) => candidate.id === member.id) === index,
+      )
+      .map((member) => ({
+        id: member.id,
+        name: member.name.trim(),
+        episodeCount: null,
+        profileUrl: profileUrl(member.profile_path),
+      }));
+    return { cast, directors };
+  }
+
+  const data = await request<TmdbTvAggregateCreditsResponse>(
+    `/tv/${titleId}/aggregate_credits`,
+  );
+  const cast = (data.cast ?? [])
+    .filter(
+      (member): member is TmdbTvCastItem & { id: number; name: string } =>
+        !member.adult &&
+        Number.isInteger(member.id) &&
+        Number(member.id) > 0 &&
+        Boolean(member.name?.trim()),
+    )
+    .sort(
+      (a, b) =>
+        (a.order ?? Number.MAX_SAFE_INTEGER) -
+          (b.order ?? Number.MAX_SAFE_INTEGER) ||
+        (b.total_episode_count ?? 0) - (a.total_episode_count ?? 0),
+    )
+    .slice(0, 10)
+    .map((member) => {
+      const character = [...(member.roles ?? [])]
+        .sort(
+          (a, b) => (b.episode_count ?? 0) - (a.episode_count ?? 0),
+        )
+        .map((role) => role.character?.trim())
+        .find((role): role is string => Boolean(role));
+      return {
+        id: member.id,
+        name: member.name.trim(),
+        character: character ?? null,
+        profileUrl: profileUrl(member.profile_path),
+      };
+    });
+  const directors = (data.crew ?? [])
+    .filter(
+      (member): member is TmdbTvCrewItem & { id: number; name: string } =>
+        !member.adult &&
+        Number.isInteger(member.id) &&
+        Number(member.id) > 0 &&
+        Boolean(member.name?.trim()),
+    )
+    .map((member) => ({
+      member,
+      episodeCount: (member.jobs ?? [])
+        .filter((job) => job.job === 'Director')
+        .reduce((total, job) => total + (job.episode_count ?? 0), 0),
+    }))
+    .filter((entry) => entry.episodeCount > 0)
+    .sort(
+      (a, b) =>
+        b.episodeCount - a.episodeCount ||
+        a.member.name.localeCompare(b.member.name, 'it'),
+    )
+    .map(({ member, episodeCount }) => ({
+      id: member.id,
+      name: member.name.trim(),
+      episodeCount,
+      profileUrl: profileUrl(member.profile_path),
+    }));
+  return { cast, directors };
 }
 
 function normalizeWatchProviders(

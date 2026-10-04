@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Pressable,
   ScrollView,
   StyleSheet,
   View,
@@ -32,12 +33,14 @@ type SearchState = {
 export function TitleSearchResults({
   query,
   onOpenTitle,
+  onOpenPerson,
   contentContainerStyle,
   initialScrollOffset = 0,
   onScrollOffsetChange,
 }: {
   query: string;
   onOpenTitle: (title: Title) => void;
+  onOpenPerson: (personId: number) => void;
   contentContainerStyle?: StyleProp<ViewStyle>;
   initialScrollOffset?: number;
   onScrollOffsetChange?: (offset: number) => void;
@@ -225,6 +228,7 @@ export function TitleSearchResults({
               canSave={canSave}
               onOpenTitle={onOpenTitle}
               onSaveTitle={saveTitle}
+              onOpenPerson={() => onOpenPerson(section.personId)}
             />
           ))}
         </>
@@ -242,6 +246,7 @@ function SearchSection({
   canSave,
   onOpenTitle,
   onSaveTitle,
+  onOpenPerson,
 }: {
   title: string;
   subtitle?: string;
@@ -251,15 +256,25 @@ function SearchSection({
   canSave: boolean;
   onOpenTitle: (title: Title) => void;
   onSaveTitle: (title: Title) => void;
+  onOpenPerson?: () => void;
 }) {
   return (
     <View style={styles.section}>
-      <View style={styles.sectionHeading}>
-        <ThemedText type="smallBold">{title}</ThemedText>
-        {subtitle && (
-          <ThemedText type="small" themeColor="textSecondary">
-            {subtitle}
-          </ThemedText>
+      <View style={styles.sectionHeadingRow}>
+        <View style={styles.sectionHeading}>
+          <ThemedText type="smallBold">{title}</ThemedText>
+          {subtitle && (
+            <ThemedText type="small" themeColor="textSecondary">
+              {subtitle}
+            </ThemedText>
+          )}
+        </View>
+        {onOpenPerson && (
+          <Pressable onPress={onOpenPerson} hitSlop={8}>
+            <ThemedText type="smallBold" style={styles.personLink}>
+              Profilo ›
+            </ThemedText>
+          </Pressable>
         )}
       </View>
       <View style={styles.grid}>
@@ -311,7 +326,19 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   sectionHeading: {
+    flex: 1,
+    minWidth: 0,
     gap: Spacing.half,
+  },
+  sectionHeadingRow: {
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  personLink: {
+    color: Brand.sunsetOrange,
   },
   grid: {
     width: '100%',
