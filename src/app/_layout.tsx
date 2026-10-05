@@ -7,6 +7,7 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthScreen } from '@/components/auth-screen';
+import { BadgeUnlockOverlay } from '@/components/badge-unlock-overlay';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { UsernameSetupScreen } from '@/components/username-setup-screen';
@@ -151,6 +152,7 @@ export default function RootLayout() {
       <AuthProvider>
         <AnimatedSplashOverlay />
         <AuthGate />
+        <BadgeUnlockOverlay />
       </AuthProvider>
     </ThemeProvider>
   );

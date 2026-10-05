@@ -66,6 +66,8 @@ leggera, condivisione via link privato, tema dark esclusivo.
 | D44 | Testi lunghi social/Diario | Tre righe iniziali con Leggi tutto / Mostra meno direttamente nella card | Rende leggibile il testo completo senza nuove route né navigazioni involontarie |
 | D45 | Visioni complete serie | Storico multiplo con data, nota e voto, separato dal tracking episodio | Allinea l’UX ai film e supporta i rewatch senza duplicare progresso o ore |
 | D46 | Commenti dei contatti | “Dai tuoi contatti” mostra solo visioni e recensioni con nota testuale | Elimina spunte e voti isolati, lasciando solo contenuti social leggibili |
+| D47 | Fondazioni badge | Definizioni DB versionate, valutatori TypeScript in Edge Function e progressi RLS | Impedisce scritture client e mantiene sblocchi idempotenti e verificabili |
+| D48 | Sala trofei Cinefilo | Patch a quattro livelli, progresso massimo, menu unseen e banner aggregato | Prima verticale badge completa, mobile-first e non bloccante |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -433,6 +435,19 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   con una nota testuale non vuota. `0014` filtra lato RPC dopo aver calcolato il numero
   revisione sullo storico completo. Test reali: Ted Lasso da 34 spunte senza commento
   a zero risultati; Aftersun mantiene il commento di Arianna come Revisione 2, voto 5,0.
+- ✅ Completata la **Fase 1 badge** con migration `0015` e fix `0016`: famiglie e livelli
+  versionati, progressi corrente/massimo, sblocchi permanenti, unseen state, RLS e RPC
+  idempotente riservata al `service_role`. La Supabase Edge Function autenticata contiene
+  registry e valutatore Cinefilo; il client può soltanto invocare e leggere. Test
+  `@testshowtime`: progresso `3/50`, seconda valutazione idempotente, quattro livelli
+  leggibili e scrittura diretta bloccata `403`. Test SQL transazionale a 500: tre livelli
+  senza duplicati, massimo storico 500 dopo regressione a 3 e rollback senza dati fittizi.
+- ✅ Completata la prima verticale **Cinefilo**: Sala trofei `/badges`, patch illustrate
+  Bronzo/Argento/Oro/Platino, progresso massimo, prossimo livello, menu globale con unseen
+  e banner aggregato. Backfill automatico al login e rivalutazione non bloccante dopo
+  mutazioni Libreria. Test `@testshowtime`: UI `3/50`, refresh idempotente e cambio
+  reversibile Matrix `Visto → Da vedere → Visto`, con progresso corrente `3→2→3`,
+  massimo storico sempre `3`, nessuna visione creata e layout 360/390 px senza overflow.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

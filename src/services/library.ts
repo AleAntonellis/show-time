@@ -5,6 +5,7 @@
  * Serie → tracking per episodio; lo stato è derivato dal progresso.
  */
 
+import { queueBadgeEvaluation } from '@/services/badges';
 import { fetchAllPages } from '@/services/pagination';
 import { getSupabase } from '@/services/supabase';
 import { getTvDetails, posterUrl, type MediaType, type Title } from '@/services/tmdb';
@@ -242,6 +243,7 @@ export async function addToLibrary(title: Title, status: LibraryStatus): Promise
   if (error) {
     throw new Error(error.message);
   }
+  queueBadgeEvaluation();
 }
 
 /** Ritorna tutti i titoli in libreria, con il conteggio episodi visti per le serie. */
@@ -392,6 +394,7 @@ export async function updateStatus(itemId: string, status: LibraryStatus): Promi
   if (error) {
     throw new Error(error.message);
   }
+  queueBadgeEvaluation();
 }
 
 /** Registra un film come visto oggi oppure come visione importata senza data. */
@@ -414,6 +417,7 @@ export async function recordMovieWatched(
   if (error) {
     throw new Error(error.message);
   }
+  queueBadgeEvaluation();
 }
 
 async function setImportedViewings(
@@ -532,6 +536,7 @@ export async function removeFromLibrary(itemId: string): Promise<void> {
   if (error) {
     throw new Error(error.message);
   }
+  queueBadgeEvaluation();
 }
 
 /** Ritorna lo storico delle visioni di un film, dalla piu' recente. */

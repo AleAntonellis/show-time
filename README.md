@@ -141,7 +141,9 @@ Le liste personali e il login usano [Supabase](https://supabase.com) (free tier)
    `0010_watch_region_preference.sql` e
    `0011_reconcile_series_status.sql`, poi
    `0012_series_reviews.sql`, `0013_series_viewings.sql` e
-   `0014_followed_commented_activity.sql`
+   `0014_followed_commented_activity.sql`, quindi
+   `0015_badge_foundations.sql` e
+   `0016_fix_badge_evaluation_conflicts.sql`
 3. In **Project Settings → API** copia *Project URL* e *anon public key*
 4. Aggiungili in `.env.local`:
    ```
@@ -224,6 +226,8 @@ PostgREST di 1000 righe non tronca i contatori degli account con molto storico.
 - [x] Navigazione web compatta con hamburger, ricerca globale e logout
 - [x] Ricerca per titolo, attore/attrice e regista
 - [x] Scheda persona TMDB con biografia, filmografie e stato Libreria
+- [x] Fondazioni badge: schema, RLS, progressi, Edge Function e registry versionato
+- [x] Sala trofei Cinefilo con patch, progresso, menu e banner sblocco
 - [x] Condivisione singolo titolo via link
 - [x] Contatti e condivisione interna con Inbox
 - [x] Messaggi Inbox e commenti Diario espandibili inline

@@ -1,4 +1,4 @@
-import { router, usePathname } from 'expo-router';
+import { router, usePathname, type Href } from 'expo-router';
 import {
   Tabs,
   TabList,
@@ -23,6 +23,11 @@ import { TitleSearchResults } from '@/components/title-search-results';
 import { Brand, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
+import {
+  getUnseenBadgeCount,
+  markMyBadgesSeen,
+  subscribeToBadgeUnlocks,
+} from '@/services/badges';
 import { getReminderCenter } from '@/services/reminders';
 import {
   getUnreadShareCount,
@@ -48,6 +53,7 @@ export default function AppTabs() {
         <TabTrigger name="search" href="/search" />
         <TabTrigger name="library" href="/library" />
         <TabTrigger name="stats" href="/stats" />
+        <TabTrigger name="badges" href={'/badges' as Href} />
         <TabTrigger name="reminders" href="/reminders" />
         <TabTrigger name="diary" href="/diary" />
         <TabTrigger name="calendar" href="/calendar" />
@@ -82,6 +88,8 @@ function BurgerNavigation() {
   const [reminderError, setReminderError] = useState<string | null>(null);
   const [shareUnreadCount, setShareUnreadCount] = useState(0);
   const [shareError, setShareError] = useState<string | null>(null);
+  const [badgeUnreadCount, setBadgeUnreadCount] = useState(0);
+  const [badgeError, setBadgeError] = useState<string | null>(null);
 
   useEffect(() => {
     if (restoredSearch) {
@@ -105,6 +113,44 @@ function BurgerNavigation() {
         if (!cancelled) {
           setReminderError(
             err instanceof Error ? err.message : 'Reminder non disponibili',
+          );
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [configured, pathname, session]);
+
+  useEffect(
+    () =>
+      subscribeToBadgeUnlocks((count) => {
+        setBadgeUnreadCount((current) =>
+          pathname === '/badges' ? 0 : current + count,
+        );
+      }),
+    [pathname],
+  );
+
+  useEffect(() => {
+    if (!configured || !session) {
+      return;
+    }
+    let cancelled = false;
+    const loadBadgeCount =
+      pathname === '/badges'
+        ? markMyBadgesSeen().then(() => 0)
+        : getUnseenBadgeCount();
+    loadBadgeCount
+      .then((count) => {
+        if (!cancelled) {
+          setBadgeUnreadCount(count);
+          setBadgeError(null);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setBadgeError(
+            err instanceof Error ? err.message : 'Badge non disponibili',
           );
         }
       });
@@ -376,6 +422,14 @@ function BurgerNavigation() {
             <TabTrigger name="stats" asChild>
               <MenuTabButton onSelected={() => setOpen(false)}>Statistiche</MenuTabButton>
             </TabTrigger>
+            <TabTrigger name="badges" asChild>
+              <MenuTabButton
+                count={badgeUnreadCount}
+                hasError={badgeError != null}
+                onSelected={() => setOpen(false)}>
+                Sala trofei
+              </MenuTabButton>
+            </TabTrigger>
             <TabTrigger name="diary" asChild>
               <MenuTabButton onSelected={() => setOpen(false)}>Diario</MenuTabButton>
             </TabTrigger>
@@ -423,6 +477,11 @@ function BurgerNavigation() {
             {shareError && (
               <ThemedText type="small" style={styles.error}>
                 Inbox: {shareError}
+              </ThemedText>
+            )}
+            {badgeError && (
+              <ThemedText type="small" style={styles.error}>
+                Badge: {badgeError}
               </ThemedText>
             )}
           </ThemedView>
@@ -554,7 +613,11 @@ function HomeTabButton({
   onSelected,
   onPress,
   ...props
-}: TabTriggerSlotProps & { onSelected: () => void }) {
+}: TabTriggerSlotProps & {
+  count?: number;
+  hasError?: boolean;
+  onSelected: () => void;
+}) {
   const theme = useTheme();
 
   function handlePress(event: GestureResponderEvent) {
@@ -609,10 +672,16 @@ function SearchActionButton({ onPress }: { onPress: () => void }) {
 function MenuTabButton({
   children,
   isFocused,
+  count = 0,
+  hasError = false,
   onSelected,
   onPress,
   ...props
-}: TabTriggerSlotProps & { onSelected: () => void }) {
+}: TabTriggerSlotProps & {
+  count?: number;
+  hasError?: boolean;
+  onSelected: () => void;
+}) {
   function handlePress(event: GestureResponderEvent) {
     onPress?.(event);
     onSelected();
@@ -626,9 +695,24 @@ function MenuTabButton({
       <ThemedView
         type={isFocused ? 'backgroundSelected' : 'backgroundElement'}
         style={styles.menuItemInner}>
-        <ThemedText type="smallBold" themeColor={isFocused ? 'text' : 'textSecondary'}>
-          {children}
-        </ThemedText>
+        <View style={styles.menuItemLabel}>
+          <ThemedText
+            type="smallBold"
+            themeColor={isFocused ? 'text' : 'textSecondary'}>
+            {children}
+          </ThemedText>
+          {(count > 0 || hasError) && (
+            <View
+              style={[
+                styles.menuBadge,
+                hasError && styles.menuBadgeError,
+              ]}>
+              <ThemedText type="smallBold" style={styles.menuBadgeText}>
+                {hasError ? '!' : count > 99 ? '99+' : String(count)}
+              </ThemedText>
+            </View>
+          )}
+        </View>
         <ThemedText type="small" themeColor="textSecondary">
           ›
         </ThemedText>
@@ -858,6 +942,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     borderRadius: Spacing.two,
     paddingHorizontal: Spacing.three,
+  },
+  menuItemLabel: {
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  menuBadge: {
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.half,
+    borderRadius: 10,
+    backgroundColor: Brand.softViolet,
+  },
+  menuBadgeError: {
+    backgroundColor: '#D9364F',
+  },
+  menuBadgeText: {
+    color: Brand.pureWhite,
+    fontSize: 10,
+    lineHeight: 12,
   },
   divider: {
     height: StyleSheet.hairlineWidth,

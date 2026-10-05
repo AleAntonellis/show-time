@@ -30,15 +30,20 @@
     "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
+    "@supabase/functions-js": "^2.117.2",
+    "@supabase/server": "^1.9.0",
+    "@types/node": "^26.6.4",
     "@types/react": "~19.2.2",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.2",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start",
     "build": "expo export --platform web",
     "build:web": "expo export --platform web",
+    "test:badges": "tsx --test tests/badges/*.test.ts",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
