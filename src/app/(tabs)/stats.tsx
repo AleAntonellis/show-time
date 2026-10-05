@@ -144,6 +144,9 @@ export default function StatisticsTabScreen() {
   const bottomInset = insets.bottom + BottomTabInset + Spacing.four;
   const statistics: PersonalStatistics | null =
     statisticsByMedia?.[mediaFilter] ?? null;
+  const libraryTitles = statistics
+    ? statistics.watchlist + statistics.inProgress + statistics.completed
+    : 0;
   const catalogMediaLabel = statistics
     ? mediaFilter === 'movie'
       ? `${statistics.movies} film`
@@ -187,7 +190,7 @@ export default function StatisticsTabScreen() {
           </View>
         ) : error ? (
           <StateMessage title="Ops" body={error} />
-        ) : !statistics || statistics.totalTitles === 0 ? (
+        ) : !statistics || libraryTitles === 0 ? (
           <StateMessage
             title="Nessun dato da analizzare"
             body={
@@ -227,7 +230,7 @@ export default function StatisticsTabScreen() {
 
             <View style={styles.totalsSection}>
               <ThemedText type="smallBold" themeColor="textSecondary">
-                Totali catalogo
+                Totali completati
               </ThemedText>
               <View style={styles.summaryGrid}>
                 <SummaryCard

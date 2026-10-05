@@ -10,6 +10,10 @@ import {
   posterUrl,
   type MediaType,
 } from '@/services/tmdb';
+import {
+  getCompletedCatalogTotals,
+  getCompletedRuntimeMinutes,
+} from '@/services/statistics-calculations';
 
 export type MonthlyActivity = {
   key: string;
@@ -335,63 +339,13 @@ function buildPersonalStatistics(
   const ratings = events
     .map((event) => event.rating)
     .filter((rating): rating is number => rating != null);
-  const movieViewingCountByItem = new Map<string, number>();
-  for (const row of movieRows) {
-    movieViewingCountByItem.set(
-      row.library_item_id,
-      (movieViewingCountByItem.get(row.library_item_id) ?? 0) + 1,
-    );
-  }
-  let estimatedMinutes = 0;
-  for (const item of items) {
-    if (item.mediaType !== 'movie') {
-      continue;
-    }
-    const explicitViewings = movieViewingCountByItem.get(item.id) ?? 0;
-    const compatibilityFallback =
-      explicitViewings === 0 &&
-      item.importedViewings === 0 &&
-      item.status === 'watched'
-        ? 1
-        : 0;
-    const catalogedViewings =
-      item.importedViewings + explicitViewings + compatibilityFallback;
-    estimatedMinutes += catalogedViewings * (item.runtime ?? 0);
-  }
-
-  const episodeViewingCountByKey = new Map<string, number>();
-  for (const row of episodeViewingRows) {
-    const key = episodeKey(
-      row.library_item_id,
-      row.season_number,
-      row.episode_number,
-    );
-    episodeViewingCountByKey.set(
-      key,
-      (episodeViewingCountByKey.get(key) ?? 0) + 1,
-    );
-  }
-  const watchedEpisodeKeys = new Set<string>();
-  for (const row of episodeWatchRows) {
-    const key = episodeKey(
-      row.library_item_id,
-      row.season_number,
-      row.episode_number,
-    );
-    watchedEpisodeKeys.add(key);
-    const explicitViewings = episodeViewingCountByKey.get(key) ?? 0;
-    const catalogedViewings = Math.max(explicitViewings, 1);
-    const item = itemById.get(row.library_item_id);
-    estimatedMinutes += catalogedViewings * (item?.runtime ?? 0);
-  }
-  for (const [key, explicitViewings] of episodeViewingCountByKey) {
-    if (watchedEpisodeKeys.has(key)) {
-      continue;
-    }
-    const libraryItemId = key.split('|', 1)[0];
-    const item = itemById.get(libraryItemId);
-    estimatedMinutes += explicitViewings * (item?.runtime ?? 0);
-  }
+  const completedCatalog = getCompletedCatalogTotals(items);
+  const estimatedMinutes = getCompletedRuntimeMinutes({
+    items,
+    movieViewings: movieRows,
+    episodeWatches: episodeWatchRows,
+    episodeViewings: episodeViewingRows,
+  });
   const genreCounts = new Map<string, number>();
   for (const item of items) {
     for (const genre of new Set(item.genres)) {
@@ -407,12 +361,10 @@ function buildPersonalStatistics(
   );
 
   return {
-    totalTitles: items.length,
-    movies: items.filter((item) => item.mediaType === 'movie').length,
-    series: items.filter((item) => item.mediaType === 'tv').length,
+    ...completedCatalog,
     watchlist: items.filter((item) => item.status === 'to_watch').length,
     inProgress: items.filter((item) => item.status === 'watching').length,
-    completed: items.filter((item) => item.status === 'watched').length,
+    completed: completedCatalog.totalTitles,
     watchedEpisodes: episodeWatchRows.length,
     importedEpisodes: episodeWatchRows.filter((row) => row.source === 'imported').length,
     viewingCount: events.length,

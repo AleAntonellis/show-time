@@ -3,7 +3,7 @@
 Registro cronologico delle **decisioni** e dei **progressi** del progetto, così da non perdere nulla.
 Documento vivo: aggiornato a ogni passo di lavoro.
 
-> Ultimo aggiornamento: 2026-09-30 (dettaglio titolo TMDB)
+> Ultimo aggiornamento: 2026-10-05 (statistiche dei contenuti completati)
 
 ---
 
@@ -68,6 +68,7 @@ leggera, condivisione via link privato, tema dark esclusivo.
 | D46 | Commenti dei contatti | “Dai tuoi contatti” mostra solo visioni e recensioni con nota testuale | Elimina spunte e voti isolati, lasciando solo contenuti social leggibili |
 | D47 | Fondazioni badge | Definizioni DB versionate, valutatori TypeScript in Edge Function e progressi RLS | Impedisce scritture client e mantiene sblocchi idempotenti e verificabili |
 | D48 | Sala trofei Cinefilo | Patch a quattro livelli, progresso massimo, menu unseen e banner aggregato | Prima verticale badge completa, mobile-first e non bloccante |
+| D49 | Totali Statistiche | Titoli, episodi e tempo catalogato basati solo sui completati; i rewatch moltiplicano il tempo | Allinea il riepilogo al significato del badge e non attribuisce durata a contenuti non completati |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -448,6 +449,10 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   mutazioni Libreria. Test `@testshowtime`: UI `3/50`, refresh idempotente e cambio
   reversibile Matrix `Visto → Da vedere → Visto`, con progresso corrente `3→2→3`,
   massimo storico sempre `3`, nessuna visione creata e layout 360/390 px senza overflow.
+- ✅ I **Totali completati** delle Statistiche contano solo film e serie nello stato
+  `Visto`; gli episodi restano basati sulle spunte completate. Il tempo catalogato esclude
+  film non completati e storici episodio senza spunta, mentre ogni rewatch valido aggiunge
+  nuovamente la durata, inclusa la combinazione import iniziale + visione successiva.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.
