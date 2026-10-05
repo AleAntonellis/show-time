@@ -12,9 +12,15 @@ type Props = {
   item: LibraryItem;
   onClose: () => void;
   onChanged: () => void;
+  initialRecord?: boolean;
 };
 
-export function MovieViewings({ item, onClose, onChanged }: Props) {
+export function MovieViewings({
+  item,
+  onClose,
+  onChanged,
+  initialRecord = false,
+}: Props) {
   const loadViewings = useCallback(() => getViewings(item.id), [item.id]);
   const createViewing = useCallback(
     (draft: ViewingDraft) =>
@@ -40,6 +46,18 @@ export function MovieViewings({ item, onClose, onChanged }: Props) {
       createViewing={createViewing}
       deleteViewing={deleteViewing}
       onClose={close}
+      formTitle={
+        initialRecord
+          ? 'Registra la visione di oggi'
+          : 'Registra una visione'
+      }
+      primaryActionLabel={
+        initialRecord ? 'Salva nel Diario' : 'Salva visione'
+      }
+      emptyActionLabel={
+        initialRecord ? 'Registra solo visione' : undefined
+      }
+      closeAfterCreate={initialRecord}
     />
   );
 }

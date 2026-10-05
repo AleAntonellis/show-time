@@ -33,6 +33,10 @@ type Props = {
   onClose?: (changed: boolean) => void;
   onChanged?: () => void;
   embedded?: boolean;
+  formTitle?: string;
+  primaryActionLabel?: string;
+  emptyActionLabel?: string;
+  closeAfterCreate?: boolean;
 };
 
 function today(): string {
@@ -71,6 +75,10 @@ export function ViewingHistory({
   onClose,
   onChanged,
   embedded = false,
+  formTitle = 'Registra una visione',
+  primaryActionLabel = 'Salva visione',
+  emptyActionLabel,
+  closeAfterCreate = false,
 }: Props) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -121,7 +129,7 @@ export function ViewingHistory({
     return Math.round(value * 10) / 10;
   }
 
-  async function save() {
+  async function save(emptyOnly = false) {
     if (saving) {
       return;
     }
@@ -130,12 +138,14 @@ export function ViewingHistory({
       return;
     }
 
-    let parsedRating: number | null;
-    try {
-      parsedRating = validateRating();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Voto non valido');
-      return;
+    let parsedRating: number | null = null;
+    if (!emptyOnly) {
+      try {
+        parsedRating = validateRating();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Voto non valido');
+        return;
+      }
     }
 
     setSaving(true);
@@ -143,11 +153,11 @@ export function ViewingHistory({
     try {
       const viewing = await createViewing({
         watchedOn,
-        note: note.trim() || null,
+        note: emptyOnly ? null : note.trim() || null,
         rating: parsedRating,
       });
       setViewings((previous) =>
-        [...previous, viewing].sort(
+        [...previous.filter((item) => item.id !== viewing.id), viewing].sort(
           (a, b) =>
             b.watchedOn.localeCompare(a.watchedOn) || b.createdAt.localeCompare(a.createdAt),
         ),
@@ -157,6 +167,9 @@ export function ViewingHistory({
       setNote('');
       setDirty(true);
       onChanged?.();
+      if (closeAfterCreate) {
+        onClose?.(true);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Impossibile salvare la visione');
     } finally {
@@ -186,12 +199,13 @@ export function ViewingHistory({
     onClose?.(dirty);
   }
 
+  const hasDetails = Boolean(note.trim() || rating.trim());
   const historyContent = (
     <>
       <ThemedView
         type={embedded ? 'backgroundSelected' : 'backgroundElement'}
         style={styles.form}>
-        <ThemedText type="smallBold">Registra una visione</ThemedText>
+        <ThemedText type="smallBold">{formTitle}</ThemedText>
         <View style={styles.fieldsRow}>
           <View style={styles.dateField}>
             <ThemedText type="small" themeColor="textSecondary">
@@ -246,21 +260,40 @@ export function ViewingHistory({
           ]}
         />
         <Pressable
-          onPress={save}
-          disabled={saving}
+          onPress={() => void save()}
+          disabled={saving || (emptyActionLabel != null && !hasDetails)}
           style={({ pressed }) => [
             styles.saveButton,
             pressed && styles.pressed,
-            saving && styles.disabled,
+            (saving || (emptyActionLabel != null && !hasDetails)) &&
+              styles.disabled,
           ]}>
           {saving ? (
             <ActivityIndicator color={Brand.pureWhite} size="small" />
           ) : (
             <ThemedText type="smallBold" style={styles.buttonText}>
-              Salva visione
+              {primaryActionLabel}
             </ThemedText>
           )}
         </Pressable>
+        {emptyActionLabel && !hasDetails && (
+          <Pressable
+            onPress={() => void save(true)}
+            disabled={saving}
+            style={({ pressed }) => [
+              styles.emptySaveButton,
+              pressed && styles.pressed,
+              saving && styles.disabled,
+            ]}>
+            {saving ? (
+              <ActivityIndicator color={Brand.glowBlue} size="small" />
+            ) : (
+              <ThemedText type="smallBold" style={styles.emptySaveText}>
+                {emptyActionLabel}
+              </ThemedText>
+            )}
+          </Pressable>
+        )}
       </ThemedView>
 
       {error && (
@@ -419,6 +452,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Brand.glowBlue,
+  },
+  emptySaveButton: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(47,107,255,0.48)',
+    borderRadius: Spacing.two,
+    backgroundColor: 'rgba(47,107,255,0.08)',
+  },
+  emptySaveText: {
+    color: Brand.glowBlue,
   },
   buttonText: {
     color: Brand.pureWhite,

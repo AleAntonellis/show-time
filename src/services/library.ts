@@ -5,7 +5,11 @@
  * Serie → tracking per episodio; lo stato è derivato dal progresso.
  */
 
-import { queueBadgeEvaluation } from '@/services/badges';
+import {
+  ALL_BADGE_IDS,
+  BADGE_IDS,
+  queueBadgeEvaluation,
+} from '@/services/badges';
 import { fetchAllPages } from '@/services/pagination';
 import { getSupabase } from '@/services/supabase';
 import { getTvDetails, posterUrl, type MediaType, type Title } from '@/services/tmdb';
@@ -243,7 +247,7 @@ export async function addToLibrary(title: Title, status: LibraryStatus): Promise
   if (error) {
     throw new Error(error.message);
   }
-  queueBadgeEvaluation();
+  queueBadgeEvaluation([BADGE_IDS.cinephile]);
 }
 
 /** Ritorna tutti i titoli in libreria, con il conteggio episodi visti per le serie. */
@@ -386,7 +390,11 @@ export async function getLibraryItemByTmdb(
 }
 
 /** Aggiorna lo stato di una voce di libreria (usato per i film). */
-export async function updateStatus(itemId: string, status: LibraryStatus): Promise<void> {
+export async function updateStatus(
+  itemId: string,
+  status: LibraryStatus,
+  badgeIds: readonly string[] = [BADGE_IDS.cinephile],
+): Promise<void> {
   const { error } = await getSupabase()
     .from('library_items')
     .update({ status })
@@ -394,7 +402,7 @@ export async function updateStatus(itemId: string, status: LibraryStatus): Promi
   if (error) {
     throw new Error(error.message);
   }
-  queueBadgeEvaluation();
+  queueBadgeEvaluation(badgeIds);
 }
 
 /** Registra un film come visto oggi oppure come visione importata senza data. */
@@ -417,7 +425,7 @@ export async function recordMovieWatched(
   if (error) {
     throw new Error(error.message);
   }
-  queueBadgeEvaluation();
+  queueBadgeEvaluation([BADGE_IDS.cinephile]);
 }
 
 async function setImportedViewings(
@@ -528,6 +536,7 @@ export async function reclassifyMovieWatched(
     }
     throw classificationError;
   }
+  queueBadgeEvaluation([BADGE_IDS.firstWatch]);
 }
 
 /** Rimuove una voce dalla libreria. */
@@ -536,7 +545,7 @@ export async function removeFromLibrary(itemId: string): Promise<void> {
   if (error) {
     throw new Error(error.message);
   }
-  queueBadgeEvaluation();
+  queueBadgeEvaluation(ALL_BADGE_IDS);
 }
 
 /** Ritorna lo storico delle visioni di un film, dalla piu' recente. */
@@ -562,35 +571,29 @@ export async function addViewing(
   note: string | null,
   rating: number | null,
 ): Promise<Viewing> {
-  const userId = await getUserId();
-  const { data, error } = await getSupabase()
-    .from('viewings')
-    .insert({
-      library_item_id: itemId,
-      user_id: userId,
-      watched_on: watchedOn,
-      note,
-      rating,
-    })
-    .select('id, watched_on, note, rating, created_at')
-    .single();
+  const { data, error } = await getSupabase().rpc(
+    'record_movie_viewing',
+    {
+      p_library_item_id: itemId,
+      p_watched_on: watchedOn,
+      p_note: note,
+      p_rating: rating,
+    },
+  );
   if (error) {
     throw new Error(error.message);
   }
-
-  try {
-    await updateStatus(itemId, 'watched');
-  } catch (statusError) {
-    const { error: rollbackError } = await getSupabase().from('viewings').delete().eq('id', data.id);
-    if (rollbackError) {
-      throw new Error(
-        `${statusError instanceof Error ? statusError.message : 'Stato non aggiornato'}; rollback non riuscito: ${rollbackError.message}`,
-      );
-    }
-    throw statusError;
+  const rows = (data ?? []) as ViewingRow[];
+  if (rows.length !== 1) {
+    throw new Error('La visione salvata non è disponibile');
   }
 
-  return toViewing(data as ViewingRow);
+  queueBadgeEvaluation([
+    BADGE_IDS.cinephile,
+    BADGE_IDS.firstWatch,
+    ...(note?.trim() ? [BADGE_IDS.firstReview] : []),
+  ]);
+  return toViewing(rows[0]);
 }
 
 /** Elimina una singola visione dallo storico. */
@@ -599,6 +602,10 @@ export async function removeViewing(viewingId: string): Promise<void> {
   if (error) {
     throw new Error(error.message);
   }
+  queueBadgeEvaluation([
+    BADGE_IDS.firstWatch,
+    BADGE_IDS.firstReview,
+  ]);
 }
 
 /** Ritorna tutte le visioni di uno specifico episodio, dalla piu' recente. */
@@ -700,6 +707,10 @@ export async function addEpisodeViewing(
     }
   }
 
+  queueBadgeEvaluation([
+    BADGE_IDS.firstWatch,
+    ...(note?.trim() ? [BADGE_IDS.firstReview] : []),
+  ]);
   return toViewing(data as ViewingRow);
 }
 
@@ -717,6 +728,10 @@ export async function removeEpisodeViewing(viewingId: string): Promise<void> {
   if (error) {
     throw new Error(error.message);
   }
+  queueBadgeEvaluation([
+    BADGE_IDS.firstWatch,
+    BADGE_IDS.firstReview,
+  ]);
 }
 
 type SavedLibraryRow = {
@@ -793,6 +808,10 @@ export async function addSeriesViewing(
   if (error) {
     throw new Error(error.message);
   }
+  queueBadgeEvaluation([
+    BADGE_IDS.firstWatch,
+    ...(trimmedNote ? [BADGE_IDS.firstReview] : []),
+  ]);
   return toSeriesViewing(data as SeriesViewingRow);
 }
 
@@ -804,6 +823,10 @@ export async function removeSeriesViewing(viewingId: string): Promise<void> {
   if (error) {
     throw new Error(error.message);
   }
+  queueBadgeEvaluation([
+    BADGE_IDS.firstWatch,
+    BADGE_IDS.firstReview,
+  ]);
 }
 
 // ---------------------------------------------------------------------------
@@ -888,7 +911,8 @@ export async function setEpisodeWatched(
   }
 
   const status = deriveSeriesStatus(watchedCount, totalEpisodes);
-  await updateStatus(itemId, status);
+  await updateStatus(itemId, status, [BADGE_IDS.seasonComplete]);
+  queueBadgeEvaluation([BADGE_IDS.firstWatch]);
   return status;
 }
 
@@ -935,7 +959,8 @@ export async function setSeasonWatched(
   }
 
   const status = deriveSeriesStatus(watchedCount, totalEpisodes);
-  await updateStatus(itemId, status);
+  await updateStatus(itemId, status, [BADGE_IDS.seasonComplete]);
+  queueBadgeEvaluation([BADGE_IDS.firstWatch]);
   return status;
 }
 
@@ -963,4 +988,5 @@ export async function setWatchedEpisodesSource(
   if (error) {
     throw new Error(error.message);
   }
+  queueBadgeEvaluation([BADGE_IDS.firstWatch]);
 }

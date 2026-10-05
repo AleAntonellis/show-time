@@ -3,7 +3,7 @@
 Registro cronologico delle **decisioni** e dei **progressi** del progetto, così da non perdere nulla.
 Documento vivo: aggiornato a ogni passo di lavoro.
 
-> Ultimo aggiornamento: 2026-10-05 (statistiche dei contenuti completati)
+> Ultimo aggiornamento: 2026-10-05 (flusso Visto oggi e Diario)
 
 ---
 
@@ -69,6 +69,8 @@ leggera, condivisione via link privato, tema dark esclusivo.
 | D47 | Fondazioni badge | Definizioni DB versionate, valutatori TypeScript in Edge Function e progressi RLS | Impedisce scritture client e mantiene sblocchi idempotenti e verificabili |
 | D48 | Sala trofei Cinefilo | Patch a quattro livelli, progresso massimo, menu unseen e banner aggregato | Prima verticale badge completa, mobile-first e non bloccante |
 | D49 | Totali Statistiche | Titoli, episodi e tempo catalogato basati solo sui completati; i rewatch moltiplicano il tempo | Allinea il riepilogo al significato del badge e non attribuisce durata a contenuti non completati |
+| D50 | Badge introduttivi | Primo ciak, Prima recensione e Stagione chiusa come traguardi singoli; Speciali esclusi | Offre feedback iniziale verificabile prima delle soglie cumulative più alte |
+| D51 | Visto oggi e Diario film | “Visto oggi” apre subito data, nota e voto; una RPC completa il placeholder dello stesso giorno | Evita doppie visioni senza impedire rewatch reali, anche nella stessa data |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -453,6 +455,22 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   `Visto`; gli episodi restano basati sulle spunte completate. Il tempo catalogato esclude
   film non completati e storici episodio senza spunta, mentre ogni rewatch valido aggiunge
   nuovamente la durata, inclusa la combinazione import iniziale + visione successiva.
+- ✅ Implementato localmente il **Batch A1 badge**: Primo ciak considera film, episodi
+  `tracked`, revisioni episodio e visioni complete serie; Prima recensione richiede una
+  nota testuale; Stagione chiusa verifica tutti gli episodi tramite TMDB, accetta importati
+  ed esclude Stagione 0 / Speciali. Sala trofei estesa a 7 traguardi con tre nuove patch,
+  backfill multi-badge, trigger mirati e banner aggregato. Edge Function e migration
+  distribuite; test `@testshowtime`: `3/7`, tre sblocchi aggregati, seconda valutazione e
+  refresh manuale idempotenti, console pulita e layout reale verificato a 360/390 px.
+  Prime tappe e Cinefilo sono accordion con conteggio sbloccati/totali, chiusi di default
+  e aperti automaticamente per nuovi badge; il banner usa ora uno sfondo pieno.
+- ✅ Corretto il flusso film **Visto oggi → Diario**: la scelta apre direttamente la form
+  con `Salva nel Diario` e `Registra solo visione`. La RPC
+  `record_movie_viewing` completa atomicamente l’eventuale visione vuota dello stesso
+  giorno; una successiva visione dettagliata resta invece un rewatch distinto. Rimossi
+  tre placeholder duplicati già presenti (due sull’account principale e uno sull’altro
+  account), con audit finale `0` duplicati su tutti i profili. Test reale reversibile su
+  Inception: storico `1 → 1` dopo nota/voto e ripristino completo dei dati.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

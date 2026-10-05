@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Brand, Spacing } from '@/constants/theme';
+import { Brand, Colors, Spacing } from '@/constants/theme';
 
 export function BadgeUnlockBanner({
   count,
@@ -13,34 +13,36 @@ export function BadgeUnlockBanner({
   onDismiss: () => void;
 }) {
   return (
-    <Pressable
-      accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={
-        count === 1
-          ? 'Nuovo badge sbloccato'
-          : `${count} nuovi badge sbloccati`
-      }
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.banner,
-        pressed && onPress && styles.pressed,
-      ]}>
-      <View style={styles.icon}>
-        <View style={styles.sparkVertical} />
-        <View style={styles.sparkHorizontal} />
-      </View>
-      <View style={styles.copy}>
-        <ThemedText type="smallBold">
-          {count === 1
+    <View style={styles.banner}>
+      <Pressable
+        accessibilityRole={onPress ? 'button' : undefined}
+        accessibilityLabel={
+          count === 1
             ? 'Nuovo badge sbloccato'
-            : `${count} nuovi badge sbloccati`}
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          {count === 1
-            ? 'La tua Sala trofei si è aggiornata.'
-            : 'Apri la Sala trofei per vedere i nuovi livelli.'}
-        </ThemedText>
-      </View>
+            : `${count} nuovi badge sbloccati`
+        }
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.mainAction,
+          pressed && onPress && styles.pressed,
+        ]}>
+        <View style={styles.icon}>
+          <View style={styles.sparkVertical} />
+          <View style={styles.sparkHorizontal} />
+        </View>
+        <View style={styles.copy}>
+          <ThemedText type="smallBold">
+            {count === 1
+              ? 'Nuovo badge sbloccato'
+              : `${count} nuovi badge sbloccati`}
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            {count === 1
+              ? 'La tua Sala trofei si è aggiornata.'
+              : 'Apri la Sala trofei per vedere i nuovi traguardi.'}
+          </ThemedText>
+        </View>
+      </Pressable>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Chiudi notifica badge"
@@ -49,12 +51,15 @@ export function BadgeUnlockBanner({
           onDismiss();
         }}
         hitSlop={8}
-        style={({ pressed }) => pressed && styles.pressed}>
+        style={({ pressed }) => [
+          styles.dismissButton,
+          pressed && styles.pressed,
+        ]}>
         <ThemedText type="smallBold" style={styles.dismiss}>
           ×
         </ThemedText>
       </Pressable>
-    </Pressable>
+    </View>
   );
 }
 
@@ -64,12 +69,18 @@ const styles = StyleSheet.create({
     minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
-    padding: Spacing.three,
     borderWidth: 1,
     borderColor: 'rgba(106,76,255,0.48)',
     borderRadius: Spacing.three,
-    backgroundColor: 'rgba(106,76,255,0.16)',
+    backgroundColor: Colors.dark.backgroundSelected,
+  },
+  mainAction: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    padding: Spacing.three,
   },
   icon: {
     width: 38,
@@ -102,6 +113,12 @@ const styles = StyleSheet.create({
     color: Brand.pureWhite,
     fontSize: 20,
     lineHeight: 24,
+  },
+  dismissButton: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
   },
   pressed: {
     opacity: 0.8,

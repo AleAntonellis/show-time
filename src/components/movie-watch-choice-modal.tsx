@@ -60,7 +60,7 @@ export function MovieWatchChoiceModal({
             <ThemedText type="small" themeColor="textSecondary">
               {mode === 'reclassify'
                 ? 'Registra la data di oggi e include la visione nelle statistiche mensili.'
-                : 'Crea una visione datata oggi e la include nelle statistiche mensili.'}
+                : 'Apre data, nota e voto. Puoi anche registrare soltanto la visione.'}
             </ThemedText>
           </Pressable>
 

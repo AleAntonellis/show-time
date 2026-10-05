@@ -58,6 +58,7 @@ export default function LibraryTabScreen() {
   const [error, setError] = useState<string | null>(null);
   const [selectedSeries, setSelectedSeries] = useState<LibraryItem | null>(null);
   const [selectedMovie, setSelectedMovie] = useState<LibraryItem | null>(null);
+  const [initialMovieRecord, setInitialMovieRecord] = useState(false);
   const [movieWatchChoice, setMovieWatchChoice] = useState<{
     item: LibraryItem;
     mode: MovieWatchChoiceMode;
@@ -119,6 +120,26 @@ export default function LibraryTabScreen() {
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Impossibile registrare la visione',
+      );
+    }
+  }
+
+  function selectMovieWatchSource(source: MovieWatchSource) {
+    if (
+      movieWatchChoice?.mode === 'record' &&
+      source === 'tracked'
+    ) {
+      const item = movieWatchChoice.item;
+      setMovieWatchChoice(null);
+      setInitialMovieRecord(true);
+      setSelectedMovie(item);
+      return;
+    }
+    if (movieWatchChoice) {
+      void markMovieWatched(
+        movieWatchChoice.item,
+        movieWatchChoice.mode,
+        source,
       );
     }
   }
@@ -317,7 +338,10 @@ export default function LibraryTabScreen() {
                           )}
                           <Pressable
                             style={styles.viewingsButton}
-                            onPress={() => setSelectedMovie(item)}>
+                            onPress={() => {
+                              setInitialMovieRecord(false);
+                              setSelectedMovie(item);
+                            }}>
                             <ThemedText type="small" style={styles.viewingsText}>
                               Visioni ▸
                             </ThemedText>
@@ -362,7 +386,11 @@ export default function LibraryTabScreen() {
       {selectedMovie && (
         <MovieViewings
           item={selectedMovie}
-          onClose={() => setSelectedMovie(null)}
+          initialRecord={initialMovieRecord}
+          onClose={() => {
+            setSelectedMovie(null);
+            setInitialMovieRecord(false);
+          }}
           onChanged={load}
         />
       )}
@@ -371,13 +399,7 @@ export default function LibraryTabScreen() {
           item={movieWatchChoice.item}
           mode={movieWatchChoice.mode}
           onClose={() => setMovieWatchChoice(null)}
-          onSelect={(source) =>
-            markMovieWatched(
-              movieWatchChoice.item,
-              movieWatchChoice.mode,
-              source,
-            )
-          }
+          onSelect={selectMovieWatchSource}
         />
       )}
     </ThemedView>

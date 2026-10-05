@@ -35,12 +35,14 @@ export function BadgeUnlockOverlay() {
         if (cancelled) {
           return;
         }
-        const cinephile = catalog.find(
-          (family) => family.id === 'cinephile' && family.isActive,
-        );
-        if (cinephile?.evaluatedAt == null) {
+        const missingBadgeIds = catalog
+          .filter(
+            (family) => family.isActive && family.evaluatedAt == null,
+          )
+          .map((family) => family.id);
+        if (missingBadgeIds.length > 0) {
           return evaluateBadgesAndNotify({
-            badgeIds: ['cinephile'],
+            badgeIds: missingBadgeIds,
             backfill: true,
           });
         }

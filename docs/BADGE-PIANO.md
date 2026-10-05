@@ -8,7 +8,8 @@ Questa proposta affianca, senza sostituirla, la prima raccolta di idee in
 ## Stato
 
 - **Fase:** implementazione
-- **Implementazione:** Fase 1 e verticale Cinefilo completate sul branch di sviluppo
+- **Implementazione:** backend Batch A1 distribuito e verificato; Sala trofei aggiornata
+  validata localmente con dati reali, in attesa di pubblicazione web
 - **Obiettivo:** arrivare a un catalogo V1 piccolo, misurabile e sostenibile
 - **Principio guida:** premiare il percorso personale, non la quantità di tempo
   trascorsa davanti allo schermo
@@ -178,6 +179,7 @@ Prima stagione con tutti gli episodi completati.
 
 - Sono validi sia progresso importato sia attività reale.
 - La stagione deve contenere almeno un episodio.
+- La Stagione 0 / Speciali è esclusa.
 - Lo sblocco è permanente se TMDB aggiunge o corregge episodi successivamente.
 
 ### 3.1 Cinefilo
@@ -521,6 +523,10 @@ I livelli sono normalizzati in `badge_levels`:
 | `threshold` | Soglia numerica |
 | `icon_key` | Variante illustrata della patch |
 
+I badge introduttivi restano singoli nell’esperienza utente. Per riusare gli stessi
+vincoli, RPC e meccanismi di idempotenza, vengono rappresentati internamente da un unico
+livello tecnico (`level = 1`, soglia `1`), senza mostrare Bronzo o altre graduazioni.
+
 Le regole non dovrebbero essere salvate come SQL arbitrario nel database. L’engine
 applicativo associa ogni `id/version` a una funzione tipizzata.
 
@@ -618,6 +624,9 @@ Esempi di fonti:
 
 | Famiglia | Tabelle principali |
 |---|---|
+| Primo ciak | `viewings`, `episode_watches`, `episode_viewings`, `series_viewings` |
+| Prima recensione | note non vuote in `viewings`, `episode_viewings`, `series_viewings` |
+| Stagione chiusa | `episode_watches` + conteggio episodi TMDB verificato dalla Edge Function |
 | Cinefilo | `library_items`, `titles` |
 | Serialista | `library_items`, `episode_watches`, `titles` |
 | Archivista | `library_items` |
@@ -818,12 +827,48 @@ Questa fase valida architettura e UX prima di aggiungere altre regole.
 
 #### Batch A — Fondazioni catalogo
 
-- [ ] Primo ciak
-- [ ] Prima recensione
-- [ ] Stagione chiusa
+- [x] Primo ciak
+- [x] Prima recensione
+- [x] Stagione chiusa
 - [ ] Serialista
 - [ ] Archivista
 - [ ] Nostalgico
+
+### Verifica Batch A1 — badge introduttivi
+
+- migration `0017_introductory_badges.sql` con tre definizioni versionate;
+- livello tecnico unico a soglia `1`, non mostrato come livello in UI;
+- Primo ciak basato solo su attività reali, senza storico importato;
+- Prima recensione basata su note testuali non vuote, senza salvare il testo
+  nell’evidenza;
+- Stagione chiusa verificata server-side contro TMDB, includendo episodi importati ma
+  escludendo Stagione 0 / Speciali;
+- short-circuit sui badge già sbloccati per rispettarne la permanenza ed evitare richieste
+  TMDB successive non necessarie;
+- persistenza avviata solo dopo aver caricato e validato i fatti di tutti i badge richiesti,
+  evitando sblocchi parziali in caso di errore TMDB;
+- backfill login esteso a tutte le definizioni attive non ancora valutate;
+- rivalutazioni non bloccanti collegate alle mutazioni film, episodi e visioni complete;
+- Sala trofei generalizzata a `7` traguardi, con sezione Prime tappe e tre patch originali;
+- `13/13` test engine, typecheck e lint mirato superati;
+- secret `TMDB_ACCESS_TOKEN` configurato e nuova Edge Function distribuita;
+- migration applicata: `3` definizioni, `3` livelli tecnici e nessun residuo del test SQL;
+- test SQL transazionale: uno sblocco per badge, rivalutazione senza duplicati,
+  regressione corrente a `0`, massimo storico `1` e rollback finale;
+- account `@testshowtime`: backfill reale con `3` nuovi badge, seconda richiesta
+  concorrente e refresh manuale con `0` nuovi sblocchi;
+- Sala trofei reale `3/7`, banner aggregato, date di sblocco e layout senza overflow a
+  360/390 px;
+- corretto il markup web del banner separando il pulsante principale dalla chiusura:
+  nessun errore console dopo il nuovo backfill.
+- gruppi Prime tappe e Cinefilo trasformati in accordion con conteggi `3/3` e `0/4`;
+  sono chiusi di default e si aprono automaticamente quando contengono nuovi sblocchi;
+- banner reso completamente opaco con superficie `#1C2038`, per non confondersi con il
+  contenuto sottostante.
+
+Per la Edge Function è richiesto uno dei secret Supabase
+`TMDB_ACCESS_TOKEN` / `TMDB_API_KEY`; sono accettati anche i nomi Expo equivalenti già
+usati dal progetto.
 
 #### Batch B — Esplorazione e comportamento
 
@@ -899,6 +944,7 @@ Questa fase valida architettura e UX prima di aggiungere altre regole.
 - [x] Prima recensione
 - [x] Stagione chiusa
 - [x] Badge singoli, senza livelli
+- [x] Stagione 0 / Speciali esclusa da Stagione chiusa
 
 ### Serie completata
 
@@ -953,6 +999,9 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 - [x] Escludere poster compositi e artwork TMDB
 - [x] Mostrare soltanto data, livello e progresso raggiunto
 - [x] Non mostrare titoli o attività usati come prova
+- [x] Gruppi badge espandibili con conteggio sbloccati/totali
+- [x] Gruppi chiusi di default e apertura automatica per nuovi sblocchi
+- [x] Banner di sblocco con sfondo pieno, senza trasparenza
 
 ### Operatività
 
@@ -978,12 +1027,10 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 
 Le decisioni di prodotto necessarie per la V1 sono chiuse.
 
-Il progetto può entrare nella **Fase 1 — Fondazioni**:
+Il prossimo passo operativo è completare il rilascio web del **Batch A1**:
 
-1. disegnare e approvare la patch Cinefilo;
-2. definire migration `badge_definitions`, `user_badges` e
-   `user_badge_progress`;
-3. implementare RLS e funzioni idempotenti;
-4. creare registro e contratto TypeScript dei valutatori;
-5. implementare Cinefilo end-to-end;
-6. validare backfill, banner aggregato e Sala trofei a 390 px.
+1. approvare la Sala trofei locale con i dati reali dell’account Test;
+2. creare il commit del Batch A1;
+3. pubblicare `main` e monitorare Azure Static Web Apps;
+4. eseguire lo smoke test in produzione;
+5. proseguire con Batch A2: Serialista, Archivista e Nostalgico.

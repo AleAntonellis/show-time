@@ -128,6 +128,7 @@ export default function TitleScreen() {
   const [actionBusy, setActionBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showMovieViewings, setShowMovieViewings] = useState(false);
+  const [initialMovieRecord, setInitialMovieRecord] = useState(false);
   const [showSeriesViewings, setShowSeriesViewings] = useState(false);
   const [movieWatchChoiceMode, setMovieWatchChoiceMode] =
     useState<MovieWatchChoiceMode | null>(null);
@@ -287,6 +288,19 @@ export default function TitleScreen() {
     } finally {
       setActionBusy(false);
     }
+  }
+
+  function selectMovieWatchSource(source: MovieWatchSource) {
+    if (
+      movieWatchChoiceMode === 'record' &&
+      source === 'tracked'
+    ) {
+      setMovieWatchChoiceMode(null);
+      setInitialMovieRecord(true);
+      setShowMovieViewings(true);
+      return;
+    }
+    void markMovieWatched(source);
   }
 
   async function removeCurrentTitle() {
@@ -635,7 +649,10 @@ export default function TitleScreen() {
                 </View>
               )}
               <Pressable
-                onPress={() => setShowMovieViewings(true)}
+                onPress={() => {
+                  setInitialMovieRecord(false);
+                  setShowMovieViewings(true);
+                }}
                 style={styles.secondaryButton}>
                 <ThemedText type="smallBold" style={styles.secondaryButtonText}>
                   Note e visioni ›
@@ -756,7 +773,11 @@ export default function TitleScreen() {
       {libraryItem && showMovieViewings && (
         <MovieViewings
           item={libraryItem}
-          onClose={() => setShowMovieViewings(false)}
+          initialRecord={initialMovieRecord}
+          onClose={() => {
+            setShowMovieViewings(false);
+            setInitialMovieRecord(false);
+          }}
           onChanged={refreshLibraryItem}
         />
       )}
@@ -772,7 +793,7 @@ export default function TitleScreen() {
           item={libraryItem}
           mode={movieWatchChoiceMode}
           onClose={() => setMovieWatchChoiceMode(null)}
-          onSelect={markMovieWatched}
+          onSelect={selectMovieWatchSource}
         />
       )}
       {showInternalShare && (

@@ -43,7 +43,9 @@ export type BadgeEvaluationContext = {
 };
 
 export type BadgeEvidence = {
-  itemIds: string[];
+  itemIds?: string[];
+  activityIds?: string[];
+  seasonKeys?: string[];
   backfill?: true;
 };
 
@@ -115,6 +117,18 @@ export type CinephileFacts = {
   completedMovieIds: string[];
 };
 
+export type FirstWatchFacts = {
+  activityIds: string[];
+};
+
+export type FirstReviewFacts = {
+  activityIds: string[];
+};
+
+export type SeasonCompleteFacts = {
+  completedSeasonKeys: string[];
+};
+
 function registryKey(badgeId: string, version: number): string {
   return `${badgeId}@${version}`;
 }
@@ -142,6 +156,89 @@ function assertDefinition(
       'levels_missing',
     );
   }
+}
+
+function assertSingleAchievementDefinition(
+  definition: BadgeDefinition,
+  badgeId: string,
+  version: number,
+): void {
+  assertDefinition(definition, badgeId, version);
+  const [level] = definition.levels;
+  if (
+    definition.levels.length !== 1 ||
+    level.level !== 1 ||
+    level.threshold !== 1
+  ) {
+    throw new BadgeEngineError(
+      `Definizione badge singolo non valida: ${badgeId}@${version}`,
+      'definition_invalid',
+    );
+  }
+}
+
+function parseStringArrayFact(
+  facts: unknown,
+  key: 'activityIds' | 'completedSeasonKeys',
+  label: string,
+): string[] {
+  if (
+    typeof facts !== 'object' ||
+    facts == null ||
+    !(key in facts)
+  ) {
+    throw new BadgeEngineError(
+      `Fatti ${label} non validi`,
+      'facts_invalid',
+    );
+  }
+  const values = (facts as Record<string, unknown>)[key];
+  if (
+    !Array.isArray(values) ||
+    values.some((value) => typeof value !== 'string' || !value.trim())
+  ) {
+    throw new BadgeEngineError(
+      `Fatti ${label} non validi`,
+      'facts_invalid',
+    );
+  }
+  return values;
+}
+
+function singleAchievementEvaluation({
+  definition,
+  badgeId,
+  factIds,
+  evidenceKey,
+  context,
+}: {
+  definition: BadgeDefinition;
+  badgeId: string;
+  factIds: string[];
+  evidenceKey: 'activityIds' | 'seasonKeys';
+  context: BadgeEvaluationContext;
+}): BadgeEvaluation {
+  assertSingleAchievementDefinition(definition, badgeId, 1);
+  const uniqueFactIds = Array.from(
+    new Set(factIds.map((value) => value.trim())),
+  ).sort();
+  const progress = uniqueFactIds.length > 0 ? 1 : 0;
+  const evidence: BadgeEvidence =
+    evidenceKey === 'seasonKeys'
+      ? { seasonKeys: uniqueFactIds.slice(0, 1) }
+      : { activityIds: uniqueFactIds.slice(0, 1) };
+  if (context.isBackfill) {
+    evidence.backfill = true;
+  }
+
+  return {
+    badgeId: definition.id,
+    version: definition.version,
+    progress,
+    unlockedLevels: progress === 1 ? [1] : [],
+    nextThreshold: progress === 1 ? null : 1,
+    evidence,
+  };
 }
 
 function parseCinephileFacts(facts: unknown): CinephileFacts {
@@ -195,9 +292,90 @@ export const cinephileEvaluator: BadgeEvaluator = {
   },
 };
 
+export const firstWatchEvaluator: BadgeEvaluator = {
+  badgeId: 'first_watch',
+  version: 1,
+  evaluate(definition, rawFacts, context) {
+    return singleAchievementEvaluation({
+      definition,
+      badgeId: 'first_watch',
+      factIds: parseStringArrayFact(
+        rawFacts,
+        'activityIds',
+        'Primo ciak',
+      ),
+      evidenceKey: 'activityIds',
+      context,
+    });
+  },
+};
+
+export const firstReviewEvaluator: BadgeEvaluator = {
+  badgeId: 'first_review',
+  version: 1,
+  evaluate(definition, rawFacts, context) {
+    return singleAchievementEvaluation({
+      definition,
+      badgeId: 'first_review',
+      factIds: parseStringArrayFact(
+        rawFacts,
+        'activityIds',
+        'Prima recensione',
+      ),
+      evidenceKey: 'activityIds',
+      context,
+    });
+  },
+};
+
+export const seasonCompleteEvaluator: BadgeEvaluator = {
+  badgeId: 'season_complete',
+  version: 1,
+  evaluate(definition, rawFacts, context) {
+    return singleAchievementEvaluation({
+      definition,
+      badgeId: 'season_complete',
+      factIds: parseStringArrayFact(
+        rawFacts,
+        'completedSeasonKeys',
+        'Stagione chiusa',
+      ),
+      evidenceKey: 'seasonKeys',
+      context,
+    });
+  },
+};
+
+export function hasCompletedSeason(
+  watchedEpisodeNumbers: readonly number[],
+  catalogEpisodeNumbers: readonly number[],
+): boolean {
+  if (
+    catalogEpisodeNumbers.length === 0 ||
+    catalogEpisodeNumbers.some(
+      (episodeNumber) =>
+        !Number.isInteger(episodeNumber) || episodeNumber <= 0,
+    )
+  ) {
+    return false;
+  }
+  const watched = new Set(
+    watchedEpisodeNumbers.filter(
+      (episodeNumber) =>
+        Number.isInteger(episodeNumber) && episodeNumber > 0,
+    ),
+  );
+  return Array.from(new Set(catalogEpisodeNumbers)).every((episodeNumber) =>
+    watched.has(episodeNumber),
+  );
+}
+
 export function createBadgeRegistry(): BadgeEvaluatorRegistry {
   const registry = new BadgeEvaluatorRegistry();
   registry.register(cinephileEvaluator);
+  registry.register(firstWatchEvaluator);
+  registry.register(firstReviewEvaluator);
+  registry.register(seasonCompleteEvaluator);
   return registry;
 }
 

@@ -6,6 +6,33 @@ const unlockListeners = new Set<BadgeUnlockListener>();
 const queuedBadgeIds = new Set<string>();
 let evaluationTimer: ReturnType<typeof setTimeout> | null = null;
 
+export const BADGE_IDS = {
+  cinephile: 'cinephile',
+  firstWatch: 'first_watch',
+  firstReview: 'first_review',
+  seasonComplete: 'season_complete',
+} as const;
+
+export const INTRODUCTORY_BADGE_IDS = [
+  BADGE_IDS.firstWatch,
+  BADGE_IDS.firstReview,
+  BADGE_IDS.seasonComplete,
+] as const;
+
+export const ALL_BADGE_IDS = [
+  BADGE_IDS.cinephile,
+  ...INTRODUCTORY_BADGE_IDS,
+] as const;
+
+export type IntroductoryBadgeId =
+  (typeof INTRODUCTORY_BADGE_IDS)[number];
+
+export function isIntroductoryBadgeId(
+  badgeId: string,
+): badgeId is IntroductoryBadgeId {
+  return (INTRODUCTORY_BADGE_IDS as readonly string[]).includes(badgeId);
+}
+
 export type BadgeLevelKey = 'bronze' | 'silver' | 'gold' | 'platinum';
 
 export type BadgeLevelState = {
@@ -208,7 +235,7 @@ export async function evaluateBadgesAndNotify({
 }
 
 export function queueBadgeEvaluation(
-  badgeIds: string[] = ['cinephile'],
+  badgeIds: readonly string[] = [BADGE_IDS.cinephile],
 ): void {
   for (const badgeId of badgeIds) {
     queuedBadgeIds.add(badgeId);
