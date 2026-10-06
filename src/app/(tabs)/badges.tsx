@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ArchivistBadgePatch } from '@/components/archivist-badge-patch';
 import { CinephileBadgePatch } from '@/components/cinephile-badge-patch';
 import { IntroductoryBadgePatch } from '@/components/introductory-badge-patch';
 import { ThemedText } from '@/components/themed-text';
@@ -40,6 +41,10 @@ const dateFormatter = new Intl.DateTimeFormat('it-IT', {
   year: 'numeric',
 });
 const INTRODUCTORY_GROUP_ID = 'introductory';
+const PROGRESSIVE_BADGE_ORDER = [
+  BADGE_IDS.cinephile,
+  BADGE_IDS.archivist,
+] as const;
 
 export default function BadgesTabScreen() {
   const insets = useSafeAreaInsets();
@@ -174,7 +179,19 @@ export default function BadgesTabScreen() {
   );
   const progressiveFamilies = families.filter(
     (family) => !isIntroductoryBadgeId(family.id),
-  );
+  ).sort((first, second) => {
+    const firstIndex = PROGRESSIVE_BADGE_ORDER.indexOf(
+      first.id as (typeof PROGRESSIVE_BADGE_ORDER)[number],
+    );
+    const secondIndex = PROGRESSIVE_BADGE_ORDER.indexOf(
+      second.id as (typeof PROGRESSIVE_BADGE_ORDER)[number],
+    );
+    return (
+      (firstIndex < 0 ? Number.MAX_SAFE_INTEGER : firstIndex) -
+        (secondIndex < 0 ? Number.MAX_SAFE_INTEGER : secondIndex) ||
+      first.name.localeCompare(second.name, 'it')
+    );
+  });
   const introductoryUnlockedCount = introductoryFamilies.filter(
     ({ family }) =>
       family.levels.some((level) => level.unlockedAt != null),
@@ -503,6 +520,13 @@ function LevelCard({
     <View style={[styles.levelCard, isNext && styles.levelCardNext]}>
       {familyId === BADGE_IDS.cinephile && (
         <CinephileBadgePatch
+          levelKey={level.key}
+          levelName={level.name}
+          state={state}
+        />
+      )}
+      {familyId === BADGE_IDS.archivist && (
+        <ArchivistBadgePatch
           levelKey={level.key}
           levelName={level.name}
           state={state}

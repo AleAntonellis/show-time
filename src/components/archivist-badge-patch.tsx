@@ -8,7 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Brand, Spacing } from '@/constants/theme';
 import type { BadgeLevelKey } from '@/services/badges';
 
-export function CinephileBadgePatch({
+export function ArchivistBadgePatch({
   levelKey,
   levelName,
   state,
@@ -25,7 +25,7 @@ export function CinephileBadgePatch({
   return (
     <View
       accessibilityRole="image"
-      accessibilityLabel={`Cinefilo ${levelName}, ${
+      accessibilityLabel={`Archivista ${levelName}, ${
         state === 'unlocked'
           ? 'sbloccato'
           : state === 'next'
@@ -69,85 +69,44 @@ export function CinephileBadgePatch({
               borderColor: visual.metal,
             },
           ]}>
-          <View
-            style={[
-              styles.reel,
-              {
-                width: size * 0.46,
-                height: size * 0.46,
-                borderRadius: size * 0.23,
-                borderColor: visual.metal,
-              },
-            ]}>
+          <View style={styles.indexCards}>
             <View
               style={[
-                styles.reelCenter,
-                {
-                  width: size * 0.08,
-                  height: size * 0.08,
-                  borderRadius: size * 0.04,
-                  backgroundColor: visual.metal,
-                },
+                styles.indexCard,
+                styles.indexCardLeft,
+                { borderColor: visual.metal },
               ]}
             />
-            <ReelHole
-              top="13%"
-              left="38%"
-              color={visual.metal}
-              size={size}
-            />
-            <ReelHole
-              top="38%"
-              left="13%"
-              color={visual.metal}
-              size={size}
-            />
-            <ReelHole
-              top="38%"
-              right="13%"
-              color={visual.metal}
-              size={size}
-            />
-            <ReelHole
-              bottom="13%"
-              left="38%"
-              color={visual.metal}
-              size={size}
+            <View
+              style={[
+                styles.indexCard,
+                styles.indexCardRight,
+                { borderColor: visual.metal },
+              ]}
             />
           </View>
           <View
             style={[
-              styles.filmStrip,
+              styles.cabinet,
               {
-                width: size * 0.54,
-                height: size * 0.13,
+                width: size * 0.48,
+                height: size * 0.52,
                 borderColor: visual.metal,
               },
             ]}>
-            <View
-              style={[styles.filmFrame, { borderColor: visual.metal }]}
-            />
-            <View
-              style={[styles.filmFrame, { borderColor: visual.metal }]}
-            />
-            <View
-              style={[styles.filmFrame, { borderColor: visual.metal }]}
-            />
+            <ArchiveDrawer color={visual.metal} />
+            <ArchiveDrawer color={visual.metal} />
+            <ArchiveDrawer color={visual.metal} last />
           </View>
-          <View style={styles.spark}>
-            <View
-              style={[
-                styles.sparkVertical,
-                { backgroundColor: Brand.pureWhite },
-              ]}
-            />
-            <View
-              style={[
-                styles.sparkHorizontal,
-                { backgroundColor: Brand.pureWhite },
-              ]}
-            />
-          </View>
+          <View
+            style={[
+              styles.cabinetFeet,
+              {
+                width: size * 0.38,
+                borderColor: visual.metal,
+              },
+            ]}
+          />
         </View>
       </View>
       <View
@@ -168,37 +127,22 @@ export function CinephileBadgePatch({
   );
 }
 
-function ReelHole({
-  top,
-  left,
-  right,
-  bottom,
+function ArchiveDrawer({
   color,
-  size,
+  last = false,
 }: {
-  top?: `${number}%`;
-  left?: `${number}%`;
-  right?: `${number}%`;
-  bottom?: `${number}%`;
   color: string;
-  size: number;
+  last?: boolean;
 }) {
   return (
     <View
       style={[
-        styles.reelHole,
-        {
-          top,
-          left,
-          right,
-          bottom,
-          width: size * 0.09,
-          height: size * 0.09,
-          borderRadius: size * 0.045,
-          borderColor: color,
-        },
-      ]}
-    />
+        styles.drawer,
+        !last && { borderBottomColor: color, borderBottomWidth: 2 },
+      ]}>
+      <View style={[styles.drawerLabel, { borderColor: color }]} />
+      <View style={[styles.drawerHandle, { backgroundColor: color }]} />
+    </View>
   );
 }
 
@@ -226,53 +170,60 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     backgroundColor: 'rgba(4,2,18,0.72)',
   },
-  reel: {
+  indexCards: {
     position: 'absolute',
-    top: '18%',
-    alignItems: 'center',
-    justifyContent: 'center',
+    top: '16%',
+    width: '48%',
+    height: '22%',
+  },
+  indexCard: {
+    position: 'absolute',
+    width: '66%',
+    height: '100%',
+    borderWidth: 2,
+    borderRadius: 3,
+    backgroundColor: 'rgba(4,2,18,0.9)',
+  },
+  indexCardLeft: {
+    left: 0,
+    transform: [{ rotate: '-8deg' }],
+  },
+  indexCardRight: {
+    right: 0,
+    transform: [{ rotate: '8deg' }],
+  },
+  cabinet: {
+    overflow: 'hidden',
     borderWidth: 3,
+    borderRadius: 5,
+    backgroundColor: 'rgba(4,2,18,0.9)',
   },
-  reelCenter: {
-    position: 'absolute',
-  },
-  reelHole: {
-    position: 'absolute',
-    borderWidth: 2,
-    backgroundColor: 'rgba(4,2,18,0.78)',
-  },
-  filmStrip: {
-    position: 'absolute',
-    bottom: '17%',
-    flexDirection: 'row',
-    borderWidth: 2,
-    transform: [{ rotate: '-7deg' }],
-    backgroundColor: 'rgba(4,2,18,0.82)',
-  },
-  filmFrame: {
+  drawer: {
     flex: 1,
-    borderRightWidth: 1,
-  },
-  spark: {
-    position: 'absolute',
-    top: '19%',
-    right: '17%',
-    width: 16,
-    height: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sparkVertical: {
+  drawerLabel: {
     position: 'absolute',
-    width: 2,
-    height: 16,
-    borderRadius: 1,
+    left: '17%',
+    width: '28%',
+    height: '34%',
+    borderWidth: 1,
+    borderRadius: 2,
   },
-  sparkHorizontal: {
+  drawerHandle: {
     position: 'absolute',
-    width: 16,
-    height: 2,
-    borderRadius: 1,
+    right: '17%',
+    width: '22%',
+    height: 3,
+    borderRadius: 2,
+  },
+  cabinetFeet: {
+    position: 'absolute',
+    bottom: '15%',
+    height: 5,
+    borderRightWidth: 4,
+    borderLeftWidth: 4,
   },
   levelPill: {
     minWidth: 82,

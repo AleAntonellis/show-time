@@ -247,7 +247,10 @@ export async function addToLibrary(title: Title, status: LibraryStatus): Promise
   if (error) {
     throw new Error(error.message);
   }
-  queueBadgeEvaluation([BADGE_IDS.cinephile]);
+  queueBadgeEvaluation([
+    BADGE_IDS.cinephile,
+    BADGE_IDS.archivist,
+  ]);
 }
 
 /** Ritorna tutti i titoli in libreria, con il conteggio episodi visti per le serie. */

@@ -13,6 +13,7 @@ import {
   type BadgeEvaluationContext,
   type BadgeLevelDefinition,
   type BadgeLevelKey,
+  type ArchivistFacts,
   type CinephileFacts,
   type FirstReviewFacts,
   type FirstWatchFacts,
@@ -274,6 +275,37 @@ async function loadCinephileFacts(
     }
   }
   return { completedMovieIds };
+}
+
+async function loadArchivistFacts(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+): Promise<ArchivistFacts> {
+  const libraryItemIds: string[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabaseAdmin
+      .from('library_items')
+      .select('id')
+      .eq('user_id', userId)
+      .order('id', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      throw new BadgeEngineError(
+        `Impossibile leggere la Libreria per Archivista: ${error.message}`,
+        'facts_load_failed',
+      );
+    }
+    const rows = data ?? [];
+    libraryItemIds.push(
+      ...rows
+        .map((row) => row.id)
+        .filter((id): id is string => typeof id === 'string'),
+    );
+    if (rows.length < PAGE_SIZE) {
+      break;
+    }
+  }
+  return { libraryItemIds };
 }
 
 async function hasExistingUnlock(
@@ -699,6 +731,9 @@ async function loadFacts(
 ): Promise<unknown> {
   if (definition.id === 'cinephile' && definition.version === 1) {
     return loadCinephileFacts(supabaseAdmin, userId);
+  }
+  if (definition.id === 'archivist' && definition.version === 1) {
+    return loadArchivistFacts(supabaseAdmin, userId);
   }
   if (
     definition.version === 1 &&

@@ -117,6 +117,10 @@ export type CinephileFacts = {
   completedMovieIds: string[];
 };
 
+export type ArchivistFacts = {
+  libraryItemIds: string[];
+};
+
 export type FirstWatchFacts = {
   activityIds: string[];
 };
@@ -259,36 +263,91 @@ function parseCinephileFacts(facts: unknown): CinephileFacts {
   return { completedMovieIds: facts.completedMovieIds };
 }
 
+function parseArchivistFacts(facts: unknown): ArchivistFacts {
+  if (
+    typeof facts !== 'object' ||
+    facts == null ||
+    !('libraryItemIds' in facts) ||
+    !Array.isArray(facts.libraryItemIds) ||
+    facts.libraryItemIds.some(
+      (value) => typeof value !== 'string' || !value.trim(),
+    )
+  ) {
+    throw new BadgeEngineError(
+      'Fatti Archivista non validi',
+      'facts_invalid',
+    );
+  }
+  return { libraryItemIds: facts.libraryItemIds };
+}
+
+function progressiveDistinctItemEvaluation({
+  definition,
+  badgeId,
+  itemIds,
+  context,
+  includeItemIds,
+}: {
+  definition: BadgeDefinition;
+  badgeId: string;
+  itemIds: string[];
+  context: BadgeEvaluationContext;
+  includeItemIds: boolean;
+}): BadgeEvaluation {
+  assertDefinition(definition, badgeId, 1);
+  const distinctItemIds = Array.from(
+    new Set(itemIds.map((value) => value.trim())),
+  ).sort();
+  const progress = distinctItemIds.length;
+  const levels = [...definition.levels].sort(
+    (first, second) => first.threshold - second.threshold,
+  );
+  const unlockedLevels = levels
+    .filter((level) => progress >= level.threshold)
+    .map((level) => level.level);
+  const nextThreshold =
+    levels.find((level) => progress < level.threshold)?.threshold ?? null;
+
+  return {
+    badgeId: definition.id,
+    version: definition.version,
+    progress,
+    unlockedLevels,
+    nextThreshold,
+    evidence: {
+      ...(includeItemIds ? { itemIds: distinctItemIds } : {}),
+      ...(context.isBackfill ? { backfill: true as const } : {}),
+    },
+  };
+}
+
 export const cinephileEvaluator: BadgeEvaluator = {
   badgeId: 'cinephile',
   version: 1,
   evaluate(definition, rawFacts, context) {
-    assertDefinition(definition, 'cinephile', 1);
     const facts = parseCinephileFacts(rawFacts);
-    const itemIds = Array.from(
-      new Set(facts.completedMovieIds.map((value) => value.trim())),
-    ).sort();
-    const progress = itemIds.length;
-    const levels = [...definition.levels].sort(
-      (first, second) => first.threshold - second.threshold,
-    );
-    const unlockedLevels = levels
-      .filter((level) => progress >= level.threshold)
-      .map((level) => level.level);
-    const nextThreshold =
-      levels.find((level) => progress < level.threshold)?.threshold ?? null;
+    return progressiveDistinctItemEvaluation({
+      definition,
+      badgeId: 'cinephile',
+      itemIds: facts.completedMovieIds,
+      context,
+      includeItemIds: true,
+    });
+  },
+};
 
-    return {
-      badgeId: definition.id,
-      version: definition.version,
-      progress,
-      unlockedLevels,
-      nextThreshold,
-      evidence: {
-        itemIds,
-        ...(context.isBackfill ? { backfill: true as const } : {}),
-      },
-    };
+export const archivistEvaluator: BadgeEvaluator = {
+  badgeId: 'archivist',
+  version: 1,
+  evaluate(definition, rawFacts, context) {
+    const facts = parseArchivistFacts(rawFacts);
+    return progressiveDistinctItemEvaluation({
+      definition,
+      badgeId: 'archivist',
+      itemIds: facts.libraryItemIds,
+      context,
+      includeItemIds: false,
+    });
   },
 };
 
@@ -373,6 +432,7 @@ export function hasCompletedSeason(
 export function createBadgeRegistry(): BadgeEvaluatorRegistry {
   const registry = new BadgeEvaluatorRegistry();
   registry.register(cinephileEvaluator);
+  registry.register(archivistEvaluator);
   registry.register(firstWatchEvaluator);
   registry.register(firstReviewEvaluator);
   registry.register(seasonCompleteEvaluator);

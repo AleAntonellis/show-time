@@ -8,6 +8,7 @@ let evaluationTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const BADGE_IDS = {
   cinephile: 'cinephile',
+  archivist: 'archivist',
   firstWatch: 'first_watch',
   firstReview: 'first_review',
   seasonComplete: 'season_complete',
@@ -21,6 +22,7 @@ export const INTRODUCTORY_BADGE_IDS = [
 
 export const ALL_BADGE_IDS = [
   BADGE_IDS.cinephile,
+  BADGE_IDS.archivist,
   ...INTRODUCTORY_BADGE_IDS,
 ] as const;
 

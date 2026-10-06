@@ -71,6 +71,7 @@ leggera, condivisione via link privato, tema dark esclusivo.
 | D49 | Totali Statistiche | Titoli, episodi e tempo catalogato basati solo sui completati; i rewatch moltiplicano il tempo | Allinea il riepilogo al significato del badge e non attribuisce durata a contenuti non completati |
 | D50 | Badge introduttivi | Primo ciak, Prima recensione e Stagione chiusa come traguardi singoli; Speciali esclusi | Offre feedback iniziale verificabile prima delle soglie cumulative più alte |
 | D51 | Visto oggi e Diario film | “Visto oggi” apre subito data, nota e voto; una RPC completa il placeholder dello stesso giorno | Evita doppie visioni senza impedire rewatch reali, anche nella stessa data |
+| D52 | Archivista | Tutte le voci distinte della Libreria contribuiscono, in qualunque stato e tipo media | Premia la cura del catalogo personale senza confonderla con i titoli completati |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -471,6 +472,11 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   tre placeholder duplicati già presenti (due sull’account principale e uno sull’altro
   account), con audit finale `0` duplicati su tutti i profili. Test reale reversibile su
   Inception: storico `1 → 1` dopo nota/voto e ripristino completo dei dati.
+- ✅ Implementato localmente **Archivista**, prima famiglia del Batch A2: conta tutte le
+  voci distinte della Libreria con soglie 500/1.500/2.500/5.000, loader paginato, massimo
+  storico e trigger mirati ad aggiunta/rimozione. Aggiunta patch a schedario con quattro
+  metalli; preview `@testshowtime` simulata `5/500`, hero `3/11`, layout 360/390 px.
+  Engine `16/16`; rollout Supabase e web ancora da completare.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

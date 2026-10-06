@@ -8,8 +8,8 @@ Questa proposta affianca, senza sostituirla, la prima raccolta di idee in
 ## Stato
 
 - **Fase:** implementazione
-- **Implementazione:** backend Batch A1 distribuito e verificato; Sala trofei aggiornata
-  validata localmente con dati reali, in attesa di pubblicazione web
+- **Implementazione:** Batch A1 pubblicato; Archivista (A2.1) completato localmente e in
+  attesa di rollout Supabase/web
 - **Obiettivo:** arrivare a un catalogo V1 piccolo, misurabile e sostenibile
 - **Principio guida:** premiare il percorso personale, non la quantità di tempo
   trascorsa davanti allo schermo
@@ -831,7 +831,7 @@ Questa fase valida architettura e UX prima di aggiungere altre regole.
 - [x] Prima recensione
 - [x] Stagione chiusa
 - [ ] Serialista
-- [ ] Archivista
+- [x] Archivista
 - [ ] Nostalgico
 
 ### Verifica Batch A1 — badge introduttivi
@@ -869,6 +869,22 @@ Questa fase valida architettura e UX prima di aggiungere altre regole.
 Per la Edge Function è richiesto uno dei secret Supabase
 `TMDB_ACCESS_TOKEN` / `TMDB_API_KEY`; sono accettati anche i nomi Expo equivalenti già
 usati dal progetto.
+
+### Verifica Batch A2.1 — Archivista
+
+- migration `0019_archivist_badge.sql` con soglie `500 / 1.500 / 2.500 / 5.000`;
+- conteggio di ogni voce distinta della Libreria, indipendentemente da stato o tipo media;
+- fact loader paginato oltre 1.000 righe;
+- evidenza privata limitata a conteggio, versione e data già aggiunti dalla RPC, senza
+  duplicare migliaia di ID nel JSON;
+- rivalutazione non bloccante soltanto dopo aggiunta o rimozione dalla Libreria;
+- massimo storico e sblocchi permanenti gestiti dalla RPC condivisa;
+- patch originale a schedario nelle varianti Bronzo, Argento, Oro e Platino;
+- Cinefilo mantenuto prima di Archivista nell’ordine della Sala trofei;
+- preview locale: `Archivista 0/4`, progresso `5/500`, hero `3/11`;
+- patch e accordion verificati senza overflow a 360 e 390 px;
+- `16/16` test engine superati;
+- test SQL transazionale pronto per soglia `1.500`, idempotenza e regressione a `5`.
 
 #### Batch B — Esplorazione e comportamento
 
@@ -1019,6 +1035,7 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 - [x] Prima verticale end-to-end: Cinefilo
 - [x] Sala trofei nel menu globale con indicatore nuovi sblocchi
 - [x] Prima patch definitiva: Cinefilo
+- [x] Seconda famiglia progressiva: Archivista
 - [x] Primo batch successivo: introduttivi, Serialista, Archivista e Nostalgico
 
 ---
@@ -1027,10 +1044,11 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 
 Le decisioni di prodotto necessarie per la V1 sono chiuse.
 
-Il prossimo passo operativo è completare il rilascio web del **Batch A1**:
+Il prossimo passo operativo è completare il rollout di **Archivista**:
 
-1. approvare la Sala trofei locale con i dati reali dell’account Test;
-2. creare il commit del Batch A1;
-3. pubblicare `main` e monitorare Azure Static Web Apps;
-4. eseguire lo smoke test in produzione;
-5. proseguire con Batch A2: Serialista, Archivista e Nostalgico.
+1. distribuire la Edge Function aggiornata, ancora retrocompatibile;
+2. pubblicare la Sala trofei con la patch Archivista;
+3. applicare la migration `0019_archivist_badge.sql`;
+4. verificare backfill e idempotenza sull’account Test;
+5. verificare il progresso reale sull’account principale;
+6. proseguire con Nostalgico e infine Serialista.

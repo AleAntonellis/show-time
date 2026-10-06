@@ -55,8 +55,59 @@ const cinephileDefinition: BadgeDefinition = {
   ],
 };
 
+const archivistDefinition: BadgeDefinition = {
+  id: 'archivist',
+  version: 1,
+  category: 'catalog',
+  name: 'Archivista',
+  description: 'Costruisci una Libreria ampia.',
+  iconKey: 'archivist',
+  isActive: true,
+  levels: [
+    {
+      level: 1,
+      key: 'bronze',
+      name: 'Bronzo',
+      description: 'Aggiungi 500 titoli.',
+      threshold: 500,
+      iconKey: 'archivist-bronze',
+    },
+    {
+      level: 2,
+      key: 'silver',
+      name: 'Argento',
+      description: 'Aggiungi 1.500 titoli.',
+      threshold: 1500,
+      iconKey: 'archivist-silver',
+    },
+    {
+      level: 3,
+      key: 'gold',
+      name: 'Oro',
+      description: 'Aggiungi 2.500 titoli.',
+      threshold: 2500,
+      iconKey: 'archivist-gold',
+    },
+    {
+      level: 4,
+      key: 'platinum',
+      name: 'Platino',
+      description: 'Aggiungi 5.000 titoli.',
+      threshold: 5000,
+      iconKey: 'archivist-platinum',
+    },
+  ],
+};
+
 function movieIds(count: number): string[] {
   return Array.from({ length: count }, (_, index) => `movie-${index + 1}`);
+}
+
+function libraryItemIds(count: number): string[] {
+  return Array.from(
+    { length: count },
+    (_, index) => `library-item-${index + 1}`,
+  );
 }
 
 const context = {
@@ -189,6 +240,52 @@ test('Cinefilo rifiuta fatti malformati', () => {
       createBadgeRegistry().evaluate(
         cinephileDefinition,
         { completedMovieIds: ['movie-1', 2] },
+        context,
+      ),
+    (error: unknown) =>
+      error instanceof BadgeEngineError &&
+      error.code === 'facts_invalid',
+  );
+});
+
+test('Archivista conta tutti i titoli distinti della Libreria', () => {
+  const evaluation = createBadgeRegistry().evaluate(
+    archivistDefinition,
+    {
+      libraryItemIds: [
+        ...libraryItemIds(499),
+        'library-item-1',
+        ' library-item-2 ',
+      ],
+    },
+    context,
+  );
+
+  assert.equal(evaluation.progress, 499);
+  assert.deepEqual(evaluation.unlockedLevels, []);
+  assert.equal(evaluation.nextThreshold, 500);
+  assert.equal(evaluation.evidence.itemIds, undefined);
+});
+
+test('Archivista sblocca Bronzo e Argento a 1.500 titoli', () => {
+  const evaluation = createBadgeRegistry().evaluate(
+    archivistDefinition,
+    { libraryItemIds: libraryItemIds(1500) },
+    { ...context, isBackfill: true },
+  );
+
+  assert.equal(evaluation.progress, 1500);
+  assert.deepEqual(evaluation.unlockedLevels, [1, 2]);
+  assert.equal(evaluation.nextThreshold, 2500);
+  assert.equal(evaluation.evidence.backfill, true);
+});
+
+test('Archivista rifiuta fatti malformati', () => {
+  assert.throws(
+    () =>
+      createBadgeRegistry().evaluate(
+        archivistDefinition,
+        { libraryItemIds: ['library-item-1', 2] },
         context,
       ),
     (error: unknown) =>
