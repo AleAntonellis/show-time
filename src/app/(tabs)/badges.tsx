@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArchivistBadgePatch } from '@/components/archivist-badge-patch';
 import { CinephileBadgePatch } from '@/components/cinephile-badge-patch';
 import { IntroductoryBadgePatch } from '@/components/introductory-badge-patch';
+import { NostalgicBadgePatch } from '@/components/nostalgic-badge-patch';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
@@ -44,6 +45,7 @@ const INTRODUCTORY_GROUP_ID = 'introductory';
 const PROGRESSIVE_BADGE_ORDER = [
   BADGE_IDS.cinephile,
   BADGE_IDS.archivist,
+  BADGE_IDS.nostalgic,
 ] as const;
 
 export default function BadgesTabScreen() {
@@ -527,6 +529,13 @@ function LevelCard({
       )}
       {familyId === BADGE_IDS.archivist && (
         <ArchivistBadgePatch
+          levelKey={level.key}
+          levelName={level.name}
+          state={state}
+        />
+      )}
+      {familyId === BADGE_IDS.nostalgic && (
+        <NostalgicBadgePatch
           levelKey={level.key}
           levelName={level.name}
           state={state}

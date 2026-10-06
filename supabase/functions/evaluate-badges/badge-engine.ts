@@ -121,6 +121,10 @@ export type ArchivistFacts = {
   libraryItemIds: string[];
 };
 
+export type NostalgicFacts = {
+  completedClassicItemIds: string[];
+};
+
 export type FirstWatchFacts = {
   activityIds: string[];
 };
@@ -281,6 +285,26 @@ function parseArchivistFacts(facts: unknown): ArchivistFacts {
   return { libraryItemIds: facts.libraryItemIds };
 }
 
+function parseNostalgicFacts(facts: unknown): NostalgicFacts {
+  if (
+    typeof facts !== 'object' ||
+    facts == null ||
+    !('completedClassicItemIds' in facts) ||
+    !Array.isArray(facts.completedClassicItemIds) ||
+    facts.completedClassicItemIds.some(
+      (value) => typeof value !== 'string' || !value.trim(),
+    )
+  ) {
+    throw new BadgeEngineError(
+      'Fatti Nostalgico non validi',
+      'facts_invalid',
+    );
+  }
+  return {
+    completedClassicItemIds: facts.completedClassicItemIds,
+  };
+}
+
 function progressiveDistinctItemEvaluation({
   definition,
   badgeId,
@@ -345,6 +369,21 @@ export const archivistEvaluator: BadgeEvaluator = {
       definition,
       badgeId: 'archivist',
       itemIds: facts.libraryItemIds,
+      context,
+      includeItemIds: false,
+    });
+  },
+};
+
+export const nostalgicEvaluator: BadgeEvaluator = {
+  badgeId: 'nostalgic',
+  version: 1,
+  evaluate(definition, rawFacts, context) {
+    const facts = parseNostalgicFacts(rawFacts);
+    return progressiveDistinctItemEvaluation({
+      definition,
+      badgeId: 'nostalgic',
+      itemIds: facts.completedClassicItemIds,
       context,
       includeItemIds: false,
     });
@@ -429,10 +468,30 @@ export function hasCompletedSeason(
   );
 }
 
+export function isReleaseYearBefore(
+  value: unknown,
+  cutoffYear: number,
+): boolean {
+  if (
+    typeof value !== 'string' ||
+    !Number.isInteger(cutoffYear) ||
+    cutoffYear <= 1
+  ) {
+    return false;
+  }
+  const normalized = value.trim();
+  if (!/^\d{4}$/.test(normalized)) {
+    return false;
+  }
+  const year = Number(normalized);
+  return year > 0 && year < cutoffYear;
+}
+
 export function createBadgeRegistry(): BadgeEvaluatorRegistry {
   const registry = new BadgeEvaluatorRegistry();
   registry.register(cinephileEvaluator);
   registry.register(archivistEvaluator);
+  registry.register(nostalgicEvaluator);
   registry.register(firstWatchEvaluator);
   registry.register(firstReviewEvaluator);
   registry.register(seasonCompleteEvaluator);

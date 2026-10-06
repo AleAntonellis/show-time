@@ -8,6 +8,7 @@ import {
   createBadgeRegistry,
   getNewlyUnlockedLevels,
   hasCompletedSeason,
+  isReleaseYearBefore,
   type BadgeDefinition,
 } from '../../supabase/functions/evaluate-badges/badge-engine';
 
@@ -95,6 +96,50 @@ const archivistDefinition: BadgeDefinition = {
       description: 'Aggiungi 5.000 titoli.',
       threshold: 5000,
       iconKey: 'archivist-platinum',
+    },
+  ],
+};
+
+const nostalgicDefinition: BadgeDefinition = {
+  id: 'nostalgic',
+  version: 1,
+  category: 'exploration',
+  name: 'Nostalgico',
+  description: 'Completa titoli usciti prima del 1990.',
+  iconKey: 'nostalgic',
+  isActive: true,
+  levels: [
+    {
+      level: 1,
+      key: 'bronze',
+      name: 'Bronzo',
+      description: 'Completa 50 titoli.',
+      threshold: 50,
+      iconKey: 'nostalgic-bronze',
+    },
+    {
+      level: 2,
+      key: 'silver',
+      name: 'Argento',
+      description: 'Completa 150 titoli.',
+      threshold: 150,
+      iconKey: 'nostalgic-silver',
+    },
+    {
+      level: 3,
+      key: 'gold',
+      name: 'Oro',
+      description: 'Completa 250 titoli.',
+      threshold: 250,
+      iconKey: 'nostalgic-gold',
+    },
+    {
+      level: 4,
+      key: 'platinum',
+      name: 'Platino',
+      description: 'Completa 500 titoli.',
+      threshold: 500,
+      iconKey: 'nostalgic-platinum',
     },
   ],
 };
@@ -292,6 +337,62 @@ test('Archivista rifiuta fatti malformati', () => {
       error instanceof BadgeEngineError &&
       error.code === 'facts_invalid',
   );
+});
+
+test('Nostalgico deduplica i titoli completati prima del 1990', () => {
+  const evaluation = createBadgeRegistry().evaluate(
+    nostalgicDefinition,
+    {
+      completedClassicItemIds: [
+        ...libraryItemIds(49),
+        'library-item-1',
+        ' library-item-2 ',
+      ],
+    },
+    context,
+  );
+
+  assert.equal(evaluation.progress, 49);
+  assert.deepEqual(evaluation.unlockedLevels, []);
+  assert.equal(evaluation.nextThreshold, 50);
+  assert.equal(evaluation.evidence.itemIds, undefined);
+});
+
+test('Nostalgico sblocca Bronzo e Argento a 150 titoli', () => {
+  const evaluation = createBadgeRegistry().evaluate(
+    nostalgicDefinition,
+    { completedClassicItemIds: libraryItemIds(150) },
+    { ...context, isBackfill: true },
+  );
+
+  assert.equal(evaluation.progress, 150);
+  assert.deepEqual(evaluation.unlockedLevels, [1, 2]);
+  assert.equal(evaluation.nextThreshold, 250);
+  assert.equal(evaluation.evidence.backfill, true);
+});
+
+test('Nostalgico rifiuta fatti malformati', () => {
+  assert.throws(
+    () =>
+      createBadgeRegistry().evaluate(
+        nostalgicDefinition,
+        { completedClassicItemIds: ['library-item-1', 2] },
+        context,
+      ),
+    (error: unknown) =>
+      error instanceof BadgeEngineError &&
+      error.code === 'facts_invalid',
+  );
+});
+
+test('Nostalgico accetta soltanto anni validi precedenti al 1990', () => {
+  assert.equal(isReleaseYearBefore('1989', 1990), true);
+  assert.equal(isReleaseYearBefore(' 1975 ', 1990), true);
+  assert.equal(isReleaseYearBefore('1990', 1990), false);
+  assert.equal(isReleaseYearBefore('0000', 1990), false);
+  assert.equal(isReleaseYearBefore('89', 1990), false);
+  assert.equal(isReleaseYearBefore('', 1990), false);
+  assert.equal(isReleaseYearBefore(null, 1990), false);
 });
 
 test('Primo ciak si sblocca con una sola attività reale distinta', () => {

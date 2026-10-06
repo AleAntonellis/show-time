@@ -8,7 +8,8 @@ Questa proposta affianca, senza sostituirla, la prima raccolta di idee in
 ## Stato
 
 - **Fase:** implementazione
-- **Implementazione:** Batch A1 e Archivista (A2.1) pubblicati e verificati in produzione
+- **Implementazione:** Batch A1 e Archivista (A2.1) pubblicati; Nostalgico (A2.2)
+  completato localmente e in attesa di rollout
 - **Obiettivo:** arrivare a un catalogo V1 piccolo, misurabile e sostenibile
 - **Principio guida:** premiare il percorso personale, non la quantità di tempo
   trascorsa davanti allo schermo
@@ -831,7 +832,7 @@ Questa fase valida architettura e UX prima di aggiungere altre regole.
 - [x] Stagione chiusa
 - [ ] Serialista
 - [x] Archivista
-- [ ] Nostalgico
+- [x] Nostalgico
 
 ### Verifica Batch A1 — badge introduttivi
 
@@ -891,6 +892,23 @@ usati dal progetto.
 - account `@testshowtime`: `5/500`, refresh idempotente e hero `3/11`;
 - account principale: `360/500`, refresh idempotente e hero `4/11`;
 - produzione senza errori console né overflow a 360/390 px.
+
+### Verifica Batch A2.2 — Nostalgico
+
+- migration `0020_nostalgic_badge.sql` con soglie `50 / 150 / 250 / 500`;
+- conta film e serie nello stato `Visto` con anno TMDB valido precedente al 1990;
+- include storico importato;
+- esclude il 1990, anni mancanti, `0000` e valori non formati da quattro cifre;
+- helper puro e testato per il confine temporale;
+- loader paginato oltre 1.000 titoli completati;
+- rivalutazioni non bloccanti dopo cambi di stato film e progresso serie;
+- evidenza privata limitata a conteggio, versione e data;
+- patch originale a televisore CRT nelle quattro varianti metalliche;
+- ordine Sala trofei: Cinefilo, Archivista, Nostalgico;
+- preview locale: `Nostalgico 0/4`, progresso `0/50`, hero `3/15`;
+- patch e accordion verificati senza overflow a 360 e 390 px;
+- `20/20` test engine superati;
+- test SQL transazionale pronto per soglia `150`, idempotenza e regressione a `0`.
 
 #### Batch B — Esplorazione e comportamento
 
@@ -1042,6 +1060,7 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 - [x] Sala trofei nel menu globale con indicatore nuovi sblocchi
 - [x] Prima patch definitiva: Cinefilo
 - [x] Seconda famiglia progressiva: Archivista
+- [x] Terza famiglia progressiva: Nostalgico
 - [x] Primo batch successivo: introduttivi, Serialista, Archivista e Nostalgico
 
 ---
@@ -1050,11 +1069,11 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 
 Le decisioni di prodotto necessarie per la V1 sono chiuse.
 
-Il prossimo passo operativo è **Nostalgico**:
+Il prossimo passo operativo è completare il rollout di **Nostalgico**:
 
-1. contare film e serie completati usciti prima del 1990;
-2. includere lo storico importato;
-3. aggiungere le soglie `50 / 150 / 250 / 500`;
-4. creare la patch dedicata e il relativo accordion;
-5. verificare il backfill sugli account reali;
+1. distribuire la Edge Function aggiornata;
+2. pubblicare la Sala trofei con la patch CRT;
+3. applicare la migration `0020_nostalgic_badge.sql`;
+4. verificare backfill e idempotenza sull’account Test;
+5. verificare il progresso e gli eventuali sblocchi sull’account principale;
 6. proseguire infine con Serialista.

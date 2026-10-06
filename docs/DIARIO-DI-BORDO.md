@@ -72,6 +72,7 @@ leggera, condivisione via link privato, tema dark esclusivo.
 | D50 | Badge introduttivi | Primo ciak, Prima recensione e Stagione chiusa come traguardi singoli; Speciali esclusi | Offre feedback iniziale verificabile prima delle soglie cumulative più alte |
 | D51 | Visto oggi e Diario film | “Visto oggi” apre subito data, nota e voto; una RPC completa il placeholder dello stesso giorno | Evita doppie visioni senza impedire rewatch reali, anche nella stessa data |
 | D52 | Archivista | Tutte le voci distinte della Libreria contribuiscono, in qualunque stato e tipo media | Premia la cura del catalogo personale senza confonderla con i titoli completati |
+| D53 | Nostalgico | Titoli completati con anno TMDB valido fino al 1989, film e serie, importati inclusi | Premia l’esplorazione del catalogo storico con una regola deterministica |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -478,6 +479,11 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   metalli. Engine `16/16`, test SQL transazionale e deploy Azure completati. Verifica
   produzione: `@testshowtime` `5/500` con hero `3/11`; account principale `360/500`
   con hero `4/11`; refresh idempotenti, console pulita e layout 360/390 px.
+- ✅ Implementato localmente **Nostalgico**: conta film e serie completati fino al 1989,
+  inclusi importati, escludendo anni mancanti o malformati. Soglie
+  50/150/250/500, loader paginato, trigger su stato film e progresso serie, patch a
+  televisore CRT. Preview simulata `0/50`, hero `3/15`, layout 360/390 px; engine
+  `20/20`. Rollout Supabase e web ancora da completare.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

@@ -7,6 +7,7 @@ import {
   BadgeEngineError,
   createBadgeRegistry,
   hasCompletedSeason,
+  isReleaseYearBefore,
   type BadgeCategory,
   type BadgeDefinition,
   type BadgeEvaluation,
@@ -17,6 +18,7 @@ import {
   type CinephileFacts,
   type FirstReviewFacts,
   type FirstWatchFacts,
+  type NostalgicFacts,
   type SeasonCompleteFacts,
 } from './badge-engine.ts';
 
@@ -91,6 +93,18 @@ type LibraryTitleFactRow = {
     | {
         tmdb_id: number;
         media_type: string;
+      }[]
+    | null;
+};
+
+type LibraryYearFactRow = {
+  id: string;
+  titles:
+    | {
+        year: string | null;
+      }
+    | {
+        year: string | null;
       }[]
     | null;
 };
@@ -306,6 +320,47 @@ async function loadArchivistFacts(
     }
   }
   return { libraryItemIds };
+}
+
+async function loadNostalgicFacts(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+): Promise<NostalgicFacts> {
+  const completedClassicItemIds: string[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabaseAdmin
+      .from('library_items')
+      .select('id, titles!inner(year)')
+      .eq('user_id', userId)
+      .eq('status', 'watched')
+      .order('id', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      throw new BadgeEngineError(
+        `Impossibile leggere i titoli per Nostalgico: ${error.message}`,
+        'facts_load_failed',
+      );
+    }
+    const rows = (data ?? []) as unknown as LibraryYearFactRow[];
+    for (const row of rows) {
+      const title = Array.isArray(row.titles)
+        ? row.titles[0] ?? null
+        : row.titles;
+      if (typeof row.id !== 'string' || !row.id.trim() || !title) {
+        throw new BadgeEngineError(
+          'Metadati titolo non validi per Nostalgico',
+          'facts_load_failed',
+        );
+      }
+      if (isReleaseYearBefore(title.year, 1990)) {
+        completedClassicItemIds.push(row.id);
+      }
+    }
+    if (rows.length < PAGE_SIZE) {
+      break;
+    }
+  }
+  return { completedClassicItemIds };
 }
 
 async function hasExistingUnlock(
@@ -734,6 +789,9 @@ async function loadFacts(
   }
   if (definition.id === 'archivist' && definition.version === 1) {
     return loadArchivistFacts(supabaseAdmin, userId);
+  }
+  if (definition.id === 'nostalgic' && definition.version === 1) {
+    return loadNostalgicFacts(supabaseAdmin, userId);
   }
   if (
     definition.version === 1 &&
