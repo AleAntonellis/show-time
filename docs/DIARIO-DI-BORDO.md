@@ -496,11 +496,12 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   `24/24`, test SQL e deploy Azure completati. Cache reale: 127 serie candidate,
   91 `Ended`. Produzione: account principale `91/100`, Bronzo sbloccato, hero `5/19`;
   Test `0/25`, hero `3/19`; refresh idempotenti e layout 360/390 px.
-- ✅ Implementato localmente **Esploratore di generi**: 15 categorie canoniche,
+- ✅ Pubblicato **Esploratore di generi**: 15 categorie canoniche,
   mapping da ID TMDB e 24 alias reali italiani/inglesi, `TV Movie` escluso. Cache generi
-  protetta per 64 titoli completati senza metadati sull’account principale, TTL 30 giorni,
-  concorrenza limitata e retry `429`. Soglie 5/8/12/15 e patch a bussola. Preview
-  `4/5`, hero `3/23`, layout 360/390 px; engine `29/29`. Rollout ancora da completare.
+  protetta, TTL 30 giorni, concorrenza limitata e retry `429`. Soglie 5/8/12/15 e patch
+  a bussola. Engine `29/29`, test SQL e deploy Azure completati. Cache reale: 125 titoli.
+  Produzione: account principale `15/15`, quattro livelli e banner unico, hero `9/23`;
+  Test `3/5`, hero `3/23`; refresh idempotenti e layout 360/390 px.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

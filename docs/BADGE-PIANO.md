@@ -8,8 +8,8 @@ Questa proposta affianca, senza sostituirla, la prima raccolta di idee in
 ## Stato
 
 - **Fase:** implementazione
-- **Implementazione:** Batch A1 e Batch A2 pubblicati; Esploratore di generi (B1)
-  completato localmente e in attesa di rollout
+- **Implementazione:** Batch A1, Batch A2 ed Esploratore di generi (B1) pubblicati e
+  verificati in produzione
 - **Obiettivo:** arrivare a un catalogo V1 piccolo, misurabile e sostenibile
 - **Principio guida:** premiare il percorso personale, non la quantità di tempo
   trascorsa davanti allo schermo
@@ -975,6 +975,16 @@ usati dal progetto.
 - patch e accordion verificati senza overflow a 360 e 390 px;
 - `29/29` test engine superati;
 - test SQL transazionale pronto per soglia `12`, regressione a `0` e permessi cache.
+- bundle monolitico verificato e distribuito prima dell’attivazione del catalogo;
+- deploy Azure completato sul commit `13efa1a`;
+- migration `0022_genre_explorer_badge.sql` applicata con cache e RLS;
+- test SQL transazionale superato senza dati residui;
+- cache condivisa popolata con `125` titoli;
+- account principale: `15/15`, tutti e quattro i livelli sbloccati, hero `9/23`;
+- i quattro sblocchi sono stati mostrati in un unico banner aggregato;
+- account `@testshowtime`: `3/5`, nessuno sblocco, hero `3/23`;
+- secondo refresh su entrambi: `0` nuovi sblocchi;
+- produzione senza overflow a 360/390 px.
 
 #### Batch C — Diario e Social
 
@@ -1129,11 +1139,11 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 
 Le decisioni di prodotto necessarie per la V1 sono chiuse.
 
-Il prossimo passo operativo è completare il rollout di **Esploratore di generi**:
+Il prossimo passo operativo è **Ancora un episodio**:
 
-1. distribuire la Edge Function con cache generi protetta;
-2. pubblicare la patch a bussola;
-3. applicare la migration `0022_genre_explorer_badge.sql`;
-4. verificare backfill e cache sugli account reali;
-5. controllare gli eventuali sblocchi multipli aggregati;
-6. proseguire con Ancora un episodio.
+1. usare soltanto episodi `tracked`;
+2. raggruppare per serie e data reale;
+3. applicare le soglie `3 / 5 / 8 / 12`;
+4. escludere episodi importati;
+5. creare patch e accordion dedicati;
+6. verificare rewatch e deduplica degli eventi.
