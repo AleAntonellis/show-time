@@ -488,11 +488,13 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   progresso è stato persistito, poi il bundle monolitico verificato è stato ridistribuito.
   Produzione: account principale `32/50`, hero `4/15`; Test `0/50`, hero `3/15`;
   refresh idempotenti, console pulita e layout 360/390 px.
-- ✅ Implementato localmente **Serialista**: serie `Ended`, verifica esatta di tutti gli
+- ✅ Pubblicato **Serialista**: serie `Ended`, verifica esatta di tutti gli
   episodi regolari e Speciali esclusi. Cache TMDB persistente con TTL 7 giorni, accesso
   riservato al `service_role`, concorrenza limitata e retry `429`. Soglie
-  25/100/250/500 e patch a pila di episodi posizionata subito sotto Cinefilo. Preview
-  `0/25`, hero `3/19`, layout 360/390 px; engine `24/24`. Rollout ancora da completare.
+  25/100/250/500 e patch a pila di episodi posizionata subito sotto Cinefilo. Engine
+  `24/24`, test SQL e deploy Azure completati. Cache reale: 127 serie candidate,
+  91 `Ended`. Produzione: account principale `91/100`, Bronzo sbloccato, hero `5/19`;
+  Test `0/25`, hero `3/19`; refresh idempotenti e layout 360/390 px.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

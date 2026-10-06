@@ -8,8 +8,7 @@ Questa proposta affianca, senza sostituirla, la prima raccolta di idee in
 ## Stato
 
 - **Fase:** implementazione
-- **Implementazione:** Batch A1, Archivista (A2.1) e Nostalgico (A2.2) pubblicati;
-  Serialista (A2.3) completato localmente e in attesa di rollout
+- **Implementazione:** Batch A1 e Batch A2 pubblicati e verificati in produzione
 - **Obiettivo:** arrivare a un catalogo V1 piccolo, misurabile e sostenibile
 - **Principio guida:** premiare il percorso personale, non la quantità di tempo
   trascorsa davanti allo schermo
@@ -937,6 +936,15 @@ usati dal progetto.
 - `24/24` test engine superati;
 - test SQL transazionale pronto per soglia `100`, idempotenza, regressione a `0` e
   permessi della cache.
+- bundle monolitico verificato e distribuito prima dell’attivazione del catalogo;
+- deploy Azure completato sul commit `1d4ecb9`;
+- migration `0021_serialist_badge.sql` applicata con cache e RLS;
+- test SQL transazionale superato senza dati residui;
+- cache popolata con `127` serie candidate, `91` delle quali `Ended`;
+- account `@testshowtime`: `0/25`, refresh idempotente e hero `3/19`;
+- account principale: `91/100`, Bronzo sbloccato, hero `5/19`;
+- secondo refresh dalla cache: `0` nuovi sblocchi;
+- produzione senza overflow a 360/390 px.
 
 #### Batch B — Esplorazione e comportamento
 
@@ -1098,11 +1106,13 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 
 Le decisioni di prodotto necessarie per la V1 sono chiuse.
 
-Il prossimo passo operativo è completare il rollout di **Serialista**:
+Il **Batch A2 è completato**. Il prossimo passo operativo è scegliere il primo badge
+del Batch B:
 
-1. distribuire la Edge Function con cache protetta;
-2. pubblicare la patch subito sotto Cinefilo;
-3. applicare la migration `0021_serialist_badge.sql`;
-4. verificare cache, backfill e idempotenza sull’account Test;
-5. verificare progresso e sblocchi sull’account principale;
-6. chiudere il Batch A2 e scegliere il primo badge del Batch B.
+1. Esploratore di generi;
+2. Ancora un episodio;
+3. Maratoneta;
+4. Encore.
+
+La scelta consigliata è **Esploratore di generi**, perché riusa i metadati già presenti
+e introduce la tassonomia canonica prima dei badge comportamentali più complessi.
