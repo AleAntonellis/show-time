@@ -8,8 +8,8 @@ Questa proposta affianca, senza sostituirla, la prima raccolta di idee in
 ## Stato
 
 - **Fase:** implementazione
-- **Implementazione:** Batch A1 e Archivista (A2.1) pubblicati; Nostalgico (A2.2)
-  completato localmente e in attesa di rollout
+- **Implementazione:** Batch A1, Archivista (A2.1) e Nostalgico (A2.2) pubblicati e
+  verificati in produzione
 - **Obiettivo:** arrivare a un catalogo V1 piccolo, misurabile e sostenibile
 - **Principio guida:** premiare il percorso personale, non la quantità di tempo
   trascorsa davanti allo schermo
@@ -909,6 +909,15 @@ usati dal progetto.
 - patch e accordion verificati senza overflow a 360 e 390 px;
 - `20/20` test engine superati;
 - test SQL transazionale pronto per soglia `150`, idempotenza e regressione a `0`.
+- Edge Function monolitica verificata e distribuita con loader ed evaluator Nostalgico;
+- primo tentativo di backfill fermato esplicitamente con `409 facts_loader_not_found`
+  prima di qualsiasi persistenza; artifact corretto e ridistribuito;
+- deploy Azure completato sul commit `226db27`;
+- migration `0020_nostalgic_badge.sql` applicata con encoding UTF-8;
+- test SQL transazionale superato senza dati residui;
+- account `@testshowtime`: `0/50`, refresh idempotente e hero `3/15`;
+- account principale: `32/50`, refresh idempotente e hero `4/15`;
+- produzione senza errori console né overflow a 360/390 px.
 
 #### Batch B — Esplorazione e comportamento
 
@@ -1069,11 +1078,11 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 
 Le decisioni di prodotto necessarie per la V1 sono chiuse.
 
-Il prossimo passo operativo è completare il rollout di **Nostalgico**:
+Il prossimo passo operativo è **Serialista**:
 
-1. distribuire la Edge Function aggiornata;
-2. pubblicare la Sala trofei con la patch CRT;
-3. applicare la migration `0020_nostalgic_badge.sql`;
-4. verificare backfill e idempotenza sull’account Test;
-5. verificare il progresso e gli eventuali sblocchi sull’account principale;
-6. proseguire infine con Serialista.
+1. considerare soltanto serie TMDB con stato `Ended`;
+2. verificare tutti gli episodi regolari, escludendo Stagione 0 / Speciali;
+3. includere progresso importato e attività reale;
+4. aggiungere le soglie `25 / 100 / 250 / 500`;
+5. creare patch e accordion dedicati;
+6. completare il Batch A2 con backfill e test reali.
