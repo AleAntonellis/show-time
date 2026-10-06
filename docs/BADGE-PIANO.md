@@ -8,8 +8,7 @@ Questa proposta affianca, senza sostituirla, la prima raccolta di idee in
 ## Stato
 
 - **Fase:** implementazione
-- **Implementazione:** Batch A1 pubblicato; Archivista (A2.1) completato localmente e in
-  attesa di rollout Supabase/web
+- **Implementazione:** Batch A1 e Archivista (A2.1) pubblicati e verificati in produzione
 - **Obiettivo:** arrivare a un catalogo V1 piccolo, misurabile e sostenibile
 - **Principio guida:** premiare il percorso personale, non la quantità di tempo
   trascorsa davanti allo schermo
@@ -885,6 +884,13 @@ usati dal progetto.
 - patch e accordion verificati senza overflow a 360 e 390 px;
 - `16/16` test engine superati;
 - test SQL transazionale pronto per soglia `1.500`, idempotenza e regressione a `5`.
+- Edge Function distribuita prima dell’attivazione del catalogo;
+- deploy Azure completato sul commit `f50cc38`;
+- migration `0019_archivist_badge.sql` applicata e testo UTF-8 verificato;
+- test SQL transazionale superato senza dati residui;
+- account `@testshowtime`: `5/500`, refresh idempotente e hero `3/11`;
+- account principale: `360/500`, refresh idempotente e hero `4/11`;
+- produzione senza errori console né overflow a 360/390 px.
 
 #### Batch B — Esplorazione e comportamento
 
@@ -1044,11 +1050,11 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 
 Le decisioni di prodotto necessarie per la V1 sono chiuse.
 
-Il prossimo passo operativo è completare il rollout di **Archivista**:
+Il prossimo passo operativo è **Nostalgico**:
 
-1. distribuire la Edge Function aggiornata, ancora retrocompatibile;
-2. pubblicare la Sala trofei con la patch Archivista;
-3. applicare la migration `0019_archivist_badge.sql`;
-4. verificare backfill e idempotenza sull’account Test;
-5. verificare il progresso reale sull’account principale;
-6. proseguire con Nostalgico e infine Serialista.
+1. contare film e serie completati usciti prima del 1990;
+2. includere lo storico importato;
+3. aggiungere le soglie `50 / 150 / 250 / 500`;
+4. creare la patch dedicata e il relativo accordion;
+5. verificare il backfill sugli account reali;
+6. proseguire infine con Serialista.

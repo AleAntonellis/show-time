@@ -472,11 +472,12 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   tre placeholder duplicati già presenti (due sull’account principale e uno sull’altro
   account), con audit finale `0` duplicati su tutti i profili. Test reale reversibile su
   Inception: storico `1 → 1` dopo nota/voto e ripristino completo dei dati.
-- ✅ Implementato localmente **Archivista**, prima famiglia del Batch A2: conta tutte le
+- ✅ Pubblicato **Archivista**, prima famiglia del Batch A2: conta tutte le
   voci distinte della Libreria con soglie 500/1.500/2.500/5.000, loader paginato, massimo
   storico e trigger mirati ad aggiunta/rimozione. Aggiunta patch a schedario con quattro
-  metalli; preview `@testshowtime` simulata `5/500`, hero `3/11`, layout 360/390 px.
-  Engine `16/16`; rollout Supabase e web ancora da completare.
+  metalli. Engine `16/16`, test SQL transazionale e deploy Azure completati. Verifica
+  produzione: `@testshowtime` `5/500` con hero `3/11`; account principale `360/500`
+  con hero `4/11`; refresh idempotenti, console pulita e layout 360/390 px.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.
