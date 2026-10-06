@@ -3,7 +3,7 @@
 Registro cronologico delle **decisioni** e dei **progressi** del progetto, così da non perdere nulla.
 Documento vivo: aggiornato a ogni passo di lavoro.
 
-> Ultimo aggiornamento: 2026-10-05 (flusso Visto oggi e Diario)
+> Ultimo aggiornamento: 2026-10-06 (pubblicazione Ancora un episodio)
 
 ---
 
@@ -503,11 +503,16 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   a bussola. Engine `29/29`, test SQL e deploy Azure completati. Cache reale: 125 titoli.
   Produzione: account principale `15/15`, quattro livelli e banner unico, hero `9/23`;
   Test `3/5`, hero `3/23`; refresh idempotenti e layout 360/390 px.
-- ✅ Implementato localmente **Ancora un episodio**: massimo giornaliero di episodi
+- ✅ Pubblicato **Ancora un episodio**: massimo giornaliero di episodi
   `tracked` distinti della stessa serie, Speciali e importati esclusi. Soglie 3/5/8/12,
   deduplica per stagione+episodio, tie-break sul giorno più recente e patch a episodi
-  impilati. Dati reali attuali `0/3` su entrambi gli account; preview `2/3`, hero `3/27`,
-  layout 360/390 px; engine `33/33`. Rollout ancora da completare.
+  impilati. Engine `33/33`, test SQL transazionale, Edge Function e migration
+  distribuiti; deploy Azure sul commit `3bcd8df`. Backfill reale: account principale e
+  Test entrambi a `0/3`. Test live reversibile su `@testshowtime`: tre episodi
+  temporaneamente `tracked` nella stessa data hanno prodotto Bronzo, `3/5` e un solo
+  banner; secondo refresh idempotente. Rollback verificato: visioni ripristinate
+  `imported` con la data originale, sblocco rimosso, progresso/massimo `0` e UI
+  nuovamente `0/3`.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

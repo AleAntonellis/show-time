@@ -8,8 +8,8 @@ Questa proposta affianca, senza sostituirla, la prima raccolta di idee in
 ## Stato
 
 - **Fase:** implementazione
-- **Implementazione:** fino a Esploratore di generi (B1) pubblicato; Ancora un episodio
-  (B2) completato localmente e in attesa di rollout
+- **Implementazione:** fino ad Ancora un episodio (B2) pubblicato e verificato in
+  produzione
 - **Obiettivo:** arrivare a un catalogo V1 piccolo, misurabile e sostenibile
 - **Principio guida:** premiare il percorso personale, non la quantità di tempo
   trascorsa davanti allo schermo
@@ -1003,7 +1003,16 @@ usati dal progetto.
 - patch e accordion verificati senza overflow a 360 e 390 px;
 - dati reali attuali: progresso atteso `0/3` su account principale e Test;
 - `33/33` test engine superati;
-- test SQL transazionale pronto per soglia `8`, regressione a `0` e permanenza.
+- test SQL transazionale superato senza dati residui;
+- bundle monolitico verificato e distribuito prima dell’attivazione del catalogo;
+- Edge Function aggiornata e migration applicate in produzione;
+- deploy Azure completato sul commit `3bcd8df`;
+- backfill reale: account principale e `@testshowtime` entrambi a `0/3`;
+- test live reversibile su `@testshowtime`: tre episodi temporaneamente `tracked`
+  della stessa serie e data hanno prodotto `3/5`, Bronzo e un solo banner;
+- secondo refresh idempotente: `0` nuovi sblocchi;
+- rollback completo verificato: visioni ripristinate come `imported` con la data
+  originale, sblocco di prova rimosso, progresso e massimo a `0`, UI tornata a `0/3`.
 
 #### Batch C — Diario e Social
 
@@ -1151,6 +1160,7 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 - [x] Terza famiglia progressiva: Nostalgico
 - [x] Quarta famiglia progressiva: Serialista
 - [x] Primo batch successivo: introduttivi, Serialista, Archivista e Nostalgico
+- [x] Secondo batch successivo: Esploratore di generi e Ancora un episodio
 
 ---
 
@@ -1158,11 +1168,11 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 
 Le decisioni di prodotto necessarie per la V1 sono chiuse.
 
-Il prossimo passo operativo è completare il rollout di **Ancora un episodio**:
+Il prossimo passo operativo è **Maratoneta**:
 
-1. distribuire la Edge Function aggiornata;
-2. pubblicare la patch a episodi;
-3. applicare la migration `0023_one_more_episode_badge.sql`;
-4. verificare backfill `0/3` e idempotenza sugli account reali;
-5. eseguire un test reversibile con tre episodi tracked nella stessa data;
-6. proseguire con Maratoneta.
+1. formalizzare la regola già approvata per stagioni da almeno 8 episodi;
+2. usare soltanto attività `tracked`;
+3. richiedere l’intera stagione nella stessa data o in due date consecutive;
+4. rendere il risultato indipendente dall’ordine di registrazione;
+5. implementare valutatore, migration, test e patch dedicata;
+6. verificare localmente e poi con un rollout reversibile.
