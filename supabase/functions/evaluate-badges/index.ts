@@ -19,6 +19,8 @@ import {
   type CinephileFacts,
   type FirstReviewFacts,
   type FirstWatchFacts,
+  type GenreExplorerFacts,
+  type GenreTitleFact,
   type NostalgicFacts,
   type RegularSeasonDefinition,
   type SeasonCompleteFacts,
@@ -29,6 +31,7 @@ import {
 const PAGE_SIZE = 1000;
 const TMDB_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const TMDB_TITLE_METADATA_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const TMDB_GENRE_METADATA_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const TMDB_REQUEST_CONCURRENCY = 4;
 const registry = createBadgeRegistry();
 const tmdbSeasonCache = new Map<
@@ -38,6 +41,10 @@ const tmdbSeasonCache = new Map<
 const tmdbTvMetadataCache = new Map<
   number,
   { expiresAt: number; promise: Promise<TvBadgeMetadata> }
+>();
+const tmdbTitleGenreIdsCache = new Map<
+  string,
+  { expiresAt: number; promise: Promise<number[]> }
 >();
 
 type EvaluateRequest = {
@@ -160,6 +167,39 @@ type TvBadgeMetadata = {
 type ResolvedTvBadgeMetadata = TvBadgeMetadata & {
   titleId: string;
   fetched: boolean;
+};
+
+type GenreExplorerLibraryRow = {
+  id: string;
+  title_id: string;
+  titles:
+    | {
+        id: string;
+        tmdb_id: number;
+        media_type: string;
+        genres: string[] | null;
+      }
+    | {
+        id: string;
+        tmdb_id: number;
+        media_type: string;
+        genres: string[] | null;
+      }[]
+    | null;
+};
+
+type BadgeTitleGenresRow = {
+  title_id: string;
+  tmdb_genre_ids: unknown;
+  refreshed_at: string;
+};
+
+type GenreExplorerCandidate = {
+  itemId: string;
+  titleId: string;
+  tmdbId: number;
+  mediaType: 'movie' | 'tv';
+  genreNames: string[];
 };
 
 type SeasonCandidate = {
@@ -1270,6 +1310,291 @@ async function loadSerialistFacts(
   };
 }
 
+function genreExplorerTitleRelation(
+  row: GenreExplorerLibraryRow,
+): {
+  id: string;
+  tmdb_id: number;
+  media_type: string;
+  genres: string[] | null;
+} | null {
+  if (Array.isArray(row.titles)) {
+    return row.titles[0] ?? null;
+  }
+  return row.titles;
+}
+
+async function loadGenreExplorerLibraryRows(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+): Promise<GenreExplorerLibraryRow[]> {
+  const libraryRows: GenreExplorerLibraryRow[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabaseAdmin
+      .from('library_items')
+      .select(
+        'id, title_id, titles!inner(id, tmdb_id, media_type, genres)',
+      )
+      .eq('user_id', userId)
+      .eq('status', 'watched')
+      .order('id', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      throw new BadgeEngineError(
+        `Impossibile leggere i titoli per Esploratore di generi: ${error.message}`,
+        'facts_load_failed',
+      );
+    }
+    const rows = (data ?? []) as unknown as GenreExplorerLibraryRow[];
+    libraryRows.push(...rows);
+    if (rows.length < PAGE_SIZE) {
+      break;
+    }
+  }
+  return libraryRows;
+}
+
+async function loadBadgeTitleGenres(
+  supabaseAdmin: SupabaseClient,
+  titleIds: string[],
+): Promise<Map<string, BadgeTitleGenresRow>> {
+  const genresByTitle = new Map<string, BadgeTitleGenresRow>();
+  for (let index = 0; index < titleIds.length; index += 100) {
+    const chunk = titleIds.slice(index, index + 100);
+    const { data, error } = await supabaseAdmin
+      .from('badge_title_genres')
+      .select('title_id, tmdb_genre_ids, refreshed_at')
+      .in('title_id', chunk);
+    if (error) {
+      throw new BadgeEngineError(
+        `Impossibile leggere la cache generi badge: ${error.message}`,
+        'facts_load_failed',
+      );
+    }
+    for (const row of (data ?? []) as BadgeTitleGenresRow[]) {
+      genresByTitle.set(row.title_id, row);
+    }
+  }
+  return genresByTitle;
+}
+
+function parseTmdbGenreIds(value: unknown): number[] | null {
+  if (
+    !Array.isArray(value) ||
+    value.some(
+      (genreId) =>
+        !Number.isInteger(genreId) || Number(genreId) <= 0,
+    )
+  ) {
+    return null;
+  }
+  return Array.from(new Set(value.map(Number))).sort(
+    (first, second) => first - second,
+  );
+}
+
+function cachedTmdbGenreIds(
+  row: BadgeTitleGenresRow | undefined,
+): number[] | null {
+  if (!row) {
+    return null;
+  }
+  const refreshedAt = Date.parse(row.refreshed_at);
+  if (
+    !Number.isFinite(refreshedAt) ||
+    Date.now() - refreshedAt > TMDB_GENRE_METADATA_TTL_MS
+  ) {
+    return null;
+  }
+  return parseTmdbGenreIds(row.tmdb_genre_ids);
+}
+
+async function requestTmdbTitleGenreIds(
+  mediaType: 'movie' | 'tv',
+  tmdbId: number,
+): Promise<number[]> {
+  const payload = await requestTmdbJson(
+    `/${mediaType}/${tmdbId}`,
+    `i generi ${mediaType}/${tmdbId}`,
+  );
+  if (
+    typeof payload !== 'object' ||
+    payload == null ||
+    !('genres' in payload) ||
+    !Array.isArray(payload.genres)
+  ) {
+    throw new BadgeEngineError(
+      'Risposta TMDB priva dei generi del titolo',
+      'tmdb_response_invalid',
+    );
+  }
+  const genreIds: number[] = [];
+  for (const genre of payload.genres) {
+    if (
+      typeof genre !== 'object' ||
+      genre == null ||
+      !('id' in genre) ||
+      !Number.isInteger(genre.id) ||
+      Number(genre.id) <= 0
+    ) {
+      throw new BadgeEngineError(
+        'Risposta TMDB con genere non valido',
+        'tmdb_response_invalid',
+      );
+    }
+    genreIds.push(Number(genre.id));
+  }
+  return Array.from(new Set(genreIds)).sort(
+    (first, second) => first - second,
+  );
+}
+
+function loadTmdbTitleGenreIds(
+  mediaType: 'movie' | 'tv',
+  tmdbId: number,
+): Promise<number[]> {
+  const key = `${mediaType}:${tmdbId}`;
+  const cached = tmdbTitleGenreIdsCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.promise;
+  }
+  const promise = requestTmdbTitleGenreIds(mediaType, tmdbId).catch(
+    (error) => {
+      tmdbTitleGenreIdsCache.delete(key);
+      throw error;
+    },
+  );
+  tmdbTitleGenreIdsCache.set(key, {
+    expiresAt: Date.now() + TMDB_CACHE_TTL_MS,
+    promise,
+  });
+  return promise;
+}
+
+async function loadGenreExplorerFacts(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+): Promise<GenreExplorerFacts> {
+  const rows = await loadGenreExplorerLibraryRows(
+    supabaseAdmin,
+    userId,
+  );
+  const candidates: GenreExplorerCandidate[] = rows.map((row) => {
+    const title = genreExplorerTitleRelation(row);
+    if (
+      typeof row.id !== 'string' ||
+      !row.id.trim() ||
+      typeof row.title_id !== 'string' ||
+      !row.title_id.trim() ||
+      !title ||
+      title.id !== row.title_id ||
+      (title.media_type !== 'movie' && title.media_type !== 'tv') ||
+      !Number.isInteger(title.tmdb_id) ||
+      title.tmdb_id <= 0 ||
+      (title.genres != null &&
+        (!Array.isArray(title.genres) ||
+          title.genres.some(
+            (genre) => typeof genre !== 'string' || !genre.trim(),
+          )))
+    ) {
+      throw new BadgeEngineError(
+        'Metadati Libreria non validi per Esploratore di generi',
+        'facts_load_failed',
+      );
+    }
+    return {
+      itemId: row.id,
+      titleId: row.title_id,
+      tmdbId: title.tmdb_id,
+      mediaType: title.media_type,
+      genreNames: (title.genres ?? []).map((genre) => genre.trim()),
+    };
+  });
+  const missingGenres = candidates.filter(
+    (candidate) => candidate.genreNames.length === 0,
+  );
+  const cachedGenres = await loadBadgeTitleGenres(
+    supabaseAdmin,
+    missingGenres.map((candidate) => candidate.titleId),
+  );
+  const resolvedMissingGenres = await mapWithConcurrency(
+    missingGenres,
+    TMDB_REQUEST_CONCURRENCY,
+    async (
+      candidate,
+    ): Promise<{
+      fact: GenreTitleFact;
+      titleId: string;
+      fetched: boolean;
+    }> => {
+      const cached = cachedTmdbGenreIds(
+        cachedGenres.get(candidate.titleId),
+      );
+      if (cached) {
+        return {
+          fact: {
+            itemId: candidate.itemId,
+            genreNames: [],
+            tmdbGenreIds: cached,
+          },
+          titleId: candidate.titleId,
+          fetched: false,
+        };
+      }
+      const fetched = await loadTmdbTitleGenreIds(
+        candidate.mediaType,
+        candidate.tmdbId,
+      );
+      return {
+        fact: {
+          itemId: candidate.itemId,
+          genreNames: [],
+          tmdbGenreIds: fetched,
+        },
+        titleId: candidate.titleId,
+        fetched: true,
+      };
+    },
+  );
+
+  const fetchedGenres = resolvedMissingGenres.filter(
+    (result) => result.fetched,
+  );
+  if (fetchedGenres.length > 0) {
+    const refreshedAt = new Date().toISOString();
+    const { error } = await supabaseAdmin
+      .from('badge_title_genres')
+      .upsert(
+        fetchedGenres.map((result) => ({
+          title_id: result.titleId,
+          tmdb_genre_ids: result.fact.tmdbGenreIds,
+          refreshed_at: refreshedAt,
+        })),
+        { onConflict: 'title_id' },
+      );
+    if (error) {
+      throw new BadgeEngineError(
+        `Impossibile aggiornare la cache generi badge: ${error.message}`,
+        'facts_load_failed',
+      );
+    }
+  }
+
+  const directFacts: GenreTitleFact[] = candidates
+    .filter((candidate) => candidate.genreNames.length > 0)
+    .map((candidate) => ({
+      itemId: candidate.itemId,
+      genreNames: candidate.genreNames,
+      tmdbGenreIds: [],
+    }));
+  return {
+    completedTitles: [
+      ...directFacts,
+      ...resolvedMissingGenres.map((result) => result.fact),
+    ],
+  };
+}
+
 async function loadFacts(
   definition: BadgeDefinition,
   supabaseAdmin: SupabaseClient,
@@ -1286,6 +1611,12 @@ async function loadFacts(
   }
   if (definition.id === 'serialist' && definition.version === 1) {
     return loadSerialistFacts(supabaseAdmin, userId);
+  }
+  if (
+    definition.id === 'genre_explorer' &&
+    definition.version === 1
+  ) {
+    return loadGenreExplorerFacts(supabaseAdmin, userId);
   }
   if (
     definition.version === 1 &&

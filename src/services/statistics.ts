@@ -3,6 +3,10 @@ import {
   type EpisodeWatchSource,
   type LibraryItem,
 } from '@/services/library';
+import {
+  BADGE_IDS,
+  queueBadgeEvaluation,
+} from '@/services/badges';
 import { fetchAllPages } from '@/services/pagination';
 import { getSupabase } from '@/services/supabase';
 import {
@@ -465,5 +469,8 @@ export async function enrichStatisticsMetadata(limit = 12): Promise<number> {
     }
   }
 
+  if (items.length > 0) {
+    queueBadgeEvaluation([BADGE_IDS.genreExplorer]);
+  }
   return items.length;
 }

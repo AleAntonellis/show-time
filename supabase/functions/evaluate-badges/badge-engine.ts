@@ -46,6 +46,7 @@ export type BadgeEvidence = {
   itemIds?: string[];
   activityIds?: string[];
   seasonKeys?: string[];
+  genreKeys?: string[];
   backfill?: true;
 };
 
@@ -127,6 +128,37 @@ export type NostalgicFacts = {
 
 export type SerialistFacts = {
   completedEndedSeriesIds: string[];
+};
+
+export const CANONICAL_GENRE_KEYS = [
+  'action_adventure',
+  'animation',
+  'comedy',
+  'crime',
+  'documentary_news',
+  'drama_soap',
+  'family_youth',
+  'science_fiction_fantasy',
+  'horror',
+  'mystery_thriller',
+  'romance',
+  'history_war_politics',
+  'music',
+  'reality_talk',
+  'western',
+] as const;
+
+export type CanonicalGenreKey =
+  (typeof CANONICAL_GENRE_KEYS)[number];
+
+export type GenreTitleFact = {
+  itemId: string;
+  genreNames: string[];
+  tmdbGenreIds: number[];
+};
+
+export type GenreExplorerFacts = {
+  completedTitles: GenreTitleFact[];
 };
 
 export type RegularSeasonDefinition = {
@@ -339,6 +371,197 @@ function parseSerialistFacts(facts: unknown): SerialistFacts {
   };
 }
 
+function parseNonEmptyStrings(value: unknown): string[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+  const strings = value.filter(
+    (item): item is string =>
+      typeof item === 'string' && Boolean(item.trim()),
+  );
+  return strings.length === value.length
+    ? strings.map((item) => item.trim())
+    : null;
+}
+
+function parsePositiveIntegers(value: unknown): number[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+  const integers = value.filter(
+    (item): item is number =>
+      Number.isInteger(item) && Number(item) > 0,
+  );
+  return integers.length === value.length ? integers : null;
+}
+
+function parseGenreExplorerFacts(facts: unknown): GenreExplorerFacts {
+  if (
+    typeof facts !== 'object' ||
+    facts == null ||
+    !('completedTitles' in facts) ||
+    !Array.isArray(facts.completedTitles)
+  ) {
+    throw new BadgeEngineError(
+      'Fatti Esploratore di generi non validi',
+      'facts_invalid',
+    );
+  }
+  const completedTitles: GenreTitleFact[] = [];
+  for (const title of facts.completedTitles) {
+    const genreNames =
+      typeof title === 'object' &&
+      title != null &&
+      'genreNames' in title
+        ? parseNonEmptyStrings(title.genreNames)
+        : null;
+    const tmdbGenreIds =
+      typeof title === 'object' &&
+      title != null &&
+      'tmdbGenreIds' in title
+        ? parsePositiveIntegers(title.tmdbGenreIds)
+        : null;
+    if (
+      typeof title !== 'object' ||
+      title == null ||
+      !('itemId' in title) ||
+      typeof title.itemId !== 'string' ||
+      !title.itemId.trim() ||
+      genreNames == null ||
+      tmdbGenreIds == null
+    ) {
+      throw new BadgeEngineError(
+        'Fatti Esploratore di generi non validi',
+        'facts_invalid',
+      );
+    }
+    completedTitles.push({
+      itemId: title.itemId.trim(),
+      genreNames,
+      tmdbGenreIds,
+    });
+  }
+  return { completedTitles };
+}
+
+function normalizeGenreName(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('it')
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+const CANONICAL_GENRE_ALIASES: Record<
+  CanonicalGenreKey,
+  readonly string[]
+> = {
+  action_adventure: [
+    'Action',
+    'Adventure',
+    'Action & Adventure',
+    'Azione',
+    'Avventura',
+    'Azione e avventura',
+  ],
+  animation: ['Animation', 'Animazione'],
+  comedy: ['Comedy', 'Commedia'],
+  crime: ['Crime', 'Crimine'],
+  documentary_news: [
+    'Documentary',
+    'Documentario',
+    'News',
+    'Notizie',
+  ],
+  drama_soap: ['Drama', 'Dramma', 'Soap'],
+  family_youth: ['Family', 'Famiglia', 'Kids', 'Ragazzi'],
+  science_fiction_fantasy: [
+    'Science Fiction',
+    'Fantascienza',
+    'Fantasy',
+    'Sci-Fi & Fantasy',
+    'Fantascienza e fantasy',
+  ],
+  horror: ['Horror'],
+  mystery_thriller: ['Mystery', 'Mistero', 'Thriller'],
+  romance: ['Romance', 'Romantico'],
+  history_war_politics: [
+    'History',
+    'Storia',
+    'War',
+    'Guerra',
+    'War & Politics',
+    'Guerra e politica',
+  ],
+  music: ['Music', 'Musica'],
+  reality_talk: ['Reality', 'Talk', 'Talk Show'],
+  western: ['Western'],
+};
+
+const GENRE_ALIAS_TO_KEY = new Map<string, CanonicalGenreKey>();
+for (const genreKey of CANONICAL_GENRE_KEYS) {
+  for (const alias of CANONICAL_GENRE_ALIASES[genreKey]) {
+    GENRE_ALIAS_TO_KEY.set(normalizeGenreName(alias), genreKey);
+  }
+}
+
+const TMDB_GENRE_ID_TO_KEY = new Map<number, CanonicalGenreKey>([
+  [28, 'action_adventure'],
+  [12, 'action_adventure'],
+  [10759, 'action_adventure'],
+  [16, 'animation'],
+  [35, 'comedy'],
+  [80, 'crime'],
+  [99, 'documentary_news'],
+  [10763, 'documentary_news'],
+  [18, 'drama_soap'],
+  [10766, 'drama_soap'],
+  [10751, 'family_youth'],
+  [10762, 'family_youth'],
+  [878, 'science_fiction_fantasy'],
+  [14, 'science_fiction_fantasy'],
+  [10765, 'science_fiction_fantasy'],
+  [27, 'horror'],
+  [9648, 'mystery_thriller'],
+  [53, 'mystery_thriller'],
+  [10749, 'romance'],
+  [36, 'history_war_politics'],
+  [10752, 'history_war_politics'],
+  [10768, 'history_war_politics'],
+  [10402, 'music'],
+  [10764, 'reality_talk'],
+  [10767, 'reality_talk'],
+  [37, 'western'],
+]);
+
+export function canonicalGenreKeysFromNames(
+  genres: readonly string[],
+): CanonicalGenreKey[] {
+  return Array.from(
+    new Set(
+      genres.flatMap((genre) => {
+        const key = GENRE_ALIAS_TO_KEY.get(normalizeGenreName(genre));
+        return key ? [key] : [];
+      }),
+    ),
+  ).sort();
+}
+
+export function canonicalGenreKeysFromTmdbIds(
+  genreIds: readonly number[],
+): CanonicalGenreKey[] {
+  return Array.from(
+    new Set(
+      genreIds.flatMap((genreId) => {
+        const key = TMDB_GENRE_ID_TO_KEY.get(genreId);
+        return key ? [key] : [];
+      }),
+    ),
+  ).sort();
+}
+
 function progressiveDistinctItemEvaluation({
   definition,
   badgeId,
@@ -436,6 +659,48 @@ export const serialistEvaluator: BadgeEvaluator = {
       context,
       includeItemIds: false,
     });
+  },
+};
+
+export const genreExplorerEvaluator: BadgeEvaluator = {
+  badgeId: 'genre_explorer',
+  version: 1,
+  evaluate(definition, rawFacts, context) {
+    assertDefinition(definition, 'genre_explorer', 1);
+    const facts = parseGenreExplorerFacts(rawFacts);
+    const genreKeys = new Set<CanonicalGenreKey>();
+    for (const title of facts.completedTitles) {
+      for (const genreKey of canonicalGenreKeysFromNames(
+        title.genreNames,
+      )) {
+        genreKeys.add(genreKey);
+      }
+      for (const genreKey of canonicalGenreKeysFromTmdbIds(
+        title.tmdbGenreIds,
+      )) {
+        genreKeys.add(genreKey);
+      }
+    }
+    const sortedGenreKeys = Array.from(genreKeys).sort();
+    const progress = sortedGenreKeys.length;
+    const levels = [...definition.levels].sort(
+      (first, second) => first.threshold - second.threshold,
+    );
+    return {
+      badgeId: definition.id,
+      version: definition.version,
+      progress,
+      unlockedLevels: levels
+        .filter((level) => progress >= level.threshold)
+        .map((level) => level.level),
+      nextThreshold:
+        levels.find((level) => progress < level.threshold)?.threshold ??
+        null,
+      evidence: {
+        genreKeys: sortedGenreKeys,
+        ...(context.isBackfill ? { backfill: true as const } : {}),
+      },
+    };
   },
 };
 
@@ -591,6 +856,7 @@ export function createBadgeRegistry(): BadgeEvaluatorRegistry {
   registry.register(archivistEvaluator);
   registry.register(nostalgicEvaluator);
   registry.register(serialistEvaluator);
+  registry.register(genreExplorerEvaluator);
   registry.register(firstWatchEvaluator);
   registry.register(firstReviewEvaluator);
   registry.register(seasonCompleteEvaluator);

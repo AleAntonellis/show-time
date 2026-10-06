@@ -8,7 +8,8 @@ Questa proposta affianca, senza sostituirla, la prima raccolta di idee in
 ## Stato
 
 - **Fase:** implementazione
-- **Implementazione:** Batch A1 e Batch A2 pubblicati e verificati in produzione
+- **Implementazione:** Batch A1 e Batch A2 pubblicati; Esploratore di generi (B1)
+  completato localmente e in attesa di rollout
 - **Obiettivo:** arrivare a un catalogo V1 piccolo, misurabile e sostenibile
 - **Principio guida:** premiare il percorso personale, non la quantità di tempo
   trascorsa davanti allo schermo
@@ -948,10 +949,32 @@ usati dal progetto.
 
 #### Batch B — Esplorazione e comportamento
 
-- [ ] Esploratore di generi
+- [x] Esploratore di generi
 - [ ] Ancora un episodio
 - [ ] Maratoneta
 - [ ] Encore
+
+### Verifica Batch B1 — Esploratore di generi
+
+- migration `0022_genre_explorer_badge.sql` con soglie `5 / 8 / 12 / 15`;
+- tassonomia canonica di 15 categorie condivisa tra film e serie;
+- mapping sia dagli ID TMDB sia dalle etichette storiche italiane/inglesi;
+- verificate tutte le 24 etichette realmente presenti nel database;
+- `TV Movie` e l’etichetta localizzata `televisione film` escluse;
+- un titolo contribuisce una volta a ogni categoria canonica associata;
+- include storico importato;
+- cache protetta degli ID genere TMDB per i titoli senza metadati;
+- cache senza permessi client, TTL 30 giorni e scrittura `service_role`;
+- account principale: 64 titoli completati senza generi da completare nel backfill;
+- account Test: nessun titolo completato senza generi;
+- massimo 4 richieste TMDB concorrenti e retry esplicito su `429`;
+- rivalutazioni dopo cambi di stato, progresso serie e arricchimento metadati;
+- evidenza privata composta soltanto dalle chiavi dei generi canonici;
+- patch originale a bussola nelle quattro varianti metalliche;
+- preview locale: `Esploratore di generi 0/4`, progresso `4/5`, hero `3/23`;
+- patch e accordion verificati senza overflow a 360 e 390 px;
+- `29/29` test engine superati;
+- test SQL transazionale pronto per soglia `12`, regressione a `0` e permessi cache.
 
 #### Batch C — Diario e Social
 
@@ -1106,13 +1129,11 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 
 Le decisioni di prodotto necessarie per la V1 sono chiuse.
 
-Il **Batch A2 è completato**. Il prossimo passo operativo è scegliere il primo badge
-del Batch B:
+Il prossimo passo operativo è completare il rollout di **Esploratore di generi**:
 
-1. Esploratore di generi;
-2. Ancora un episodio;
-3. Maratoneta;
-4. Encore.
-
-La scelta consigliata è **Esploratore di generi**, perché riusa i metadati già presenti
-e introduce la tassonomia canonica prima dei badge comportamentali più complessi.
+1. distribuire la Edge Function con cache generi protetta;
+2. pubblicare la patch a bussola;
+3. applicare la migration `0022_genre_explorer_badge.sql`;
+4. verificare backfill e cache sugli account reali;
+5. controllare gli eventuali sblocchi multipli aggregati;
+6. proseguire con Ancora un episodio.

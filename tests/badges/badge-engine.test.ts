@@ -4,6 +4,8 @@ import test from 'node:test';
 import {
   BadgeEngineError,
   BadgeEvaluatorRegistry,
+  canonicalGenreKeysFromNames,
+  canonicalGenreKeysFromTmdbIds,
   cinephileEvaluator,
   createBadgeRegistry,
   getNewlyUnlockedLevels,
@@ -185,6 +187,50 @@ const serialistDefinition: BadgeDefinition = {
       description: 'Completa 500 serie.',
       threshold: 500,
       iconKey: 'serialist-platinum',
+    },
+  ],
+};
+
+const genreExplorerDefinition: BadgeDefinition = {
+  id: 'genre_explorer',
+  version: 1,
+  category: 'exploration',
+  name: 'Esploratore di generi',
+  description: 'Completa titoli in generi differenti.',
+  iconKey: 'genre-explorer',
+  isActive: true,
+  levels: [
+    {
+      level: 1,
+      key: 'bronze',
+      name: 'Bronzo',
+      description: 'Completa 5 generi.',
+      threshold: 5,
+      iconKey: 'genre-explorer-bronze',
+    },
+    {
+      level: 2,
+      key: 'silver',
+      name: 'Argento',
+      description: 'Completa 8 generi.',
+      threshold: 8,
+      iconKey: 'genre-explorer-silver',
+    },
+    {
+      level: 3,
+      key: 'gold',
+      name: 'Oro',
+      description: 'Completa 12 generi.',
+      threshold: 12,
+      iconKey: 'genre-explorer-gold',
+    },
+    {
+      level: 4,
+      key: 'platinum',
+      name: 'Platino',
+      description: 'Completa 15 generi.',
+      threshold: 15,
+      iconKey: 'genre-explorer-platinum',
     },
   ],
 };
@@ -533,6 +579,156 @@ test('Serialista richiede ogni episodio di ogni stagione regolare', () => {
       ],
     ),
     false,
+  );
+});
+
+test('la tassonomia canonica copre i generi reali e ignora TV Movie', () => {
+  const keys = canonicalGenreKeysFromNames([
+    'Action & Adventure',
+    'Animazione',
+    'Avventura',
+    'Azione',
+    'Commedia',
+    'Crime',
+    'Documentario',
+    'Dramma',
+    'Famiglia',
+    'Fantascienza',
+    'Fantasy',
+    'Guerra',
+    'Horror',
+    'Kids',
+    'Mistero',
+    'Musica',
+    'Reality',
+    'Romance',
+    'Sci-Fi & Fantasy',
+    'Storia',
+    'televisione film',
+    'Thriller',
+    'War & Politics',
+    'Western',
+  ]);
+
+  assert.equal(keys.length, 15);
+  assert.equal(keys.includes('action_adventure'), true);
+  assert.equal(keys.includes('science_fiction_fantasy'), true);
+});
+
+test('gli ID genere TMDB coprono le 15 categorie ed escludono TV Movie', () => {
+  const keys = canonicalGenreKeysFromTmdbIds([
+    28,
+    16,
+    35,
+    80,
+    99,
+    18,
+    10751,
+    878,
+    27,
+    9648,
+    10749,
+    36,
+    10402,
+    10764,
+    37,
+    10770,
+  ]);
+
+  assert.equal(keys.length, 15);
+});
+
+test('Esploratore di generi sblocca tutti i livelli a 15 categorie', () => {
+  const evaluation = createBadgeRegistry().evaluate(
+    genreExplorerDefinition,
+    {
+      completedTitles: [
+        {
+          itemId: 'title-with-names',
+          genreNames: [
+            'Azione',
+            'Avventura',
+            'Animazione',
+            'Commedia',
+            'Crime',
+            'Documentario',
+            'Dramma',
+            'Famiglia',
+          ],
+          tmdbGenreIds: [],
+        },
+        {
+          itemId: 'title-with-ids',
+          genreNames: [],
+          tmdbGenreIds: [
+            878,
+            27,
+            9648,
+            10749,
+            36,
+            10402,
+            10764,
+            37,
+            10770,
+          ],
+        },
+      ],
+    },
+    { ...context, isBackfill: true },
+  );
+
+  assert.equal(evaluation.progress, 15);
+  assert.deepEqual(evaluation.unlockedLevels, [1, 2, 3, 4]);
+  assert.equal(evaluation.nextThreshold, null);
+  assert.equal(evaluation.evidence.genreKeys?.length, 15);
+  assert.equal(evaluation.evidence.backfill, true);
+});
+
+test('Esploratore di generi accorpa alias equivalenti', () => {
+  const evaluation = createBadgeRegistry().evaluate(
+    genreExplorerDefinition,
+    {
+      completedTitles: [
+        {
+          itemId: 'action-title',
+          genreNames: [
+            'Action',
+            'Adventure',
+            'Action & Adventure',
+            'Azione',
+          ],
+          tmdbGenreIds: [28, 12, 10759],
+        },
+      ],
+    },
+    context,
+  );
+
+  assert.equal(evaluation.progress, 1);
+  assert.deepEqual(evaluation.evidence.genreKeys, [
+    'action_adventure',
+  ]);
+});
+
+test('Esploratore di generi rifiuta fatti malformati', () => {
+  assert.throws(
+    () =>
+      createBadgeRegistry().evaluate(
+        genreExplorerDefinition,
+        {
+          completedTitles: [
+            {
+              itemId: 'title-1',
+              genreNames: ['Dramma'],
+              tmdbGenreIds: ['18'],
+            },
+          ],
+        },
+        context,
+      ),
+    (error: unknown) =>
+      error instanceof BadgeEngineError &&
+      error.code === 'facts_invalid',
   );
 });
 

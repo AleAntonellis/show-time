@@ -251,6 +251,7 @@ export async function addToLibrary(title: Title, status: LibraryStatus): Promise
     BADGE_IDS.cinephile,
     BADGE_IDS.archivist,
     BADGE_IDS.nostalgic,
+    BADGE_IDS.genreExplorer,
   ]);
 }
 
@@ -400,6 +401,7 @@ export async function updateStatus(
   badgeIds: readonly string[] = [
     BADGE_IDS.cinephile,
     BADGE_IDS.nostalgic,
+    BADGE_IDS.genreExplorer,
   ],
 ): Promise<void> {
   const { error } = await getSupabase()
@@ -435,6 +437,7 @@ export async function recordMovieWatched(
   queueBadgeEvaluation([
     BADGE_IDS.cinephile,
     BADGE_IDS.nostalgic,
+    BADGE_IDS.genreExplorer,
   ]);
 }
 
@@ -601,6 +604,7 @@ export async function addViewing(
   queueBadgeEvaluation([
     BADGE_IDS.cinephile,
     BADGE_IDS.nostalgic,
+    BADGE_IDS.genreExplorer,
     BADGE_IDS.firstWatch,
     ...(note?.trim() ? [BADGE_IDS.firstReview] : []),
   ]);
@@ -926,6 +930,7 @@ export async function setEpisodeWatched(
     BADGE_IDS.seasonComplete,
     BADGE_IDS.nostalgic,
     BADGE_IDS.serialist,
+    BADGE_IDS.genreExplorer,
   ]);
   queueBadgeEvaluation([BADGE_IDS.firstWatch]);
   return status;
@@ -978,6 +983,7 @@ export async function setSeasonWatched(
     BADGE_IDS.seasonComplete,
     BADGE_IDS.nostalgic,
     BADGE_IDS.serialist,
+    BADGE_IDS.genreExplorer,
   ]);
   queueBadgeEvaluation([BADGE_IDS.firstWatch]);
   return status;

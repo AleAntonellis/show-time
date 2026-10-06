@@ -74,6 +74,7 @@ leggera, condivisione via link privato, tema dark esclusivo.
 | D52 | Archivista | Tutte le voci distinte della Libreria contribuiscono, in qualunque stato e tipo media | Premia la cura del catalogo personale senza confonderla con i titoli completati |
 | D53 | Nostalgico | Titoli completati con anno TMDB valido fino al 1989, film e serie, importati inclusi | Premia l’esplorazione del catalogo storico con una regola deterministica |
 | D54 | Serialista | Serie TMDB `Ended` con ogni episodio regolare completato; Speciali esclusi | Premia completamenti verificabili senza far dipendere lo sblocco da serie ancora in corso |
+| D55 | Esploratore di generi | 15 categorie canoniche ricavate da ID TMDB e alias storici; `TV Movie` escluso | Misura la varietà del catalogo senza duplicare generi equivalenti tra film e serie |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -495,6 +496,11 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   `24/24`, test SQL e deploy Azure completati. Cache reale: 127 serie candidate,
   91 `Ended`. Produzione: account principale `91/100`, Bronzo sbloccato, hero `5/19`;
   Test `0/25`, hero `3/19`; refresh idempotenti e layout 360/390 px.
+- ✅ Implementato localmente **Esploratore di generi**: 15 categorie canoniche,
+  mapping da ID TMDB e 24 alias reali italiani/inglesi, `TV Movie` escluso. Cache generi
+  protetta per 64 titoli completati senza metadati sull’account principale, TTL 30 giorni,
+  concorrenza limitata e retry `429`. Soglie 5/8/12/15 e patch a bussola. Preview
+  `4/5`, hero `3/23`, layout 360/390 px; engine `29/29`. Rollout ancora da completare.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.
