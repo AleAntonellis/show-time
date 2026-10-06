@@ -8,8 +8,8 @@ Questa proposta affianca, senza sostituirla, la prima raccolta di idee in
 ## Stato
 
 - **Fase:** implementazione
-- **Implementazione:** Batch A1, Archivista (A2.1) e Nostalgico (A2.2) pubblicati e
-  verificati in produzione
+- **Implementazione:** Batch A1, Archivista (A2.1) e Nostalgico (A2.2) pubblicati;
+  Serialista (A2.3) completato localmente e in attesa di rollout
 - **Obiettivo:** arrivare a un catalogo V1 piccolo, misurabile e sostenibile
 - **Principio guida:** premiare il percorso personale, non la quantità di tempo
   trascorsa davanti allo schermo
@@ -830,7 +830,7 @@ Questa fase valida architettura e UX prima di aggiungere altre regole.
 - [x] Primo ciak
 - [x] Prima recensione
 - [x] Stagione chiusa
-- [ ] Serialista
+- [x] Serialista
 - [x] Archivista
 - [x] Nostalgico
 
@@ -918,6 +918,25 @@ usati dal progetto.
 - account `@testshowtime`: `0/50`, refresh idempotente e hero `3/15`;
 - account principale: `32/50`, refresh idempotente e hero `4/15`;
 - produzione senza errori console né overflow a 360/390 px.
+
+### Verifica Batch A2.3 — Serialista
+
+- migration `0021_serialist_badge.sql` con soglie `25 / 100 / 250 / 500`;
+- considera soltanto serie TMDB con stato esatto `Ended`;
+- verifica ogni episodio di ogni stagione regolare, senza compensare episodi mancanti
+  con extra o Speciali;
+- Stagione 0 / Speciali esclusa;
+- storico importato e attività reale entrambi validi;
+- cache TMDB persistente condivisa con TTL 7 giorni;
+- cache senza permessi client e scrivibile soltanto dal `service_role`;
+- massimo 4 richieste TMDB concorrenti e retry esplicito su `429`;
+- patch originale a pila di episodi nelle quattro varianti metalliche;
+- posizione Sala trofei: immediatamente sotto Cinefilo;
+- preview locale: `Serialista 0/4`, progresso `0/25`, hero `3/19`;
+- patch e accordion verificati senza overflow a 360 e 390 px;
+- `24/24` test engine superati;
+- test SQL transazionale pronto per soglia `100`, idempotenza, regressione a `0` e
+  permessi della cache.
 
 #### Batch B — Esplorazione e comportamento
 
@@ -1070,6 +1089,7 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 - [x] Prima patch definitiva: Cinefilo
 - [x] Seconda famiglia progressiva: Archivista
 - [x] Terza famiglia progressiva: Nostalgico
+- [x] Quarta famiglia progressiva: Serialista
 - [x] Primo batch successivo: introduttivi, Serialista, Archivista e Nostalgico
 
 ---
@@ -1078,11 +1098,11 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 
 Le decisioni di prodotto necessarie per la V1 sono chiuse.
 
-Il prossimo passo operativo è **Serialista**:
+Il prossimo passo operativo è completare il rollout di **Serialista**:
 
-1. considerare soltanto serie TMDB con stato `Ended`;
-2. verificare tutti gli episodi regolari, escludendo Stagione 0 / Speciali;
-3. includere progresso importato e attività reale;
-4. aggiungere le soglie `25 / 100 / 250 / 500`;
-5. creare patch e accordion dedicati;
-6. completare il Batch A2 con backfill e test reali.
+1. distribuire la Edge Function con cache protetta;
+2. pubblicare la patch subito sotto Cinefilo;
+3. applicare la migration `0021_serialist_badge.sql`;
+4. verificare cache, backfill e idempotenza sull’account Test;
+5. verificare progresso e sblocchi sull’account principale;
+6. chiudere il Batch A2 e scegliere il primo badge del Batch B.

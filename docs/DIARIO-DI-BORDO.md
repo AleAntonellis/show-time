@@ -73,6 +73,7 @@ leggera, condivisione via link privato, tema dark esclusivo.
 | D51 | Visto oggi e Diario film | “Visto oggi” apre subito data, nota e voto; una RPC completa il placeholder dello stesso giorno | Evita doppie visioni senza impedire rewatch reali, anche nella stessa data |
 | D52 | Archivista | Tutte le voci distinte della Libreria contribuiscono, in qualunque stato e tipo media | Premia la cura del catalogo personale senza confonderla con i titoli completati |
 | D53 | Nostalgico | Titoli completati con anno TMDB valido fino al 1989, film e serie, importati inclusi | Premia l’esplorazione del catalogo storico con una regola deterministica |
+| D54 | Serialista | Serie TMDB `Ended` con ogni episodio regolare completato; Speciali esclusi | Premia completamenti verificabili senza far dipendere lo sblocco da serie ancora in corso |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -487,6 +488,11 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   progresso è stato persistito, poi il bundle monolitico verificato è stato ridistribuito.
   Produzione: account principale `32/50`, hero `4/15`; Test `0/50`, hero `3/15`;
   refresh idempotenti, console pulita e layout 360/390 px.
+- ✅ Implementato localmente **Serialista**: serie `Ended`, verifica esatta di tutti gli
+  episodi regolari e Speciali esclusi. Cache TMDB persistente con TTL 7 giorni, accesso
+  riservato al `service_role`, concorrenza limitata e retry `429`. Soglie
+  25/100/250/500 e patch a pila di episodi posizionata subito sotto Cinefilo. Preview
+  `0/25`, hero `3/19`, layout 360/390 px; engine `24/24`. Rollout ancora da completare.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

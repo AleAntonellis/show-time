@@ -925,6 +925,7 @@ export async function setEpisodeWatched(
   await updateStatus(itemId, status, [
     BADGE_IDS.seasonComplete,
     BADGE_IDS.nostalgic,
+    BADGE_IDS.serialist,
   ]);
   queueBadgeEvaluation([BADGE_IDS.firstWatch]);
   return status;
@@ -976,6 +977,7 @@ export async function setSeasonWatched(
   await updateStatus(itemId, status, [
     BADGE_IDS.seasonComplete,
     BADGE_IDS.nostalgic,
+    BADGE_IDS.serialist,
   ]);
   queueBadgeEvaluation([BADGE_IDS.firstWatch]);
   return status;

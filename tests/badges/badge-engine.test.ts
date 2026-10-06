@@ -7,6 +7,7 @@ import {
   cinephileEvaluator,
   createBadgeRegistry,
   getNewlyUnlockedLevels,
+  hasCompletedRegularSeries,
   hasCompletedSeason,
   isReleaseYearBefore,
   type BadgeDefinition,
@@ -140,6 +141,50 @@ const nostalgicDefinition: BadgeDefinition = {
       description: 'Completa 500 titoli.',
       threshold: 500,
       iconKey: 'nostalgic-platinum',
+    },
+  ],
+};
+
+const serialistDefinition: BadgeDefinition = {
+  id: 'serialist',
+  version: 1,
+  category: 'catalog',
+  name: 'Serialista',
+  description: 'Completa serie concluse.',
+  iconKey: 'serialist',
+  isActive: true,
+  levels: [
+    {
+      level: 1,
+      key: 'bronze',
+      name: 'Bronzo',
+      description: 'Completa 25 serie.',
+      threshold: 25,
+      iconKey: 'serialist-bronze',
+    },
+    {
+      level: 2,
+      key: 'silver',
+      name: 'Argento',
+      description: 'Completa 100 serie.',
+      threshold: 100,
+      iconKey: 'serialist-silver',
+    },
+    {
+      level: 3,
+      key: 'gold',
+      name: 'Oro',
+      description: 'Completa 250 serie.',
+      threshold: 250,
+      iconKey: 'serialist-gold',
+    },
+    {
+      level: 4,
+      key: 'platinum',
+      name: 'Platino',
+      description: 'Completa 500 serie.',
+      threshold: 500,
+      iconKey: 'serialist-platinum',
     },
   ],
 };
@@ -393,6 +438,102 @@ test('Nostalgico accetta soltanto anni validi precedenti al 1990', () => {
   assert.equal(isReleaseYearBefore('89', 1990), false);
   assert.equal(isReleaseYearBefore('', 1990), false);
   assert.equal(isReleaseYearBefore(null, 1990), false);
+});
+
+test('Serialista deduplica le serie concluse completate', () => {
+  const evaluation = createBadgeRegistry().evaluate(
+    serialistDefinition,
+    {
+      completedEndedSeriesIds: [
+        ...libraryItemIds(24),
+        'library-item-1',
+        ' library-item-2 ',
+      ],
+    },
+    context,
+  );
+
+  assert.equal(evaluation.progress, 24);
+  assert.deepEqual(evaluation.unlockedLevels, []);
+  assert.equal(evaluation.nextThreshold, 25);
+  assert.equal(evaluation.evidence.itemIds, undefined);
+});
+
+test('Serialista sblocca Bronzo e Argento a 100 serie', () => {
+  const evaluation = createBadgeRegistry().evaluate(
+    serialistDefinition,
+    { completedEndedSeriesIds: libraryItemIds(100) },
+    { ...context, isBackfill: true },
+  );
+
+  assert.equal(evaluation.progress, 100);
+  assert.deepEqual(evaluation.unlockedLevels, [1, 2]);
+  assert.equal(evaluation.nextThreshold, 250);
+  assert.equal(evaluation.evidence.backfill, true);
+});
+
+test('Serialista rifiuta fatti malformati', () => {
+  assert.throws(
+    () =>
+      createBadgeRegistry().evaluate(
+        serialistDefinition,
+        { completedEndedSeriesIds: ['library-item-1', 2] },
+        context,
+      ),
+    (error: unknown) =>
+      error instanceof BadgeEngineError &&
+      error.code === 'facts_invalid',
+  );
+});
+
+test('Serialista richiede ogni episodio di ogni stagione regolare', () => {
+  const regularSeasons = [
+    { seasonNumber: 1, episodeCount: 2 },
+    { seasonNumber: 2, episodeCount: 2 },
+  ];
+
+  assert.equal(
+    hasCompletedRegularSeries(
+      [
+        { seasonNumber: 1, episodeNumber: 1 },
+        { seasonNumber: 1, episodeNumber: 2 },
+        { seasonNumber: 2, episodeNumber: 1 },
+        { seasonNumber: 2, episodeNumber: 2 },
+        { seasonNumber: 0, episodeNumber: 1 },
+      ],
+      regularSeasons,
+    ),
+    true,
+  );
+  assert.equal(
+    hasCompletedRegularSeries(
+      [
+        { seasonNumber: 1, episodeNumber: 1 },
+        { seasonNumber: 1, episodeNumber: 2 },
+        { seasonNumber: 1, episodeNumber: 3 },
+        { seasonNumber: 2, episodeNumber: 1 },
+      ],
+      regularSeasons,
+    ),
+    false,
+  );
+  assert.equal(
+    hasCompletedRegularSeries(
+      [{ seasonNumber: 1, episodeNumber: 1 }],
+      [{ seasonNumber: 0, episodeCount: 1 }],
+    ),
+    false,
+  );
+  assert.equal(
+    hasCompletedRegularSeries(
+      [{ seasonNumber: 1, episodeNumber: 1 }],
+      [
+        { seasonNumber: 1, episodeCount: 1 },
+        { seasonNumber: 1, episodeCount: 1 },
+      ],
+    ),
+    false,
+  );
 });
 
 test('Primo ciak si sblocca con una sola attività reale distinta', () => {

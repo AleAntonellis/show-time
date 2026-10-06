@@ -125,6 +125,20 @@ export type NostalgicFacts = {
   completedClassicItemIds: string[];
 };
 
+export type SerialistFacts = {
+  completedEndedSeriesIds: string[];
+};
+
+export type RegularSeasonDefinition = {
+  seasonNumber: number;
+  episodeCount: number;
+};
+
+export type WatchedEpisodeFact = {
+  seasonNumber: number;
+  episodeNumber: number;
+};
+
 export type FirstWatchFacts = {
   activityIds: string[];
 };
@@ -305,6 +319,26 @@ function parseNostalgicFacts(facts: unknown): NostalgicFacts {
   };
 }
 
+function parseSerialistFacts(facts: unknown): SerialistFacts {
+  if (
+    typeof facts !== 'object' ||
+    facts == null ||
+    !('completedEndedSeriesIds' in facts) ||
+    !Array.isArray(facts.completedEndedSeriesIds) ||
+    facts.completedEndedSeriesIds.some(
+      (value) => typeof value !== 'string' || !value.trim(),
+    )
+  ) {
+    throw new BadgeEngineError(
+      'Fatti Serialista non validi',
+      'facts_invalid',
+    );
+  }
+  return {
+    completedEndedSeriesIds: facts.completedEndedSeriesIds,
+  };
+}
+
 function progressiveDistinctItemEvaluation({
   definition,
   badgeId,
@@ -384,6 +418,21 @@ export const nostalgicEvaluator: BadgeEvaluator = {
       definition,
       badgeId: 'nostalgic',
       itemIds: facts.completedClassicItemIds,
+      context,
+      includeItemIds: false,
+    });
+  },
+};
+
+export const serialistEvaluator: BadgeEvaluator = {
+  badgeId: 'serialist',
+  version: 1,
+  evaluate(definition, rawFacts, context) {
+    const facts = parseSerialistFacts(rawFacts);
+    return progressiveDistinctItemEvaluation({
+      definition,
+      badgeId: 'serialist',
+      itemIds: facts.completedEndedSeriesIds,
       context,
       includeItemIds: false,
     });
@@ -487,11 +536,61 @@ export function isReleaseYearBefore(
   return year > 0 && year < cutoffYear;
 }
 
+export function hasCompletedRegularSeries(
+  watchedEpisodes: readonly WatchedEpisodeFact[],
+  regularSeasons: readonly RegularSeasonDefinition[],
+): boolean {
+  if (regularSeasons.length === 0) {
+    return false;
+  }
+  const seasonNumbers = new Set<number>();
+  for (const season of regularSeasons) {
+    if (
+      !Number.isInteger(season.seasonNumber) ||
+      season.seasonNumber <= 0 ||
+      !Number.isInteger(season.episodeCount) ||
+      season.episodeCount <= 0 ||
+      seasonNumbers.has(season.seasonNumber)
+    ) {
+      return false;
+    }
+    seasonNumbers.add(season.seasonNumber);
+  }
+
+  const watchedKeys = new Set(
+    watchedEpisodes
+      .filter(
+        (episode) =>
+          Number.isInteger(episode.seasonNumber) &&
+          episode.seasonNumber > 0 &&
+          Number.isInteger(episode.episodeNumber) &&
+          episode.episodeNumber > 0,
+      )
+      .map(
+        (episode) =>
+          `${episode.seasonNumber}:${episode.episodeNumber}`,
+      ),
+  );
+  return regularSeasons.every((season) => {
+    for (
+      let episodeNumber = 1;
+      episodeNumber <= season.episodeCount;
+      episodeNumber += 1
+    ) {
+      if (!watchedKeys.has(`${season.seasonNumber}:${episodeNumber}`)) {
+        return false;
+      }
+    }
+    return true;
+  });
+}
+
 export function createBadgeRegistry(): BadgeEvaluatorRegistry {
   const registry = new BadgeEvaluatorRegistry();
   registry.register(cinephileEvaluator);
   registry.register(archivistEvaluator);
   registry.register(nostalgicEvaluator);
+  registry.register(serialistEvaluator);
   registry.register(firstWatchEvaluator);
   registry.register(firstReviewEvaluator);
   registry.register(seasonCompleteEvaluator);

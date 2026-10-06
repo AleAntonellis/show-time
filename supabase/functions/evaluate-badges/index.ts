@@ -6,6 +6,7 @@ import {
   BADGE_LEVEL_KEYS,
   BadgeEngineError,
   createBadgeRegistry,
+  hasCompletedRegularSeries,
   hasCompletedSeason,
   isReleaseYearBefore,
   type BadgeCategory,
@@ -19,15 +20,24 @@ import {
   type FirstReviewFacts,
   type FirstWatchFacts,
   type NostalgicFacts,
+  type RegularSeasonDefinition,
   type SeasonCompleteFacts,
+  type SerialistFacts,
+  type WatchedEpisodeFact,
 } from './badge-engine.ts';
 
 const PAGE_SIZE = 1000;
 const TMDB_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const TMDB_TITLE_METADATA_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const TMDB_REQUEST_CONCURRENCY = 4;
 const registry = createBadgeRegistry();
 const tmdbSeasonCache = new Map<
   string,
   { expiresAt: number; promise: Promise<number[]> }
+>();
+const tmdbTvMetadataCache = new Map<
+  number,
+  { expiresAt: number; promise: Promise<TvBadgeMetadata> }
 >();
 
 type EvaluateRequest = {
@@ -107,6 +117,49 @@ type LibraryYearFactRow = {
         year: string | null;
       }[]
     | null;
+};
+
+type SerialistLibraryRow = {
+  id: string;
+  title_id: string;
+  titles:
+    | {
+        id: string;
+        tmdb_id: number;
+        media_type: string;
+      }
+    | {
+        id: string;
+        tmdb_id: number;
+        media_type: string;
+      }[]
+    | null;
+};
+
+type BadgeTitleMetadataRow = {
+  title_id: string;
+  tmdb_status: string;
+  regular_episodes: number;
+  regular_season_counts: unknown;
+  refreshed_at: string;
+};
+
+type SerialistCandidate = {
+  libraryItemId: string;
+  titleId: string;
+  tmdbId: number;
+  watchedEpisodes: WatchedEpisodeFact[];
+};
+
+type TvBadgeMetadata = {
+  status: string;
+  regularEpisodes: number;
+  regularSeasons: RegularSeasonDefinition[];
+};
+
+type ResolvedTvBadgeMetadata = TvBadgeMetadata & {
+  titleId: string;
+  fetched: boolean;
 };
 
 type SeasonCandidate = {
@@ -234,6 +287,106 @@ function readEnvironmentValue(name: string): string | null {
   return (
     (globalThis as RuntimeEnvironment).Deno?.env.get(name)?.trim() || null
   );
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function requestTmdbJson(
+  path: string,
+  sourceLabel: string,
+  attempt = 0,
+): Promise<unknown> {
+  const accessToken =
+    readEnvironmentValue('TMDB_ACCESS_TOKEN') ??
+    readEnvironmentValue('EXPO_PUBLIC_TMDB_ACCESS_TOKEN');
+  const apiKey =
+    readEnvironmentValue('TMDB_API_KEY') ??
+    readEnvironmentValue('EXPO_PUBLIC_TMDB_API_KEY');
+  if (!accessToken && !apiKey) {
+    throw new BadgeEngineError(
+      'Configura TMDB_ACCESS_TOKEN o TMDB_API_KEY nei secret della Edge Function',
+      'tmdb_not_configured',
+    );
+  }
+
+  const url = new URL(`https://api.themoviedb.org/3${path}`);
+  url.searchParams.set('language', 'it-IT');
+  if (!accessToken && apiKey) {
+    url.searchParams.set('api_key', apiKey);
+  }
+  const headers: Record<string, string> = {
+    accept: 'application/json',
+  };
+  if (accessToken) {
+    headers.authorization = `Bearer ${accessToken}`;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(url, { headers });
+  } catch (error) {
+    throw new BadgeEngineError(
+      `TMDB non raggiungibile per ${sourceLabel}: ${
+        error instanceof Error ? error.message : 'errore di rete'
+      }`,
+      'tmdb_load_failed',
+    );
+  }
+  if (response.status === 429 && attempt < 2) {
+    const retryAfter = Number(response.headers.get('retry-after'));
+    const delayMilliseconds =
+      Number.isFinite(retryAfter) && retryAfter > 0
+        ? Math.min(retryAfter * 1000, 10_000)
+        : 1000 * (attempt + 1);
+    await delay(delayMilliseconds);
+    return requestTmdbJson(path, sourceLabel, attempt + 1);
+  }
+  if (!response.ok) {
+    throw new BadgeEngineError(
+      `TMDB ha rifiutato ${sourceLabel} (${response.status})`,
+      'tmdb_load_failed',
+    );
+  }
+
+  try {
+    return await response.json();
+  } catch (error) {
+    throw new BadgeEngineError(
+      `Risposta TMDB non leggibile per ${sourceLabel}: ${
+        error instanceof Error ? error.message : 'JSON non valido'
+      }`,
+      'tmdb_response_invalid',
+    );
+  }
+}
+
+async function mapWithConcurrency<T, R>(
+  values: readonly T[],
+  concurrency: number,
+  mapper: (value: T) => Promise<R>,
+): Promise<R[]> {
+  if (values.length === 0) {
+    return [];
+  }
+  const results = new Array<R>(values.length);
+  let nextIndex = 0;
+  async function worker(): Promise<void> {
+    while (nextIndex < values.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(values[index]);
+    }
+  }
+  const workerCount = Math.min(
+    Math.max(1, concurrency),
+    values.length,
+  );
+  await Promise.all(
+    Array.from({ length: workerCount }, () => worker()),
+  );
+  return results;
 }
 
 function prefixedId(
@@ -647,62 +800,10 @@ async function requestTmdbSeasonEpisodeNumbers(
   tmdbId: number,
   seasonNumber: number,
 ): Promise<number[]> {
-  const accessToken =
-    readEnvironmentValue('TMDB_ACCESS_TOKEN') ??
-    readEnvironmentValue('EXPO_PUBLIC_TMDB_ACCESS_TOKEN');
-  const apiKey =
-    readEnvironmentValue('TMDB_API_KEY') ??
-    readEnvironmentValue('EXPO_PUBLIC_TMDB_API_KEY');
-  if (!accessToken && !apiKey) {
-    throw new BadgeEngineError(
-      'Configura TMDB_ACCESS_TOKEN o TMDB_API_KEY nei secret della Edge Function',
-      'tmdb_not_configured',
-    );
-  }
-
-  const url = new URL(
-    `https://api.themoviedb.org/3/tv/${tmdbId}/season/${seasonNumber}`,
+  const payload = await requestTmdbJson(
+    `/tv/${tmdbId}/season/${seasonNumber}`,
+    `la stagione ${tmdbId}/S${seasonNumber}`,
   );
-  url.searchParams.set('language', 'it-IT');
-  if (!accessToken && apiKey) {
-    url.searchParams.set('api_key', apiKey);
-  }
-  const headers: Record<string, string> = {
-    accept: 'application/json',
-  };
-  if (accessToken) {
-    headers.authorization = `Bearer ${accessToken}`;
-  }
-
-  let response: Response;
-  try {
-    response = await fetch(url, { headers });
-  } catch (error) {
-    throw new BadgeEngineError(
-      `TMDB non raggiungibile: ${
-        error instanceof Error ? error.message : 'errore di rete'
-      }`,
-      'tmdb_load_failed',
-    );
-  }
-  if (!response.ok) {
-    throw new BadgeEngineError(
-      `TMDB ha rifiutato la stagione ${tmdbId}/S${seasonNumber} (${response.status})`,
-      'tmdb_load_failed',
-    );
-  }
-
-  let payload: unknown;
-  try {
-    payload = await response.json();
-  } catch (error) {
-    throw new BadgeEngineError(
-      `Risposta TMDB non leggibile: ${
-        error instanceof Error ? error.message : 'JSON non valido'
-      }`,
-      'tmdb_response_invalid',
-    );
-  }
   if (
     typeof payload !== 'object' ||
     payload == null ||
@@ -779,6 +880,396 @@ async function loadSeasonCompleteFacts(
   return { completedSeasonKeys: [] };
 }
 
+function serialistTitleRelation(
+  row: SerialistLibraryRow,
+): { id: string; tmdb_id: number; media_type: string } | null {
+  if (Array.isArray(row.titles)) {
+    return row.titles[0] ?? null;
+  }
+  return row.titles;
+}
+
+async function loadSerialistLibraryRows(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+): Promise<SerialistLibraryRow[]> {
+  const libraryRows: SerialistLibraryRow[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabaseAdmin
+      .from('library_items')
+      .select(
+        'id, title_id, titles!inner(id, tmdb_id, media_type)',
+      )
+      .eq('user_id', userId)
+      .eq('status', 'watched')
+      .eq('titles.media_type', 'tv')
+      .order('id', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      throw new BadgeEngineError(
+        `Impossibile leggere le serie completate per Serialista: ${error.message}`,
+        'facts_load_failed',
+      );
+    }
+    const rows = (data ?? []) as unknown as SerialistLibraryRow[];
+    libraryRows.push(...rows);
+    if (rows.length < PAGE_SIZE) {
+      break;
+    }
+  }
+  return libraryRows;
+}
+
+async function loadSerialistWatchedEpisodes(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+): Promise<Map<string, WatchedEpisodeFact[]>> {
+  const episodesByItem = new Map<string, WatchedEpisodeFact[]>();
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabaseAdmin
+      .from('episode_watches')
+      .select('library_item_id, season_number, episode_number')
+      .eq('user_id', userId)
+      .gt('season_number', 0)
+      .order('id', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      throw new BadgeEngineError(
+        `Impossibile leggere gli episodi per Serialista: ${error.message}`,
+        'facts_load_failed',
+      );
+    }
+    const rows = (data ?? []) as EpisodeWatchFactRow[];
+    for (const row of rows) {
+      if (
+        typeof row.library_item_id !== 'string' ||
+        !row.library_item_id.trim() ||
+        !Number.isInteger(row.season_number) ||
+        row.season_number <= 0 ||
+        !Number.isInteger(row.episode_number) ||
+        row.episode_number <= 0
+      ) {
+        throw new BadgeEngineError(
+          'Progresso episodio non valido per Serialista',
+          'facts_load_failed',
+        );
+      }
+      const episodes = episodesByItem.get(row.library_item_id) ?? [];
+      episodes.push({
+        seasonNumber: row.season_number,
+        episodeNumber: row.episode_number,
+      });
+      episodesByItem.set(row.library_item_id, episodes);
+    }
+    if (rows.length < PAGE_SIZE) {
+      break;
+    }
+  }
+  return episodesByItem;
+}
+
+async function loadBadgeTitleMetadata(
+  supabaseAdmin: SupabaseClient,
+  titleIds: string[],
+): Promise<Map<string, BadgeTitleMetadataRow>> {
+  const metadataByTitle = new Map<string, BadgeTitleMetadataRow>();
+  for (let index = 0; index < titleIds.length; index += 100) {
+    const chunk = titleIds.slice(index, index + 100);
+    const { data, error } = await supabaseAdmin
+      .from('badge_title_metadata')
+      .select(
+        'title_id, tmdb_status, regular_episodes, regular_season_counts, refreshed_at',
+      )
+      .in('title_id', chunk);
+    if (error) {
+      throw new BadgeEngineError(
+        `Impossibile leggere la cache TMDB badge: ${error.message}`,
+        'facts_load_failed',
+      );
+    }
+    for (const row of (data ?? []) as BadgeTitleMetadataRow[]) {
+      metadataByTitle.set(row.title_id, row);
+    }
+  }
+  return metadataByTitle;
+}
+
+function parseRegularSeasonCounts(
+  value: unknown,
+): RegularSeasonDefinition[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+  const seasons: RegularSeasonDefinition[] = [];
+  const seasonNumbers = new Set<number>();
+  for (const item of value) {
+    if (
+      typeof item !== 'object' ||
+      item == null ||
+      !('seasonNumber' in item) ||
+      !('episodeCount' in item) ||
+      !Number.isInteger(item.seasonNumber) ||
+      Number(item.seasonNumber) <= 0 ||
+      !Number.isInteger(item.episodeCount) ||
+      Number(item.episodeCount) <= 0 ||
+      seasonNumbers.has(Number(item.seasonNumber))
+    ) {
+      return null;
+    }
+    const seasonNumber = Number(item.seasonNumber);
+    seasonNumbers.add(seasonNumber);
+    seasons.push({
+      seasonNumber,
+      episodeCount: Number(item.episodeCount),
+    });
+  }
+  return seasons.sort(
+    (first, second) => first.seasonNumber - second.seasonNumber,
+  );
+}
+
+function cachedTvBadgeMetadata(
+  row: BadgeTitleMetadataRow | undefined,
+): TvBadgeMetadata | null {
+  if (
+    !row ||
+    typeof row.tmdb_status !== 'string' ||
+    !row.tmdb_status.trim() ||
+    !Number.isInteger(row.regular_episodes) ||
+    row.regular_episodes < 0
+  ) {
+    return null;
+  }
+  const refreshedAt = Date.parse(row.refreshed_at);
+  if (
+    !Number.isFinite(refreshedAt) ||
+    Date.now() - refreshedAt > TMDB_TITLE_METADATA_TTL_MS
+  ) {
+    return null;
+  }
+  const regularSeasons = parseRegularSeasonCounts(
+    row.regular_season_counts,
+  );
+  if (
+    regularSeasons == null ||
+    regularSeasons.reduce(
+      (total, season) => total + season.episodeCount,
+      0,
+    ) !== row.regular_episodes
+  ) {
+    return null;
+  }
+  return {
+    status: row.tmdb_status.trim(),
+    regularEpisodes: row.regular_episodes,
+    regularSeasons,
+  };
+}
+
+function parseTmdbTvBadgeMetadata(payload: unknown): TvBadgeMetadata {
+  if (
+    typeof payload !== 'object' ||
+    payload == null ||
+    !('status' in payload) ||
+    typeof payload.status !== 'string' ||
+    !payload.status.trim() ||
+    !('seasons' in payload) ||
+    !Array.isArray(payload.seasons)
+  ) {
+    throw new BadgeEngineError(
+      'Risposta TMDB serie non valida per Serialista',
+      'tmdb_response_invalid',
+    );
+  }
+
+  const regularSeasons: RegularSeasonDefinition[] = [];
+  const seasonNumbers = new Set<number>();
+  for (const season of payload.seasons) {
+    if (
+      typeof season !== 'object' ||
+      season == null ||
+      !('season_number' in season) ||
+      !Number.isInteger(season.season_number)
+    ) {
+      throw new BadgeEngineError(
+        'Risposta TMDB con stagione non valida',
+        'tmdb_response_invalid',
+      );
+    }
+    const seasonNumber = Number(season.season_number);
+    if (seasonNumber === 0) {
+      continue;
+    }
+    if (
+      seasonNumber < 0 ||
+      !('episode_count' in season) ||
+      !Number.isInteger(season.episode_count) ||
+      Number(season.episode_count) < 0 ||
+      seasonNumbers.has(seasonNumber)
+    ) {
+      throw new BadgeEngineError(
+        'Risposta TMDB con conteggio stagione non valido',
+        'tmdb_response_invalid',
+      );
+    }
+    seasonNumbers.add(seasonNumber);
+    const episodeCount = Number(season.episode_count);
+    if (episodeCount > 0) {
+      regularSeasons.push({ seasonNumber, episodeCount });
+    }
+  }
+  regularSeasons.sort(
+    (first, second) => first.seasonNumber - second.seasonNumber,
+  );
+  return {
+    status: payload.status.trim(),
+    regularEpisodes: regularSeasons.reduce(
+      (total, season) => total + season.episodeCount,
+      0,
+    ),
+    regularSeasons,
+  };
+}
+
+async function requestTmdbTvBadgeMetadata(
+  tmdbId: number,
+): Promise<TvBadgeMetadata> {
+  const payload = await requestTmdbJson(
+    `/tv/${tmdbId}`,
+    `la serie ${tmdbId}`,
+  );
+  return parseTmdbTvBadgeMetadata(payload);
+}
+
+function loadTmdbTvBadgeMetadata(
+  tmdbId: number,
+): Promise<TvBadgeMetadata> {
+  const cached = tmdbTvMetadataCache.get(tmdbId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.promise;
+  }
+  const promise = requestTmdbTvBadgeMetadata(tmdbId).catch((error) => {
+    tmdbTvMetadataCache.delete(tmdbId);
+    throw error;
+  });
+  tmdbTvMetadataCache.set(tmdbId, {
+    expiresAt: Date.now() + TMDB_CACHE_TTL_MS,
+    promise,
+  });
+  return promise;
+}
+
+async function loadSerialistFacts(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+): Promise<SerialistFacts> {
+  const [libraryRows, episodesByItem] = await Promise.all([
+    loadSerialistLibraryRows(supabaseAdmin, userId),
+    loadSerialistWatchedEpisodes(supabaseAdmin, userId),
+  ]);
+  const candidates: SerialistCandidate[] = libraryRows.flatMap((row) => {
+    const title = serialistTitleRelation(row);
+    const watchedEpisodes = episodesByItem.get(row.id) ?? [];
+    if (
+      typeof row.id !== 'string' ||
+      !row.id.trim() ||
+      typeof row.title_id !== 'string' ||
+      !row.title_id.trim() ||
+      !title ||
+      title.id !== row.title_id ||
+      title.media_type !== 'tv' ||
+      !Number.isInteger(title.tmdb_id) ||
+      title.tmdb_id <= 0
+    ) {
+      throw new BadgeEngineError(
+        'Metadati Libreria non validi per Serialista',
+        'facts_load_failed',
+      );
+    }
+    return watchedEpisodes.length > 0
+      ? [
+          {
+            libraryItemId: row.id,
+            titleId: row.title_id,
+            tmdbId: title.tmdb_id,
+            watchedEpisodes,
+          },
+        ]
+      : [];
+  });
+  if (candidates.length === 0) {
+    return { completedEndedSeriesIds: [] };
+  }
+
+  const metadataByTitle = await loadBadgeTitleMetadata(
+    supabaseAdmin,
+    candidates.map((candidate) => candidate.titleId),
+  );
+  const resolvedMetadata = await mapWithConcurrency(
+    candidates,
+    TMDB_REQUEST_CONCURRENCY,
+    async (candidate): Promise<ResolvedTvBadgeMetadata> => {
+      const cached = cachedTvBadgeMetadata(
+        metadataByTitle.get(candidate.titleId),
+      );
+      if (cached) {
+        return {
+          ...cached,
+          titleId: candidate.titleId,
+          fetched: false,
+        };
+      }
+      const fetched = await loadTmdbTvBadgeMetadata(candidate.tmdbId);
+      return {
+        ...fetched,
+        titleId: candidate.titleId,
+        fetched: true,
+      };
+    },
+  );
+
+  const fetchedMetadata = resolvedMetadata.filter(
+    (metadata) => metadata.fetched,
+  );
+  if (fetchedMetadata.length > 0) {
+    const refreshedAt = new Date().toISOString();
+    const { error } = await supabaseAdmin
+      .from('badge_title_metadata')
+      .upsert(
+        fetchedMetadata.map((metadata) => ({
+          title_id: metadata.titleId,
+          tmdb_status: metadata.status,
+          regular_episodes: metadata.regularEpisodes,
+          regular_season_counts: metadata.regularSeasons,
+          refreshed_at: refreshedAt,
+        })),
+        { onConflict: 'title_id' },
+      );
+    if (error) {
+      throw new BadgeEngineError(
+        `Impossibile aggiornare la cache TMDB badge: ${error.message}`,
+        'facts_load_failed',
+      );
+    }
+  }
+
+  return {
+    completedEndedSeriesIds: candidates.flatMap(
+      (candidate, index) => {
+        const metadata = resolvedMetadata[index];
+        return metadata.status === 'Ended' &&
+          metadata.regularEpisodes > 0 &&
+          hasCompletedRegularSeries(
+            candidate.watchedEpisodes,
+            metadata.regularSeasons,
+          )
+          ? [candidate.libraryItemId]
+          : [];
+      },
+    ),
+  };
+}
+
 async function loadFacts(
   definition: BadgeDefinition,
   supabaseAdmin: SupabaseClient,
@@ -792,6 +1283,9 @@ async function loadFacts(
   }
   if (definition.id === 'nostalgic' && definition.version === 1) {
     return loadNostalgicFacts(supabaseAdmin, userId);
+  }
+  if (definition.id === 'serialist' && definition.version === 1) {
+    return loadSerialistFacts(supabaseAdmin, userId);
   }
   if (
     definition.version === 1 &&
