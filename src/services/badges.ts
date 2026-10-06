@@ -12,6 +12,7 @@ export const BADGE_IDS = {
   nostalgic: 'nostalgic',
   serialist: 'serialist',
   genreExplorer: 'genre_explorer',
+  oneMoreEpisode: 'one_more_episode',
   firstWatch: 'first_watch',
   firstReview: 'first_review',
   seasonComplete: 'season_complete',
@@ -29,6 +30,7 @@ export const ALL_BADGE_IDS = [
   BADGE_IDS.nostalgic,
   BADGE_IDS.serialist,
   BADGE_IDS.genreExplorer,
+  BADGE_IDS.oneMoreEpisode,
   ...INTRODUCTORY_BADGE_IDS,
 ] as const;
 

@@ -22,9 +22,11 @@ import {
   type GenreExplorerFacts,
   type GenreTitleFact,
   type NostalgicFacts,
+  type OneMoreEpisodeFacts,
   type RegularSeasonDefinition,
   type SeasonCompleteFacts,
   type SerialistFacts,
+  type TrackedEpisodeFact,
   type WatchedEpisodeFact,
 } from './badge-engine.ts';
 
@@ -98,6 +100,11 @@ type EpisodeWatchFactRow = {
   library_item_id: string;
   season_number: number;
   episode_number: number;
+};
+
+type TrackedEpisodeWatchRow = EpisodeWatchFactRow & {
+  id: string;
+  watched_on: string;
 };
 
 type LibraryTitleFactRow = {
@@ -1595,6 +1602,46 @@ async function loadGenreExplorerFacts(
   };
 }
 
+async function loadOneMoreEpisodeFacts(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+): Promise<OneMoreEpisodeFacts> {
+  const trackedEpisodes: TrackedEpisodeFact[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabaseAdmin
+      .from('episode_watches')
+      .select(
+        'id, library_item_id, season_number, episode_number, watched_on',
+      )
+      .eq('user_id', userId)
+      .eq('source', 'tracked')
+      .gt('season_number', 0)
+      .order('watched_on', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      throw new BadgeEngineError(
+        `Impossibile leggere gli episodi tracked: ${error.message}`,
+        'facts_load_failed',
+      );
+    }
+    const rows = (data ?? []) as TrackedEpisodeWatchRow[];
+    for (const row of rows) {
+      trackedEpisodes.push({
+        watchId: row.id,
+        libraryItemId: row.library_item_id,
+        seasonNumber: row.season_number,
+        episodeNumber: row.episode_number,
+        watchedOn: row.watched_on,
+      });
+    }
+    if (rows.length < PAGE_SIZE) {
+      break;
+    }
+  }
+  return { trackedEpisodes };
+}
+
 async function loadFacts(
   definition: BadgeDefinition,
   supabaseAdmin: SupabaseClient,
@@ -1617,6 +1664,12 @@ async function loadFacts(
     definition.version === 1
   ) {
     return loadGenreExplorerFacts(supabaseAdmin, userId);
+  }
+  if (
+    definition.id === 'one_more_episode' &&
+    definition.version === 1
+  ) {
+    return loadOneMoreEpisodeFacts(supabaseAdmin, userId);
   }
   if (
     definition.version === 1 &&

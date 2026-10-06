@@ -47,6 +47,7 @@ export type BadgeEvidence = {
   activityIds?: string[];
   seasonKeys?: string[];
   genreKeys?: string[];
+  groupDate?: string;
   backfill?: true;
 };
 
@@ -159,6 +160,18 @@ export type GenreTitleFact = {
 
 export type GenreExplorerFacts = {
   completedTitles: GenreTitleFact[];
+};
+
+export type TrackedEpisodeFact = {
+  watchId: string;
+  libraryItemId: string;
+  seasonNumber: number;
+  episodeNumber: number;
+  watchedOn: string;
+};
+
+export type OneMoreEpisodeFacts = {
+  trackedEpisodes: TrackedEpisodeFact[];
 };
 
 export type RegularSeasonDefinition = {
@@ -444,6 +457,73 @@ function parseGenreExplorerFacts(facts: unknown): GenreExplorerFacts {
   return { completedTitles };
 }
 
+function isValidDateOnly(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) {
+    return false;
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
+function parseOneMoreEpisodeFacts(
+  facts: unknown,
+): OneMoreEpisodeFacts {
+  if (
+    typeof facts !== 'object' ||
+    facts == null ||
+    !('trackedEpisodes' in facts) ||
+    !Array.isArray(facts.trackedEpisodes)
+  ) {
+    throw new BadgeEngineError(
+      'Fatti Ancora un episodio non validi',
+      'facts_invalid',
+    );
+  }
+  const trackedEpisodes: TrackedEpisodeFact[] = [];
+  for (const episode of facts.trackedEpisodes) {
+    if (
+      typeof episode !== 'object' ||
+      episode == null ||
+      !('watchId' in episode) ||
+      typeof episode.watchId !== 'string' ||
+      !episode.watchId.trim() ||
+      !('libraryItemId' in episode) ||
+      typeof episode.libraryItemId !== 'string' ||
+      !episode.libraryItemId.trim() ||
+      !('seasonNumber' in episode) ||
+      !Number.isInteger(episode.seasonNumber) ||
+      Number(episode.seasonNumber) <= 0 ||
+      !('episodeNumber' in episode) ||
+      !Number.isInteger(episode.episodeNumber) ||
+      Number(episode.episodeNumber) <= 0 ||
+      !('watchedOn' in episode) ||
+      typeof episode.watchedOn !== 'string' ||
+      !isValidDateOnly(episode.watchedOn)
+    ) {
+      throw new BadgeEngineError(
+        'Fatti Ancora un episodio non validi',
+        'facts_invalid',
+      );
+    }
+    trackedEpisodes.push({
+      watchId: episode.watchId.trim(),
+      libraryItemId: episode.libraryItemId.trim(),
+      seasonNumber: Number(episode.seasonNumber),
+      episodeNumber: Number(episode.episodeNumber),
+      watchedOn: episode.watchedOn,
+    });
+  }
+  return { trackedEpisodes };
+}
+
 function normalizeGenreName(value: string): string {
   return value
     .normalize('NFD')
@@ -704,6 +784,69 @@ export const genreExplorerEvaluator: BadgeEvaluator = {
   },
 };
 
+export const oneMoreEpisodeEvaluator: BadgeEvaluator = {
+  badgeId: 'one_more_episode',
+  version: 1,
+  evaluate(definition, rawFacts, context) {
+    assertDefinition(definition, 'one_more_episode', 1);
+    const facts = parseOneMoreEpisodeFacts(rawFacts);
+    const groups = new Map<
+      string,
+      {
+        libraryItemId: string;
+        watchedOn: string;
+        watchesByEpisode: Map<string, string>;
+      }
+    >();
+    for (const episode of facts.trackedEpisodes) {
+      const groupKey = `${episode.libraryItemId}|${episode.watchedOn}`;
+      const group = groups.get(groupKey) ?? {
+        libraryItemId: episode.libraryItemId,
+        watchedOn: episode.watchedOn,
+        watchesByEpisode: new Map<string, string>(),
+      };
+      const episodeKey =
+        `${episode.seasonNumber}:${episode.episodeNumber}`;
+      if (!group.watchesByEpisode.has(episodeKey)) {
+        group.watchesByEpisode.set(episodeKey, episode.watchId);
+      }
+      groups.set(groupKey, group);
+    }
+    const winningGroup =
+      Array.from(groups.values()).sort(
+        (first, second) =>
+          second.watchesByEpisode.size -
+            first.watchesByEpisode.size ||
+          second.watchedOn.localeCompare(first.watchedOn) ||
+          first.libraryItemId.localeCompare(second.libraryItemId),
+      )[0] ?? null;
+    const progress = winningGroup?.watchesByEpisode.size ?? 0;
+    const levels = [...definition.levels].sort(
+      (first, second) => first.threshold - second.threshold,
+    );
+    return {
+      badgeId: definition.id,
+      version: definition.version,
+      progress,
+      unlockedLevels: levels
+        .filter((level) => progress >= level.threshold)
+        .map((level) => level.level),
+      nextThreshold:
+        levels.find((level) => progress < level.threshold)?.threshold ??
+        null,
+      evidence: {
+        activityIds: winningGroup
+          ? Array.from(winningGroup.watchesByEpisode.values()).sort()
+          : [],
+        ...(winningGroup
+          ? { groupDate: winningGroup.watchedOn }
+          : {}),
+        ...(context.isBackfill ? { backfill: true as const } : {}),
+      },
+    };
+  },
+};
+
 export const firstWatchEvaluator: BadgeEvaluator = {
   badgeId: 'first_watch',
   version: 1,
@@ -857,6 +1000,7 @@ export function createBadgeRegistry(): BadgeEvaluatorRegistry {
   registry.register(nostalgicEvaluator);
   registry.register(serialistEvaluator);
   registry.register(genreExplorerEvaluator);
+  registry.register(oneMoreEpisodeEvaluator);
   registry.register(firstWatchEvaluator);
   registry.register(firstReviewEvaluator);
   registry.register(seasonCompleteEvaluator);

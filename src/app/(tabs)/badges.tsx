@@ -15,6 +15,7 @@ import { CinephileBadgePatch } from '@/components/cinephile-badge-patch';
 import { GenreExplorerBadgePatch } from '@/components/genre-explorer-badge-patch';
 import { IntroductoryBadgePatch } from '@/components/introductory-badge-patch';
 import { NostalgicBadgePatch } from '@/components/nostalgic-badge-patch';
+import { OneMoreEpisodeBadgePatch } from '@/components/one-more-episode-badge-patch';
 import { SerialistBadgePatch } from '@/components/serialist-badge-patch';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -50,6 +51,7 @@ const PROGRESSIVE_BADGE_ORDER = [
   BADGE_IDS.archivist,
   BADGE_IDS.nostalgic,
   BADGE_IDS.genreExplorer,
+  BADGE_IDS.oneMoreEpisode,
 ] as const;
 
 export default function BadgesTabScreen() {
@@ -554,6 +556,13 @@ function LevelCard({
       )}
       {familyId === BADGE_IDS.genreExplorer && (
         <GenreExplorerBadgePatch
+          levelKey={level.key}
+          levelName={level.name}
+          state={state}
+        />
+      )}
+      {familyId === BADGE_IDS.oneMoreEpisode && (
+        <OneMoreEpisodeBadgePatch
           levelKey={level.key}
           levelName={level.name}
           state={state}

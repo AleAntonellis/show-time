@@ -932,7 +932,10 @@ export async function setEpisodeWatched(
     BADGE_IDS.serialist,
     BADGE_IDS.genreExplorer,
   ]);
-  queueBadgeEvaluation([BADGE_IDS.firstWatch]);
+  queueBadgeEvaluation([
+    BADGE_IDS.firstWatch,
+    BADGE_IDS.oneMoreEpisode,
+  ]);
   return status;
 }
 
@@ -985,7 +988,10 @@ export async function setSeasonWatched(
     BADGE_IDS.serialist,
     BADGE_IDS.genreExplorer,
   ]);
-  queueBadgeEvaluation([BADGE_IDS.firstWatch]);
+  queueBadgeEvaluation([
+    BADGE_IDS.firstWatch,
+    BADGE_IDS.oneMoreEpisode,
+  ]);
   return status;
 }
 
@@ -1013,5 +1019,8 @@ export async function setWatchedEpisodesSource(
   if (error) {
     throw new Error(error.message);
   }
-  queueBadgeEvaluation([BADGE_IDS.firstWatch]);
+  queueBadgeEvaluation([
+    BADGE_IDS.firstWatch,
+    BADGE_IDS.oneMoreEpisode,
+  ]);
 }

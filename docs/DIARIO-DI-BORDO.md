@@ -75,6 +75,7 @@ leggera, condivisione via link privato, tema dark esclusivo.
 | D53 | Nostalgico | Titoli completati con anno TMDB valido fino al 1989, film e serie, importati inclusi | Premia l’esplorazione del catalogo storico con una regola deterministica |
 | D54 | Serialista | Serie TMDB `Ended` con ogni episodio regolare completato; Speciali esclusi | Premia completamenti verificabili senza far dipendere lo sblocco da serie ancora in corso |
 | D55 | Esploratore di generi | 15 categorie canoniche ricavate da ID TMDB e alias storici; `TV Movie` escluso | Misura la varietà del catalogo senza duplicare generi equivalenti tra film e serie |
+| D56 | Ancora un episodio | Massimo storico di episodi `tracked` distinti della stessa serie e data; Speciali esclusi | Premia una sessione reale senza sommare importazioni, serie o giorni differenti |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -502,6 +503,11 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   a bussola. Engine `29/29`, test SQL e deploy Azure completati. Cache reale: 125 titoli.
   Produzione: account principale `15/15`, quattro livelli e banner unico, hero `9/23`;
   Test `3/5`, hero `3/23`; refresh idempotenti e layout 360/390 px.
+- ✅ Implementato localmente **Ancora un episodio**: massimo giornaliero di episodi
+  `tracked` distinti della stessa serie, Speciali e importati esclusi. Soglie 3/5/8/12,
+  deduplica per stagione+episodio, tie-break sul giorno più recente e patch a episodi
+  impilati. Dati reali attuali `0/3` su entrambi gli account; preview `2/3`, hero `3/27`,
+  layout 360/390 px; engine `33/33`. Rollout ancora da completare.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

@@ -8,8 +8,8 @@ Questa proposta affianca, senza sostituirla, la prima raccolta di idee in
 ## Stato
 
 - **Fase:** implementazione
-- **Implementazione:** Batch A1, Batch A2 ed Esploratore di generi (B1) pubblicati e
-  verificati in produzione
+- **Implementazione:** fino a Esploratore di generi (B1) pubblicato; Ancora un episodio
+  (B2) completato localmente e in attesa di rollout
 - **Obiettivo:** arrivare a un catalogo V1 piccolo, misurabile e sostenibile
 - **Principio guida:** premiare il percorso personale, non la quantità di tempo
   trascorsa davanti allo schermo
@@ -950,7 +950,7 @@ usati dal progetto.
 #### Batch B — Esplorazione e comportamento
 
 - [x] Esploratore di generi
-- [ ] Ancora un episodio
+- [x] Ancora un episodio
 - [ ] Maratoneta
 - [ ] Encore
 
@@ -985,6 +985,25 @@ usati dal progetto.
 - account `@testshowtime`: `3/5`, nessuno sblocco, hero `3/23`;
 - secondo refresh su entrambi: `0` nuovi sblocchi;
 - produzione senza overflow a 360/390 px.
+
+### Verifica Batch B2 — Ancora un episodio
+
+- migration `0023_one_more_episode_badge.sql` con soglie `3 / 5 / 8 / 12`;
+- usa soltanto `episode_watches.source = tracked`;
+- raggruppa gli episodi per stessa serie e stessa data reale;
+- deduplica la coppia stagione + episodio;
+- non combina serie o date differenti;
+- in caso di parità usa il gruppo più recente;
+- Stagione 0 / Speciali esclusa;
+- episodi importati esclusi;
+- evidenza privata limitata agli ID tecnici del gruppo determinante e alla data;
+- rivalutazioni dopo spunta singola, stagione in blocco e cambio origine;
+- patch originale a pila di episodi numerati;
+- preview locale: `Ancora un episodio 0/4`, progresso `2/3`, hero `3/27`;
+- patch e accordion verificati senza overflow a 360 e 390 px;
+- dati reali attuali: progresso atteso `0/3` su account principale e Test;
+- `33/33` test engine superati;
+- test SQL transazionale pronto per soglia `8`, regressione a `0` e permanenza.
 
 #### Batch C — Diario e Social
 
@@ -1139,11 +1158,11 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 
 Le decisioni di prodotto necessarie per la V1 sono chiuse.
 
-Il prossimo passo operativo è **Ancora un episodio**:
+Il prossimo passo operativo è completare il rollout di **Ancora un episodio**:
 
-1. usare soltanto episodi `tracked`;
-2. raggruppare per serie e data reale;
-3. applicare le soglie `3 / 5 / 8 / 12`;
-4. escludere episodi importati;
-5. creare patch e accordion dedicati;
-6. verificare rewatch e deduplica degli eventi.
+1. distribuire la Edge Function aggiornata;
+2. pubblicare la patch a episodi;
+3. applicare la migration `0023_one_more_episode_badge.sql`;
+4. verificare backfill `0/3` e idempotenza sugli account reali;
+5. eseguire un test reversibile con tre episodi tracked nella stessa data;
+6. proseguire con Maratoneta.

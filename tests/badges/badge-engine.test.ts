@@ -235,6 +235,50 @@ const genreExplorerDefinition: BadgeDefinition = {
   ],
 };
 
+const oneMoreEpisodeDefinition: BadgeDefinition = {
+  id: 'one_more_episode',
+  version: 1,
+  category: 'viewing',
+  name: 'Ancora un episodio',
+  description: 'Completa più episodi della stessa serie.',
+  iconKey: 'one-more-episode',
+  isActive: true,
+  levels: [
+    {
+      level: 1,
+      key: 'bronze',
+      name: 'Bronzo',
+      description: 'Completa 3 episodi.',
+      threshold: 3,
+      iconKey: 'one-more-episode-bronze',
+    },
+    {
+      level: 2,
+      key: 'silver',
+      name: 'Argento',
+      description: 'Completa 5 episodi.',
+      threshold: 5,
+      iconKey: 'one-more-episode-silver',
+    },
+    {
+      level: 3,
+      key: 'gold',
+      name: 'Oro',
+      description: 'Completa 8 episodi.',
+      threshold: 8,
+      iconKey: 'one-more-episode-gold',
+    },
+    {
+      level: 4,
+      key: 'platinum',
+      name: 'Platino',
+      description: 'Completa 12 episodi.',
+      threshold: 12,
+      iconKey: 'one-more-episode-platinum',
+    },
+  ],
+};
+
 function movieIds(count: number): string[] {
   return Array.from({ length: count }, (_, index) => `movie-${index + 1}`);
 }
@@ -730,6 +774,158 @@ test('Esploratore di generi rifiuta fatti malformati', () => {
       error instanceof BadgeEngineError &&
       error.code === 'facts_invalid',
   );
+});
+
+test('Ancora un episodio conta episodi distinti della stessa serie e data', () => {
+  const evaluation = createBadgeRegistry().evaluate(
+    oneMoreEpisodeDefinition,
+    {
+      trackedEpisodes: [
+        {
+          watchId: 'watch-1',
+          libraryItemId: 'series-1',
+          seasonNumber: 1,
+          episodeNumber: 1,
+          watchedOn: '2026-10-06',
+        },
+        {
+          watchId: 'watch-2',
+          libraryItemId: 'series-1',
+          seasonNumber: 1,
+          episodeNumber: 2,
+          watchedOn: '2026-10-06',
+        },
+        {
+          watchId: 'watch-3',
+          libraryItemId: 'series-1',
+          seasonNumber: 2,
+          episodeNumber: 1,
+          watchedOn: '2026-10-06',
+        },
+        {
+          watchId: 'watch-duplicate',
+          libraryItemId: 'series-1',
+          seasonNumber: 2,
+          episodeNumber: 1,
+          watchedOn: '2026-10-06',
+        },
+      ],
+    },
+    context,
+  );
+
+  assert.equal(evaluation.progress, 3);
+  assert.deepEqual(evaluation.unlockedLevels, [1]);
+  assert.equal(evaluation.nextThreshold, 5);
+  assert.deepEqual(evaluation.evidence.activityIds, [
+    'watch-1',
+    'watch-2',
+    'watch-3',
+  ]);
+  assert.equal(evaluation.evidence.groupDate, '2026-10-06');
+});
+
+test('Ancora un episodio non combina serie o date differenti', () => {
+  const evaluation = createBadgeRegistry().evaluate(
+    oneMoreEpisodeDefinition,
+    {
+      trackedEpisodes: [
+        {
+          watchId: 'watch-1',
+          libraryItemId: 'series-1',
+          seasonNumber: 1,
+          episodeNumber: 1,
+          watchedOn: '2026-10-05',
+        },
+        {
+          watchId: 'watch-2',
+          libraryItemId: 'series-1',
+          seasonNumber: 1,
+          episodeNumber: 2,
+          watchedOn: '2026-10-05',
+        },
+        {
+          watchId: 'watch-3',
+          libraryItemId: 'series-1',
+          seasonNumber: 1,
+          episodeNumber: 3,
+          watchedOn: '2026-10-06',
+        },
+        {
+          watchId: 'watch-4',
+          libraryItemId: 'series-2',
+          seasonNumber: 1,
+          episodeNumber: 1,
+          watchedOn: '2026-10-05',
+        },
+      ],
+    },
+    context,
+  );
+
+  assert.equal(evaluation.progress, 2);
+  assert.deepEqual(evaluation.unlockedLevels, []);
+  assert.equal(evaluation.evidence.groupDate, '2026-10-05');
+});
+
+test('Ancora un episodio usa il gruppo più recente in caso di parità', () => {
+  const evaluation = createBadgeRegistry().evaluate(
+    oneMoreEpisodeDefinition,
+    {
+      trackedEpisodes: [
+        {
+          watchId: 'older',
+          libraryItemId: 'series-1',
+          seasonNumber: 1,
+          episodeNumber: 1,
+          watchedOn: '2026-10-05',
+        },
+        {
+          watchId: 'newer',
+          libraryItemId: 'series-2',
+          seasonNumber: 1,
+          episodeNumber: 1,
+          watchedOn: '2026-10-06',
+        },
+      ],
+    },
+    context,
+  );
+
+  assert.equal(evaluation.progress, 1);
+  assert.deepEqual(evaluation.evidence.activityIds, ['newer']);
+  assert.equal(evaluation.evidence.groupDate, '2026-10-06');
+});
+
+test('Ancora un episodio rifiuta Speciali e date non valide', () => {
+  for (const trackedEpisode of [
+    {
+      watchId: 'special',
+      libraryItemId: 'series-1',
+      seasonNumber: 0,
+      episodeNumber: 1,
+      watchedOn: '2026-10-06',
+    },
+    {
+      watchId: 'invalid-date',
+      libraryItemId: 'series-1',
+      seasonNumber: 1,
+      episodeNumber: 1,
+      watchedOn: '2026-02-30',
+    },
+  ]) {
+    assert.throws(
+      () =>
+        createBadgeRegistry().evaluate(
+          oneMoreEpisodeDefinition,
+          { trackedEpisodes: [trackedEpisode] },
+          context,
+        ),
+      (error: unknown) =>
+        error instanceof BadgeEngineError &&
+        error.code === 'facts_invalid',
+    );
+  }
 });
 
 test('Primo ciak si sblocca con una sola attività reale distinta', () => {
