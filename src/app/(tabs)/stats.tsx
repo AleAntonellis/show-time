@@ -38,6 +38,10 @@ import {
   formatDurationMinutes,
   formatExactHours,
 } from '@/utils/duration';
+import {
+  formatMonthKey,
+  getActivitiesForMonth,
+} from '@/utils/monthly-activity';
 
 function formatDate(value: string): string {
   const [year, month, day] = value.split('-');
@@ -66,6 +70,9 @@ export default function StatisticsTabScreen() {
   const [statisticsByMedia, setStatisticsByMedia] =
     useState<PersonalStatisticsByMedia | null>(null);
   const [mediaFilter, setMediaFilter] = useState<MediaFilterValue>('all');
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [enriching, setEnriching] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -159,6 +166,16 @@ export default function StatisticsTabScreen() {
         ? `${statistics.lastThirtyDays.series} serie`
         : `${statistics.lastThirtyDays.movies} film · ${statistics.lastThirtyDays.series} serie`
     : '';
+  const selectedMonth = statistics?.monthlyActivity.find(
+    (month) => month.key === selectedMonthKey,
+  );
+  const selectedMonthActivities =
+    statistics && selectedMonthKey
+      ? getActivitiesForMonth(
+          statistics.recentActivity,
+          selectedMonthKey,
+        )
+      : [];
 
   return (
     <ThemedView style={styles.container}>
@@ -292,7 +309,22 @@ export default function StatisticsTabScreen() {
                     : 'Attività con una data reale; gli episodi importati sono esclusi.'}
                 </ThemedText>
               </View>
-              <ActivityChart months={statistics.monthlyActivity} />
+              <ActivityChart
+                months={statistics.monthlyActivity}
+                selectedMonthKey={selectedMonthKey}
+                onSelectMonth={(monthKey) =>
+                  setSelectedMonthKey((current) =>
+                    current === monthKey ? null : monthKey,
+                  )
+                }
+              />
+              {selectedMonth && (
+                <MonthlyActivityDetails
+                  month={selectedMonth}
+                  activities={selectedMonthActivities}
+                  onClose={() => setSelectedMonthKey(null)}
+                />
+              )}
             </ThemedView>
 
             <View style={styles.totalsSection}>
@@ -415,26 +447,129 @@ function Breakdown({ value, label }: { value: number | string; label: string }) 
   );
 }
 
-function ActivityChart({ months }: { months: MonthlyActivity[] }) {
+function ActivityChart({
+  months,
+  selectedMonthKey,
+  onSelectMonth,
+}: {
+  months: MonthlyActivity[];
+  selectedMonthKey: string | null;
+  onSelectMonth: (monthKey: string) => void;
+}) {
   const max = Math.max(...months.map((month) => month.count), 1);
   return (
     <View style={styles.chart}>
       {months.map((month) => {
         const height = month.count > 0 ? Math.max(8, (month.count / max) * 112) : 2;
+        const selected = month.key === selectedMonthKey;
         return (
-          <View key={month.key} style={styles.chartColumn}>
-            <ThemedText type="small" themeColor="textSecondary">
+          <Pressable
+            key={month.key}
+            accessibilityRole="button"
+            accessibilityLabel={`${formatMonthKey(month.key)}, ${
+              month.count
+            } ${month.count === 1 ? 'attività' : 'attività'}`}
+            accessibilityHint={
+              selected
+                ? 'Chiude il dettaglio del mese'
+                : 'Mostra il dettaglio delle attività del mese'
+            }
+            accessibilityState={{ selected }}
+            onPress={() => onSelectMonth(month.key)}
+            style={({ pressed }) => [
+              styles.chartColumn,
+              selected && styles.chartColumnSelected,
+              pressed && styles.pressed,
+            ]}>
+            <ThemedText
+              type="small"
+              themeColor="textSecondary"
+              style={selected ? styles.chartTextSelected : undefined}>
               {month.count}
             </ThemedText>
-            <View style={styles.barTrack}>
-              <View style={[styles.bar, { height }]} />
+            <View
+              style={[
+                styles.barTrack,
+                selected && styles.barTrackSelected,
+              ]}>
+              <View
+                style={[
+                  styles.bar,
+                  selected && styles.barSelected,
+                  { height },
+                ]}
+              />
             </View>
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText
+              type="small"
+              themeColor="textSecondary"
+              style={selected ? styles.chartTextSelected : undefined}>
               {month.label}
             </ThemedText>
-          </View>
+          </Pressable>
         );
       })}
+    </View>
+  );
+}
+
+function MonthlyActivityDetails({
+  month,
+  activities,
+  onClose,
+}: {
+  month: MonthlyActivity;
+  activities: RecentActivity[];
+  onClose: () => void;
+}) {
+  return (
+    <View style={styles.monthDetail}>
+      <View style={styles.monthDetailHeading}>
+        <View style={styles.monthDetailCopy}>
+          <ThemedText type="smallBold">
+            {formatMonthKey(month.key)}
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            {activities.length}{' '}
+            {activities.length === 1
+              ? 'attività registrata'
+              : 'attività registrate'}
+          </ThemedText>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Chiudi dettaglio ${formatMonthKey(
+            month.key,
+          )}`}
+          onPress={onClose}
+          hitSlop={6}
+          style={({ pressed }) => [
+            styles.monthDetailClose,
+            pressed && styles.pressed,
+          ]}>
+          <ThemedText type="smallBold" style={styles.monthDetailCloseText}>
+            Chiudi
+          </ThemedText>
+        </Pressable>
+      </View>
+      {activities.length > 0 ? (
+        <View style={styles.monthDetailList}>
+          {activities.map((activity) => (
+            <RecentActivityCard
+              key={activity.id}
+              activity={activity}
+              highlighted
+            />
+          ))}
+        </View>
+      ) : (
+        <ThemedText
+          type="small"
+          themeColor="textSecondary"
+          style={styles.centerText}>
+          Nessuna attività registrata in questo mese.
+        </ThemedText>
+      )}
     </View>
   );
 }
@@ -465,12 +600,20 @@ function GenreBars({ genres }: { genres: GenreStatistic[] }) {
   );
 }
 
-function RecentActivityCard({ activity }: { activity: RecentActivity }) {
+function RecentActivityCard({
+  activity,
+  highlighted = false,
+}: {
+  activity: RecentActivity;
+  highlighted?: boolean;
+}) {
   return (
     <Pressable
       onPress={() => openActivity(activity)}
       style={({ pressed }) => pressed && styles.pressed}>
-      <ThemedView type="backgroundElement" style={styles.recentCard}>
+      <ThemedView
+        type={highlighted ? 'backgroundSelected' : 'backgroundElement'}
+        style={styles.recentCard}>
         {activity.posterUrl ? (
           <Image
             source={{ uri: activity.posterUrl }}
@@ -618,6 +761,14 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     gap: Spacing.one,
+    paddingVertical: Spacing.half,
+    borderRadius: Spacing.two,
+  },
+  chartColumnSelected: {
+    backgroundColor: 'rgba(106,76,255,0.12)',
+  },
+  chartTextSelected: {
+    color: Brand.pureWhite,
   },
   barTrack: {
     width: '100%',
@@ -632,6 +783,43 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: Spacing.two,
     backgroundColor: Brand.glowBlue,
+  },
+  barTrackSelected: {
+    borderWidth: 1,
+    borderColor: Brand.softViolet,
+  },
+  barSelected: {
+    backgroundColor: Brand.softViolet,
+  },
+  monthDetail: {
+    gap: Spacing.two,
+    paddingTop: Spacing.three,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  monthDetailHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  monthDetailCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: Spacing.half,
+  },
+  monthDetailClose: {
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.two,
+    borderRadius: Spacing.three,
+    backgroundColor: 'rgba(47,107,255,0.14)',
+  },
+  monthDetailCloseText: {
+    color: Brand.glowBlue,
+  },
+  monthDetailList: {
+    gap: Spacing.two,
   },
   genreList: {
     gap: Spacing.two,

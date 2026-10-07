@@ -3,7 +3,7 @@
 Registro cronologico delle **decisioni** e dei **progressi** del progetto, così da non perdere nulla.
 Documento vivo: aggiornato a ogni passo di lavoro.
 
-> Ultimo aggiornamento: 2026-10-07 (durate leggibili nelle Statistiche)
+> Ultimo aggiornamento: 2026-10-07 (dettaglio mensile Statistiche)
 
 ---
 
@@ -82,6 +82,8 @@ leggera, condivisione via link privato, tema dark esclusivo.
 | D60 | Passaparola | Coppie distinte titolo + destinatario con `read_at`; soglie 25/100/250/500 | Premia consigli realmente letti e impedisce incrementi da spam, reinvii o riaperture |
 | D61 | Trofei profilo | Tutti i badge sbloccati, uno per famiglia al massimo livello permanente | Racconta l’intero percorso senza selezione manuale e senza esporre progressi o livelli inferiori |
 | D62 | Durate Statistiche | Formato compatto `y M d h`; anni da 365 giorni, mesi da 30 e totale ore separato | Rende Tempo catalogato e Tempo visto immediatamente leggibili senza cambiare i calcoli |
+| D63 | Ordinamento Libreria | In corso per ultimo episodio, Da vedere per aggiunta, Visti prima per attività ShowTime e poi per import | Porta in alto i contenuti realmente aggiornati e mantiene un fallback deterministico per lo storico |
+| D64 | Dettaglio istogramma | Tap sul mese apre un pannello inline con tutte le attività reali del periodo | Approfondisce il trend senza nuova route o query e mantiene il contesto delle Statistiche |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -473,6 +475,27 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   `1d 8h` / `32,4 h totali` e `6h` / `6,4 h totali`.
   Test statistiche `6/6`, typecheck e lint mirato superati; nessun overflow o errore
   console a 360/390 px.
+- ✅ Aggiornato localmente l’**ordinamento predefinito della Libreria**:
+  “In corso” usa la data tecnica dell’ultima spunta episodio, importata o registrata;
+  i film in corso usano l’ultimo aggiornamento come fallback. “Da vedere” usa
+  `added_at` decrescente. Nei “Visti” hanno priorità i titoli con attività reale
+  ShowTime (`viewings`, episodi `tracked`, revisioni episodio o visioni complete
+  serie), ordinati per data effettiva `watched_on`; seguono gli importati, ordinati per ultimo
+  episodio importato o data di import del film. Aggiunti campi tecnici non visibili,
+  sorter puro e test dedicati; nessuna modifica allo schema database. Ogni gruppo
+  dispone inoltre di un toggle `A–Z` indipendente: attivarlo ordina alfabeticamente
+  soltanto quella categoria, disattivarlo ripristina la regola temporale predefinita.
+  Preview reale: Visti `Matrix → Inception → Il gladiatore` diventa
+  `Il gladiatore → Inception → Matrix`, senza modificare In corso o Da vedere.
+- ✅ Reso interattivo localmente l’**istogramma degli ultimi 6 mesi**:
+  ogni colonna è un pulsante accessibile e selezionabile; il tap apre sotto il grafico
+  un pannello inline con mese completo, conteggio e tutte le attività reali, ognuna
+  navigabile verso il titolo. Un secondo tap o “Chiudi” richiude il dettaglio; i mesi
+  senza eventi mostrano uno stato vuoto. I dati riusano `recentActivity`, quindi non
+  introducono nuove query e continuano a escludere gli importati senza data reale.
+  Preview Test: ottobre mostra 2 attività Matrix, agosto nessuna attività. Test
+  statistiche `8/8`, typecheck e lint mirato superati; nessun overflow o errore
+  console a 390 px.
 - ✅ Implementato localmente il **Batch A1 badge**: Primo ciak considera film, episodi
   `tracked`, revisioni episodio e visioni complete serie; Prima recensione richiede una
   nota testuale; Stagione chiusa verifica tutti gli episodi tramite TMDB, accetta importati

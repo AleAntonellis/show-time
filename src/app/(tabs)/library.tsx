@@ -46,6 +46,11 @@ import {
   type LibraryStatus,
   type MovieWatchSource,
 } from '@/services/library';
+import {
+  sortLibraryGroup,
+  sortLibraryItems,
+  type LibraryGroupSortMode,
+} from '@/utils/library-sort';
 
 export default function LibraryTabScreen() {
   const theme = useTheme();
@@ -56,6 +61,13 @@ export default function LibraryTabScreen() {
   const [mediaFilter, setMediaFilter] = useState<MediaFilterValue>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [groupSortModes, setGroupSortModes] = useState<
+    Record<LibraryStatus, LibraryGroupSortMode>
+  >({
+    watching: 'default',
+    to_watch: 'default',
+    watched: 'default',
+  });
   const [selectedSeries, setSelectedSeries] = useState<LibraryItem | null>(null);
   const [selectedMovie, setSelectedMovie] = useState<LibraryItem | null>(null);
   const [initialMovieRecord, setInitialMovieRecord] = useState(false);
@@ -135,6 +147,7 @@ export default function LibraryTabScreen() {
       setSelectedMovie(item);
       return;
     }
+
     if (movieWatchChoice) {
       void markMovieWatched(
         movieWatchChoice.item,
@@ -144,13 +157,24 @@ export default function LibraryTabScreen() {
     }
   }
 
+  function toggleGroupSort(status: LibraryStatus) {
+    setGroupSortModes((current) => ({
+      ...current,
+      [status]:
+        current[status] === 'alphabetical'
+          ? 'default'
+          : 'alphabetical',
+    }));
+  }
+
   const topInset =
     Platform.OS === 'web' ? WebTabTopInset : safeAreaInsets.top + Spacing.three;
   const bottomInset = safeAreaInsets.bottom + BottomTabInset + Spacing.four;
-  const filteredItems =
+  const filteredItems = sortLibraryItems(
     mediaFilter === 'all'
       ? items
-      : items.filter((item) => item.mediaType === mediaFilter);
+      : items.filter((item) => item.mediaType === mediaFilter),
+  );
 
   if (configured && !session) {
     return null; // il gate mostra il login
@@ -203,15 +227,50 @@ export default function LibraryTabScreen() {
           />
         ) : (
           STATUS_ORDER.map((status) => {
-            const group = filteredItems.filter((item) => item.status === status);
+            const alphabetical =
+              groupSortModes[status] === 'alphabetical';
+            const group = sortLibraryGroup(
+              filteredItems.filter((item) => item.status === status),
+              groupSortModes[status],
+            );
             if (group.length === 0) {
               return null;
             }
             return (
               <View key={status} style={styles.section}>
-                <ThemedText type="smallBold" themeColor="textSecondary">
-                  {STATUS_LABELS[status]} · {group.length}
-                </ThemedText>
+                <View style={styles.sectionHeading}>
+                  <ThemedText
+                    type="smallBold"
+                    themeColor="textSecondary"
+                    style={styles.sectionTitle}>
+                    {STATUS_LABELS[status]} · {group.length}
+                  </ThemedText>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      alphabetical
+                        ? `Ripristina ordinamento predefinito per ${STATUS_LABELS[status]}`
+                        : `Ordina alfabeticamente ${STATUS_LABELS[status]}`
+                    }
+                    accessibilityState={{ selected: alphabetical }}
+                    onPress={() => toggleGroupSort(status)}
+                    hitSlop={6}
+                    style={({ pressed }) => [
+                      styles.sortButton,
+                      alphabetical && styles.sortButtonActive,
+                      pressed && styles.sortButtonPressed,
+                    ]}>
+                    <ThemedText
+                      type="smallBold"
+                      style={
+                        alphabetical
+                          ? styles.sortButtonTextActive
+                          : styles.sortButtonText
+                      }>
+                      A–Z
+                    </ThemedText>
+                  </Pressable>
+                </View>
                 {group.map((item) => (
                   <ThemedView key={item.id} type="backgroundElement" style={styles.row}>
                     <Pressable
@@ -442,6 +501,36 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: Spacing.two,
+  },
+  sectionHeading: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  sectionTitle: {
+    flex: 1,
+  },
+  sortButton: {
+    minWidth: 56,
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.two,
+    borderRadius: Spacing.three,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  sortButtonActive: {
+    backgroundColor: Brand.glowBlue,
+  },
+  sortButtonPressed: {
+    opacity: 0.78,
+  },
+  sortButtonText: {
+    color: Brand.glowBlue,
+  },
+  sortButtonTextActive: {
+    color: Brand.pureWhite,
   },
   row: {
     flexDirection: 'row',
