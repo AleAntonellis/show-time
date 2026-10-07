@@ -8,8 +8,7 @@ Questa proposta affianca, senza sostituirla, la prima raccolta di idee in
 ## Stato
 
 - **Fase:** implementazione
-- **Implementazione:** fino a Maratoneta (B3) pubblicato; Encore (B4) completato
-  localmente e in attesa di rollout
+- **Implementazione:** fino a Encore (B4) pubblicato e verificato in produzione
 - **Obiettivo:** arrivare a un catalogo V1 piccolo, misurabile e sostenibile
 - **Principio guida:** premiare il percorso personale, non la quantità di tempo
   trascorsa davanti allo schermo
@@ -1079,6 +1078,18 @@ usati dal progetto.
 - patch e accordion verificati senza overflow a 360 e 390 px e senza errori console;
 - `43/43` test engine superati;
 - typecheck e lint mirato superati.
+- bundle monolitico verificato e distribuito con valutatore, loader e routing Encore;
+- migration `0025_encore_badge.sql` applicata in produzione;
+- test SQL transazionale superato senza dati residui;
+- deploy Azure completato sul commit `3f14c23`, run `37591927243`;
+- account `@testshowtime`: backfill reale `1/5`, nessuno sblocco, hero `3/35`;
+- secondo refresh reale: `0` nuovi sblocchi;
+- test live reversibile: una visione su ciascuno dei 3 film importati e due visioni
+  su ciascuna delle 2 serie hanno portato 5 titoli distinti, Bronzo, `5/25` e un banner;
+- secondo refresh della prova idempotente: `0` nuovi sblocchi;
+- rollback completo verificato: 3 righe `viewings` e 4 righe `series_viewings`
+  eliminate, sblocco rimosso, progresso e massimo reali ripristinati a `1`, UI `1/5`;
+- produzione verificata senza overflow a 360/390 px e senza errori console.
 
 #### Batch C — Diario e Social
 
@@ -1228,6 +1239,7 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 - [x] Quarta famiglia progressiva: Serialista
 - [x] Primo batch successivo: introduttivi, Serialista, Archivista e Nostalgico
 - [x] Secondo batch successivo: Esploratore di generi e Ancora un episodio
+- [x] Terzo batch successivo: Maratoneta ed Encore
 
 ---
 
@@ -1235,11 +1247,11 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 
 Le decisioni di prodotto necessarie per la V1 sono chiuse.
 
-Il prossimo passo operativo è completare il rollout di **Encore**:
+Il prossimo passo operativo è **Critico**:
 
-1. distribuire la Edge Function aggiornata;
-2. pubblicare la patch con doppio fotogramma e replay;
-3. applicare la migration `0025_encore_badge.sql`;
-4. eseguire il test SQL transazionale;
-5. verificare backfill e idempotenza sugli account reali;
-6. completare un test live reversibile.
+1. contare tutte le voci distinte con nota testuale non vuota;
+2. includere film, episodi e visioni complete serie;
+3. includere revisioni e rewatch come voci distinte;
+4. escludere attività con solo voto;
+5. applicare le soglie `50 / 150 / 250 / 500`;
+6. implementare valutatore, loader, migration, test e patch dedicata.

@@ -3,7 +3,7 @@
 Registro cronologico delle **decisioni** e dei **progressi** del progetto, così da non perdere nulla.
 Documento vivo: aggiornato a ogni passo di lavoro.
 
-> Ultimo aggiornamento: 2026-10-07 (implementazione Encore)
+> Ultimo aggiornamento: 2026-10-07 (pubblicazione Encore)
 
 ---
 
@@ -527,15 +527,19 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   e refresh idempotente. Rollback completo a 13 episodi `imported`, nessuno sblocco,
   progresso/massimo `0` e UI `0/1`. Produzione senza overflow a 360/390 px né errori
   console; titoli badge ridotti a 28 px rispetto ai 32 px di Sala trofei.
-- ✅ Implementato localmente **Encore**: conta titoli distinti con due visioni
+- ✅ Pubblicato **Encore**: conta titoli distinti con due visioni
   complete reali, oppure una prima visione importata seguita da una visione reale.
   Per le serie accetta un completamento episodio iniziale uniforme `tracked` o
   `imported` seguito da `series_viewings`; progressi misti e `episode_viewings` sono
   esclusi dalla V1. Soglie 5/25/100/250, cache TMDB condivisa, deduplica titoli e
   storici, trigger mirati e riclassificazione film protetta da valutazioni intermedie.
   Aggiunti migration `0025`, test SQL e patch a doppio fotogramma/replay. Engine
-  `43/43`, typecheck e lint mirato superati; preview `0/5`, hero `3/35`, senza
-  overflow a 360/390 px né errori console. Rollout ancora da completare.
+  `43/43`, typecheck e lint mirato superati. Edge Function, migration e test SQL
+  distribuiti; deploy Azure sul commit `3f14c23`, run `37591927243`. Backfill Test
+  `1/5`, hero `3/35`; prova live su tutti i cinque titoli: Bronzo, `5/25`, un banner
+  e refresh idempotente. Rollback verificato: eliminate 3 righe film e 4 serie,
+  nessuno sblocco, progresso/massimo reali `1` e UI `1/5`. Produzione senza overflow
+  a 360/390 px né errori console.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.
