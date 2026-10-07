@@ -8,8 +8,7 @@ Questa proposta affianca, senza sostituirla, la prima raccolta di idee in
 ## Stato
 
 - **Fase:** implementazione
-- **Implementazione:** fino ad Ancora un episodio (B2) pubblicato; Maratoneta (B3)
-  completato localmente e in attesa di rollout
+- **Implementazione:** fino a Maratoneta (B3) pubblicato e verificato in produzione
 - **Obiettivo:** arrivare a un catalogo V1 piccolo, misurabile e sostenibile
 - **Principio guida:** premiare il percorso personale, non la quantità di tempo
   trascorsa davanti allo schermo
@@ -1040,6 +1039,19 @@ usati dal progetto.
 - patch e accordion verificati senza overflow a 360 e 390 px e senza errori console;
 - `38/38` test engine superati;
 - typecheck e lint mirato superati.
+- bundle monolitico verificato e distribuito con valutatore, loader e routing Maratoneta;
+- migration `0024_marathon_badge.sql` applicata in produzione;
+- test SQL transazionale superato senza dati residui;
+- deploy Azure completato sul commit `f535eb3`, run `37588921439`;
+- account `@testshowtime`: backfill `0/1`, nessuno sblocco, hero `3/31`;
+- secondo refresh reale: `0` nuovi sblocchi;
+- test live reversibile su Breaking Bad S2: 13 episodi `tracked` distribuiti su due
+  date consecutive hanno prodotto Bronzo, `1/5` e un solo banner;
+- secondo refresh della prova idempotente: `0` nuovi sblocchi;
+- rollback completo verificato: 13 episodi ripristinati come `imported` con la data
+  originale, sblocco rimosso, progresso e massimo a `0`, UI tornata a `0/1`;
+- produzione verificata senza overflow a 360/390 px e senza errori console;
+- gerarchia titoli verificata: Sala trofei `32 px`, gruppi badge `28 px`.
 
 #### Batch C — Diario e Social
 
@@ -1196,11 +1208,11 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 
 Le decisioni di prodotto necessarie per la V1 sono chiuse.
 
-Il prossimo passo operativo è completare il rollout di **Maratoneta**:
+Il prossimo passo operativo è **Encore**:
 
-1. verificare patch e accordion a 360 e 390 px;
-2. distribuire la Edge Function aggiornata;
-3. applicare la migration `0024_marathon_badge.sql`;
-4. eseguire il test SQL transazionale;
-5. verificare backfill e idempotenza sugli account reali;
-6. pubblicare il client e completare un test live reversibile.
+1. contare titoli distinti con almeno una revisione reale;
+2. accettare una prima visione importata seguita da una visione `tracked`;
+3. usare gli storici film e serie senza duplicare lo stesso titolo;
+4. applicare le soglie `5 / 25 / 100 / 250`;
+5. implementare valutatore, loader, migration, test e patch dedicata;
+6. verificare localmente e poi con un rollout reversibile.

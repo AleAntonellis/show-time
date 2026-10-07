@@ -3,7 +3,7 @@
 Registro cronologico delle **decisioni** e dei **progressi** del progetto, così da non perdere nulla.
 Documento vivo: aggiornato a ogni passo di lavoro.
 
-> Ultimo aggiornamento: 2026-10-07 (implementazione Maratoneta)
+> Ultimo aggiornamento: 2026-10-07 (pubblicazione Maratoneta)
 
 ---
 
@@ -514,14 +514,18 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   banner; secondo refresh idempotente. Rollback verificato: visioni ripristinate
   `imported` con la data originale, sblocco rimosso, progresso/massimo `0` e UI
   nuovamente `0/3`.
-- ✅ Implementato localmente **Maratoneta**: conta stagioni distinte da almeno
+- ✅ Pubblicato **Maratoneta**: conta stagioni distinte da almeno
   8 episodi regolari, tutti `tracked` nella stessa data o in due date consecutive.
   Soglie 1/5/15/30; Stagione 0 e importati esclusi; ordine di registrazione
   irrilevante e cambio mese/anno gestito correttamente. Riusa la cache TMDB protetta
   di Serialista. Aggiunti migration `0024`, test SQL, trigger mirati e patch a
   cronometro con otto episodi e traguardo. Engine `38/38`, typecheck e lint mirato
-  superati. Preview locale `0/1`, hero `3/31`, senza overflow a 360/390 px né errori
-  console. Rollout ancora da completare.
+  superati. Edge Function, migration e test SQL distribuiti; deploy Azure sul commit
+  `f535eb3`, run `37588921439`. Backfill Test `0/1`, hero `3/31`; test live reversibile
+  su Breaking Bad S2 con 13 episodi su due date consecutive: Bronzo, `1/5`, un banner
+  e refresh idempotente. Rollback completo a 13 episodi `imported`, nessuno sblocco,
+  progresso/massimo `0` e UI `0/1`. Produzione senza overflow a 360/390 px né errori
+  console; titoli badge ridotti a 28 px rispetto ai 32 px di Sala trofei.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.
