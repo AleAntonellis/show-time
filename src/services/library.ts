@@ -626,7 +626,9 @@ export async function addViewing(
       BADGE_IDS.genreExplorer,
       BADGE_IDS.firstWatch,
       BADGE_IDS.encore,
-      ...(note?.trim() ? [BADGE_IDS.firstReview] : []),
+      ...(note?.trim()
+        ? [BADGE_IDS.firstReview, BADGE_IDS.critic]
+        : []),
     ]);
   }
   return toViewing(rows[0]);
@@ -642,6 +644,7 @@ export async function removeViewing(viewingId: string): Promise<void> {
     BADGE_IDS.firstWatch,
     BADGE_IDS.firstReview,
     BADGE_IDS.encore,
+    BADGE_IDS.critic,
   ]);
 }
 
@@ -746,7 +749,9 @@ export async function addEpisodeViewing(
 
   queueBadgeEvaluation([
     BADGE_IDS.firstWatch,
-    ...(note?.trim() ? [BADGE_IDS.firstReview] : []),
+    ...(note?.trim()
+      ? [BADGE_IDS.firstReview, BADGE_IDS.critic]
+      : []),
   ]);
   return toViewing(data as ViewingRow);
 }
@@ -768,6 +773,7 @@ export async function removeEpisodeViewing(viewingId: string): Promise<void> {
   queueBadgeEvaluation([
     BADGE_IDS.firstWatch,
     BADGE_IDS.firstReview,
+    BADGE_IDS.critic,
   ]);
 }
 
@@ -848,7 +854,9 @@ export async function addSeriesViewing(
   queueBadgeEvaluation([
     BADGE_IDS.firstWatch,
     BADGE_IDS.encore,
-    ...(trimmedNote ? [BADGE_IDS.firstReview] : []),
+    ...(trimmedNote
+      ? [BADGE_IDS.firstReview, BADGE_IDS.critic]
+      : []),
   ]);
   return toSeriesViewing(data as SeriesViewingRow);
 }
@@ -865,6 +873,7 @@ export async function removeSeriesViewing(viewingId: string): Promise<void> {
     BADGE_IDS.firstWatch,
     BADGE_IDS.firstReview,
     BADGE_IDS.encore,
+    BADGE_IDS.critic,
   ]);
 }
 

@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ArchivistBadgePatch } from '@/components/archivist-badge-patch';
 import { CinephileBadgePatch } from '@/components/cinephile-badge-patch';
+import { CriticBadgePatch } from '@/components/critic-badge-patch';
 import { EncoreBadgePatch } from '@/components/encore-badge-patch';
 import { GenreExplorerBadgePatch } from '@/components/genre-explorer-badge-patch';
 import { IntroductoryBadgePatch } from '@/components/introductory-badge-patch';
@@ -56,6 +57,7 @@ const PROGRESSIVE_BADGE_ORDER = [
   BADGE_IDS.oneMoreEpisode,
   BADGE_IDS.marathon,
   BADGE_IDS.encore,
+  BADGE_IDS.critic,
 ] as const;
 
 export default function BadgesTabScreen() {
@@ -589,6 +591,13 @@ function LevelCard({
       )}
       {familyId === BADGE_IDS.encore && (
         <EncoreBadgePatch
+          levelKey={level.key}
+          levelName={level.name}
+          state={state}
+        />
+      )}
+      {familyId === BADGE_IDS.critic && (
+        <CriticBadgePatch
           levelKey={level.key}
           levelName={level.name}
           state={state}

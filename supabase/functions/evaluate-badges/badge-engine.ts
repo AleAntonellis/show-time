@@ -202,6 +202,10 @@ export type EncoreFacts = {
   titles: EncoreTitleFact[];
 };
 
+export type CriticFacts = {
+  reviewIds: string[];
+};
+
 export type RegularSeasonDefinition = {
   seasonNumber: number;
   episodeCount: number;
@@ -689,6 +693,25 @@ function parseEncoreFacts(facts: unknown): EncoreFacts {
   return { titles };
 }
 
+function parseCriticFacts(facts: unknown): CriticFacts {
+  if (
+    typeof facts !== 'object' ||
+    facts == null ||
+    !('reviewIds' in facts) ||
+    !Array.isArray(facts.reviewIds) ||
+    facts.reviewIds.some(
+      (reviewId) =>
+        typeof reviewId !== 'string' || !reviewId.trim(),
+    )
+  ) {
+    throw new BadgeEngineError(
+      'Fatti Critico non validi',
+      'facts_invalid',
+    );
+  }
+  return { reviewIds: facts.reviewIds };
+}
+
 function isMarathonSeason(season: MarathonSeasonFact): boolean {
   if (season.episodeCount < 8) {
     return false;
@@ -1099,6 +1122,32 @@ export const encoreEvaluator: BadgeEvaluator = {
   },
 };
 
+export const criticEvaluator: BadgeEvaluator = {
+  badgeId: 'critic',
+  version: 1,
+  evaluate(definition, rawFacts, context) {
+    const facts = parseCriticFacts(rawFacts);
+    const evaluation = progressiveDistinctItemEvaluation({
+      definition,
+      badgeId: 'critic',
+      itemIds: facts.reviewIds,
+      context,
+      includeItemIds: false,
+    });
+    return {
+      ...evaluation,
+      evidence: {
+        activityIds: Array.from(
+          new Set(
+            facts.reviewIds.map((reviewId) => reviewId.trim()),
+          ),
+        ).sort(),
+        ...(context.isBackfill ? { backfill: true as const } : {}),
+      },
+    };
+  },
+};
+
 export const firstWatchEvaluator: BadgeEvaluator = {
   badgeId: 'first_watch',
   version: 1,
@@ -1274,6 +1323,7 @@ export function createBadgeRegistry(): BadgeEvaluatorRegistry {
   registry.register(oneMoreEpisodeEvaluator);
   registry.register(marathonEvaluator);
   registry.register(encoreEvaluator);
+  registry.register(criticEvaluator);
   registry.register(firstWatchEvaluator);
   registry.register(firstReviewEvaluator);
   registry.register(seasonCompleteEvaluator);

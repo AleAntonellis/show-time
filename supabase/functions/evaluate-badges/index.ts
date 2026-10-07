@@ -19,6 +19,7 @@ import {
   type ArchivistFacts,
   type CinephileFacts,
   type CompleteViewingSource,
+  type CriticFacts,
   type EncoreFacts,
   type EncoreTitleFact,
   type FirstReviewFacts,
@@ -718,6 +719,24 @@ async function loadFirstNonEmptyNoteId(
   table: 'viewings' | 'episode_viewings' | 'series_viewings',
   prefix: string,
 ): Promise<string | null> {
+  const noteIds = await loadNonEmptyNoteIds(
+    supabaseAdmin,
+    userId,
+    table,
+    prefix,
+    1,
+  );
+  return noteIds[0] ?? null;
+}
+
+async function loadNonEmptyNoteIds(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+  table: 'viewings' | 'episode_viewings' | 'series_viewings',
+  prefix: string,
+  maximumResults: number | null = null,
+): Promise<string[]> {
+  const noteIds: string[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data, error } = await supabaseAdmin
       .from(table)
@@ -746,11 +765,17 @@ async function loadFirstNonEmptyNoteId(
         );
       }
       if (row.note?.trim()) {
-        return `${prefix}:${row.id}`;
+        noteIds.push(`${prefix}:${row.id}`);
+        if (
+          maximumResults != null &&
+          noteIds.length >= maximumResults
+        ) {
+          return noteIds;
+        }
       }
     }
     if (rows.length < PAGE_SIZE) {
-      return null;
+      return noteIds;
     }
   }
 }
@@ -782,6 +807,35 @@ async function loadFirstReviewFacts(
     ])
   ).filter((activityId): activityId is string => activityId != null);
   return { activityIds };
+}
+
+async function loadCriticFacts(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+): Promise<CriticFacts> {
+  const reviewIds = (
+    await Promise.all([
+      loadNonEmptyNoteIds(
+        supabaseAdmin,
+        userId,
+        'viewings',
+        'movie',
+      ),
+      loadNonEmptyNoteIds(
+        supabaseAdmin,
+        userId,
+        'episode_viewings',
+        'episode-viewing',
+      ),
+      loadNonEmptyNoteIds(
+        supabaseAdmin,
+        userId,
+        'series_viewings',
+        'series-viewing',
+      ),
+    ])
+  ).flat();
+  return { reviewIds };
 }
 
 function titleRelation(
@@ -2089,6 +2143,9 @@ async function loadFacts(
   }
   if (definition.id === 'encore' && definition.version === 1) {
     return loadEncoreFacts(supabaseAdmin, userId);
+  }
+  if (definition.id === 'critic' && definition.version === 1) {
+    return loadCriticFacts(supabaseAdmin, userId);
   }
   if (
     definition.version === 1 &&

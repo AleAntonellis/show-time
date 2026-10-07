@@ -368,6 +368,50 @@ const encoreDefinition: BadgeDefinition = {
   ],
 };
 
+const criticDefinition: BadgeDefinition = {
+  id: 'critic',
+  version: 1,
+  category: 'diary',
+  name: 'Critico',
+  description: 'Scrivi note nel Diario.',
+  iconKey: 'critic',
+  isActive: true,
+  levels: [
+    {
+      level: 1,
+      key: 'bronze',
+      name: 'Bronzo',
+      description: 'Scrivi 50 note.',
+      threshold: 50,
+      iconKey: 'critic-bronze',
+    },
+    {
+      level: 2,
+      key: 'silver',
+      name: 'Argento',
+      description: 'Scrivi 150 note.',
+      threshold: 150,
+      iconKey: 'critic-silver',
+    },
+    {
+      level: 3,
+      key: 'gold',
+      name: 'Oro',
+      description: 'Scrivi 250 note.',
+      threshold: 250,
+      iconKey: 'critic-gold',
+    },
+    {
+      level: 4,
+      key: 'platinum',
+      name: 'Platino',
+      description: 'Scrivi 500 note.',
+      threshold: 500,
+      iconKey: 'critic-platinum',
+    },
+  ],
+};
+
 function movieIds(count: number): string[] {
   return Array.from({ length: count }, (_, index) => `movie-${index + 1}`);
 }
@@ -1332,6 +1376,62 @@ test('Encore riconosce soltanto una prima visione serie uniforme', () => {
       seasons,
     ),
     null,
+  );
+});
+
+test('Critico conta ogni attività commentata distinta', () => {
+  const evaluation = createBadgeRegistry().evaluate(
+    criticDefinition,
+    {
+      reviewIds: [
+        'movie:viewing-1',
+        'movie:viewing-1',
+        'episode-viewing:viewing-2',
+        'series-viewing:viewing-3',
+      ],
+    },
+    { ...context, isBackfill: true },
+  );
+
+  assert.equal(evaluation.progress, 3);
+  assert.deepEqual(evaluation.unlockedLevels, []);
+  assert.equal(evaluation.nextThreshold, 50);
+  assert.deepEqual(evaluation.evidence.activityIds, [
+    'episode-viewing:viewing-2',
+    'movie:viewing-1',
+    'series-viewing:viewing-3',
+  ]);
+  assert.equal(evaluation.evidence.backfill, true);
+});
+
+test('Critico sblocca Argento esattamente a 150 note', () => {
+  const evaluation = createBadgeRegistry().evaluate(
+    criticDefinition,
+    {
+      reviewIds: Array.from(
+        { length: 150 },
+        (_, index) => `movie:viewing-${index + 1}`,
+      ),
+    },
+    context,
+  );
+
+  assert.equal(evaluation.progress, 150);
+  assert.deepEqual(evaluation.unlockedLevels, [1, 2]);
+  assert.equal(evaluation.nextThreshold, 250);
+});
+
+test('Critico rifiuta fatti malformati', () => {
+  assert.throws(
+    () =>
+      createBadgeRegistry().evaluate(
+        criticDefinition,
+        { reviewIds: ['movie:viewing-1', ' '] },
+        context,
+      ),
+    (error: unknown) =>
+      error instanceof BadgeEngineError &&
+      error.code === 'facts_invalid',
   );
 });
 

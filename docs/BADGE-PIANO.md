@@ -8,7 +8,8 @@ Questa proposta affianca, senza sostituirla, la prima raccolta di idee in
 ## Stato
 
 - **Fase:** implementazione
-- **Implementazione:** fino a Encore (B4) pubblicato e verificato in produzione
+- **Implementazione:** fino a Encore (B4) pubblicato; Critico (C1) completato
+  localmente e in attesa di rollout
 - **Obiettivo:** arrivare a un catalogo V1 piccolo, misurabile e sostenibile
 - **Principio guida:** premiare il percorso personale, non la quantità di tempo
   trascorsa davanti allo schermo
@@ -1093,8 +1094,28 @@ usati dal progetto.
 
 #### Batch C — Diario e Social
 
-- [ ] Critico
+- [x] Critico
 - [ ] Passaparola
+
+### Verifica Batch C1 — Critico
+
+- soglie `50 / 150 / 250 / 500` attività commentate distinte;
+- conta note testuali non vuote in `viewings`, `episode_viewings` e `series_viewings`;
+- attività con solo voto escluse;
+- revisioni e rewatch dello stesso titolo contano come voci distinte;
+- deduplica per ID attività, con prefisso specifico per ogni tabella;
+- modificare una riga esistente non incrementa il progresso;
+- eliminare una riga riduce il progresso corrente senza revocare livelli già sbloccati;
+- riusa il loader validato di Prima recensione, esteso a tutte le note paginando oltre 1.000;
+- evidenza privata limitata agli ID tecnici delle attività, senza salvare i testi;
+- rivalutazioni dopo inserimento o rimozione di note film, episodio e serie;
+- migration `0026_critic_badge.sql` e test SQL transazionale pronti;
+- patch originale a scheda-recensione con citazioni e penna;
+- preview locale con catalogo intercettato: `Critico 0/4`, progresso `0/50`,
+  hero `3/39`;
+- patch e accordion verificati senza overflow a 360 e 390 px e senza errori console;
+- `46/46` test engine superati;
+- typecheck e lint mirato superati.
 
 ### Fase 4 — Profilo e rifiniture
 
@@ -1247,11 +1268,11 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 
 Le decisioni di prodotto necessarie per la V1 sono chiuse.
 
-Il prossimo passo operativo è **Critico**:
+Il prossimo passo operativo è completare il rollout di **Critico**:
 
-1. contare tutte le voci distinte con nota testuale non vuota;
-2. includere film, episodi e visioni complete serie;
-3. includere revisioni e rewatch come voci distinte;
-4. escludere attività con solo voto;
-5. applicare le soglie `50 / 150 / 250 / 500`;
-6. implementare valutatore, loader, migration, test e patch dedicata.
+1. distribuire la Edge Function aggiornata;
+2. pubblicare la patch a scheda-recensione e penna;
+3. applicare la migration `0026_critic_badge.sql`;
+4. eseguire il test SQL transazionale;
+5. verificare backfill e idempotenza sugli account reali;
+6. completare un test live reversibile.

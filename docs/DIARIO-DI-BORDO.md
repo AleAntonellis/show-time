@@ -3,7 +3,7 @@
 Registro cronologico delle **decisioni** e dei **progressi** del progetto, così da non perdere nulla.
 Documento vivo: aggiornato a ogni passo di lavoro.
 
-> Ultimo aggiornamento: 2026-10-07 (pubblicazione Encore)
+> Ultimo aggiornamento: 2026-10-07 (implementazione Critico)
 
 ---
 
@@ -78,6 +78,7 @@ leggera, condivisione via link privato, tema dark esclusivo.
 | D56 | Ancora un episodio | Massimo storico di episodi `tracked` distinti della stessa serie e data; Speciali esclusi | Premia una sessione reale senza sommare importazioni, serie o giorni differenti |
 | D57 | Maratoneta | Stagioni distinte da almeno 8 episodi, tutti `tracked` in una o due date consecutive; soglie 1/5/15/30 | Premia completamenti verificabili senza dipendere dall’ordine di registrazione o da orari non disponibili |
 | D58 | Encore | Titoli distinti con due visioni reali, oppure import completo seguito da una visione reale; soglie 5/25/100/250 | Premia i rewatch verificabili senza contare due importazioni o progressi serie misti |
+| D59 | Critico | Voci Diario distinte con nota non vuota in film, episodi e serie; soglie 50/150/250/500 | Premia il contributo scritto senza incentivare testi lunghi o contare attività con solo voto |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -540,6 +541,14 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   e refresh idempotente. Rollback verificato: eliminate 3 righe film e 4 serie,
   nessuno sblocco, progresso/massimo reali `1` e UI `1/5`. Produzione senza overflow
   a 360/390 px né errori console.
+- ✅ Implementato localmente **Critico**: conta tutte le attività distinte con
+  nota testuale non vuota in `viewings`, `episode_viewings` e `series_viewings`;
+  revisioni e rewatch contano separatamente, mentre le attività con solo voto sono
+  escluse. Soglie 50/150/250/500, loader condiviso con Prima recensione e paginato,
+  chiavi prefissate per tabella, evidenza senza testi e trigger mirati su inserimento
+  e rimozione. Aggiunti migration `0026`, test SQL e patch a scheda-recensione con
+  penna. Engine `46/46`, typecheck e lint mirato superati; preview `0/50`, hero
+  `3/39`, senza overflow a 360/390 px né errori console. Rollout ancora da completare.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.
