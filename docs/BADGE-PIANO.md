@@ -8,8 +8,7 @@ Questa proposta affianca, senza sostituirla, la prima raccolta di idee in
 ## Stato
 
 - **Fase:** implementazione
-- **Implementazione:** fino a Encore (B4) pubblicato; Critico (C1) completato
-  localmente e in attesa di rollout
+- **Implementazione:** fino a Critico (C1) pubblicato e verificato in produzione
 - **Obiettivo:** arrivare a un catalogo V1 piccolo, misurabile e sostenibile
 - **Principio guida:** premiare il percorso personale, non la quantità di tempo
   trascorsa davanti allo schermo
@@ -1116,6 +1115,18 @@ usati dal progetto.
 - patch e accordion verificati senza overflow a 360 e 390 px e senza errori console;
 - `46/46` test engine superati;
 - typecheck e lint mirato superati.
+- bundle monolitico verificato e distribuito con valutatore, loader e routing Critico;
+- migration `0026_critic_badge.sql` applicata in produzione;
+- test SQL transazionale superato senza dati residui;
+- deploy Azure completato sul commit `8952fe7`, run `37597739742`;
+- account `@testshowtime`: backfill reale `2/50`, nessuno sblocco, hero `3/39`;
+- secondo refresh reale: `0` nuovi sblocchi;
+- test live reversibile: 48 note temporanee su un film hanno portato il progresso
+  esattamente a `50/150`, Bronzo e un solo banner;
+- secondo refresh della prova idempotente: `0` nuovi sblocchi;
+- rollback completo verificato: 48 righe `viewings` eliminate, sblocco rimosso,
+  progresso e massimo reali ripristinati a `2`, UI `2/50`;
+- produzione verificata senza overflow a 360/390 px e senza errori console.
 
 ### Fase 4 — Profilo e rifiniture
 
@@ -1261,6 +1272,7 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 - [x] Primo batch successivo: introduttivi, Serialista, Archivista e Nostalgico
 - [x] Secondo batch successivo: Esploratore di generi e Ancora un episodio
 - [x] Terzo batch successivo: Maratoneta ed Encore
+- [x] Primo batch Diario: Critico
 
 ---
 
@@ -1268,11 +1280,11 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 
 Le decisioni di prodotto necessarie per la V1 sono chiuse.
 
-Il prossimo passo operativo è completare il rollout di **Critico**:
+Il prossimo passo operativo è **Passaparola**:
 
-1. distribuire la Edge Function aggiornata;
-2. pubblicare la patch a scheda-recensione e penna;
-3. applicare la migration `0026_critic_badge.sql`;
-4. eseguire il test SQL transazionale;
-5. verificare backfill e idempotenza sugli account reali;
-6. completare un test live reversibile.
+1. contare soltanto condivisioni realmente lette;
+2. deduplicare per coppia titolo + destinatario;
+3. ignorare reinvii e riaperture;
+4. escludere condivisioni senza `read_at`;
+5. applicare le soglie `25 / 100 / 250 / 500`;
+6. implementare valutatore, loader, migration, test e patch dedicata.

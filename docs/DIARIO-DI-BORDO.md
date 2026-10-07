@@ -3,7 +3,7 @@
 Registro cronologico delle **decisioni** e dei **progressi** del progetto, così da non perdere nulla.
 Documento vivo: aggiornato a ogni passo di lavoro.
 
-> Ultimo aggiornamento: 2026-10-07 (implementazione Critico)
+> Ultimo aggiornamento: 2026-10-07 (pubblicazione Critico)
 
 ---
 
@@ -541,14 +541,18 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   e refresh idempotente. Rollback verificato: eliminate 3 righe film e 4 serie,
   nessuno sblocco, progresso/massimo reali `1` e UI `1/5`. Produzione senza overflow
   a 360/390 px né errori console.
-- ✅ Implementato localmente **Critico**: conta tutte le attività distinte con
+- ✅ Pubblicato **Critico**: conta tutte le attività distinte con
   nota testuale non vuota in `viewings`, `episode_viewings` e `series_viewings`;
   revisioni e rewatch contano separatamente, mentre le attività con solo voto sono
   escluse. Soglie 50/150/250/500, loader condiviso con Prima recensione e paginato,
   chiavi prefissate per tabella, evidenza senza testi e trigger mirati su inserimento
   e rimozione. Aggiunti migration `0026`, test SQL e patch a scheda-recensione con
-  penna. Engine `46/46`, typecheck e lint mirato superati; preview `0/50`, hero
-  `3/39`, senza overflow a 360/390 px né errori console. Rollout ancora da completare.
+  penna. Engine `46/46`, typecheck e lint mirato superati. Edge Function, migration
+  e test SQL distribuiti; deploy Azure sul commit `8952fe7`, run `37597739742`.
+  Backfill Test `2/50`, hero `3/39`; prova live con 48 note temporanee: Bronzo,
+  `50/150`, un banner e refresh idempotente. Rollback verificato: eliminate tutte le
+  48 righe, nessuno sblocco, progresso/massimo reali `2` e UI `2/50`. Produzione
+  senza overflow a 360/390 px né errori console.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.
