@@ -1,5 +1,6 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
+import { reconcileReadShareBadge } from '@/services/badges';
 import { getSupabase } from '@/services/supabase';
 import { posterUrl, type MediaType, type TitleDetails } from '@/services/tmdb';
 
@@ -354,7 +355,9 @@ export async function acceptTitleShareInvite(token: string): Promise<string> {
   if (error) {
     throw new Error(error.message);
   }
-  return String(data);
+  const shareId = String(data);
+  reconcileShareReadBadge(shareId);
+  return shareId;
 }
 
 export async function declineTitleShareInvite(token: string): Promise<void> {
@@ -408,6 +411,16 @@ export async function markInternalShareRead(shareId: string): Promise<void> {
   if (error) {
     throw new Error(error.message);
   }
+  reconcileShareReadBadge(shareId);
+}
+
+function reconcileShareReadBadge(shareId: string): void {
+  void reconcileReadShareBadge(shareId).catch((error: unknown) => {
+    console.error(
+      'Passaparola reconciliation failed:',
+      error instanceof Error ? error.message : error,
+    );
+  });
 }
 
 export async function getUnreadShareCount(): Promise<number> {

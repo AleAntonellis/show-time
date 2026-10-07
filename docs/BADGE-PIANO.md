@@ -8,7 +8,8 @@ Questa proposta affianca, senza sostituirla, la prima raccolta di idee in
 ## Stato
 
 - **Fase:** implementazione
-- **Implementazione:** fino a Critico (C1) pubblicato e verificato in produzione
+- **Implementazione:** fino a Critico (C1) pubblicato; Passaparola (C2) completato
+  localmente e in attesa di rollout
 - **Obiettivo:** arrivare a un catalogo V1 piccolo, misurabile e sostenibile
 - **Principio guida:** premiare il percorso personale, non la quantità di tempo
   trascorsa davanti allo schermo
@@ -1094,7 +1095,7 @@ usati dal progetto.
 #### Batch C — Diario e Social
 
 - [x] Critico
-- [ ] Passaparola
+- [x] Passaparola
 
 ### Verifica Batch C1 — Critico
 
@@ -1127,6 +1128,28 @@ usati dal progetto.
 - rollback completo verificato: 48 righe `viewings` eliminate, sblocco rimosso,
   progresso e massimo reali ripristinati a `2`, UI `2/50`;
 - produzione verificata senza overflow a 360/390 px e senza errori console.
+
+### Verifica Batch C2 — Passaparola
+
+- soglie `25 / 100 / 250 / 500` coppie titolo + destinatario;
+- conta soltanto righe `title_shares` con `read_at` non nullo;
+- chiave canonica composta da tipo media, ID TMDB e destinatario;
+- reinvii e riaperture della stessa coppia non incrementano il progresso;
+- lo stesso titolo letto da destinatari differenti contribuisce una volta per ciascuno;
+- gli invii non letti sono esclusi;
+- loader paginato oltre 1.000 con evidenza privata limitata alle chiavi tecniche;
+- riconciliazione cross-user mirata dopo lettura interna o accettazione invito esterno;
+- la Edge Function verifica share ID, destinatario autenticato e `read_at` prima di
+  valutare esclusivamente Passaparola del mittente;
+- la risposta al destinatario non espone progresso, livelli o nuovi sblocchi del mittente;
+- richieste ripetute sono idempotenti e la riconciliazione fallita non blocca l’apertura;
+- migration `0027_word_of_mouth_badge.sql` e test SQL transazionale pronti;
+- patch originale con messaggio video, freccia e conferma di lettura;
+- preview locale con catalogo intercettato: `Passaparola 0/4`, progresso `0/25`,
+  hero `3/43`;
+- patch e accordion verificati senza overflow a 360 e 390 px e senza errori console;
+- `49/49` test engine superati;
+- typecheck e lint mirato superati.
 
 ### Fase 4 — Profilo e rifiniture
 
@@ -1280,11 +1303,11 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 
 Le decisioni di prodotto necessarie per la V1 sono chiuse.
 
-Il prossimo passo operativo è **Passaparola**:
+Il prossimo passo operativo è completare il rollout di **Passaparola**:
 
-1. contare soltanto condivisioni realmente lette;
-2. deduplicare per coppia titolo + destinatario;
-3. ignorare reinvii e riaperture;
-4. escludere condivisioni senza `read_at`;
-5. applicare le soglie `25 / 100 / 250 / 500`;
-6. implementare valutatore, loader, migration, test e patch dedicata.
+1. distribuire la Edge Function con riconciliazione cross-user;
+2. pubblicare la patch con condivisione e conferma di lettura;
+3. applicare la migration `0027_word_of_mouth_badge.sql`;
+4. eseguire il test SQL transazionale;
+5. verificare backfill, privacy e idempotenza sugli account reali;
+6. completare un test live reversibile.

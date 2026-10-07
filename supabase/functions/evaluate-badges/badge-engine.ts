@@ -47,6 +47,7 @@ export type BadgeEvidence = {
   activityIds?: string[];
   seasonKeys?: string[];
   genreKeys?: string[];
+  shareKeys?: string[];
   groupDate?: string;
   backfill?: true;
 };
@@ -204,6 +205,10 @@ export type EncoreFacts = {
 
 export type CriticFacts = {
   reviewIds: string[];
+};
+
+export type WordOfMouthFacts = {
+  readShareKeys: string[];
 };
 
 export type RegularSeasonDefinition = {
@@ -712,6 +717,25 @@ function parseCriticFacts(facts: unknown): CriticFacts {
   return { reviewIds: facts.reviewIds };
 }
 
+function parseWordOfMouthFacts(facts: unknown): WordOfMouthFacts {
+  if (
+    typeof facts !== 'object' ||
+    facts == null ||
+    !('readShareKeys' in facts) ||
+    !Array.isArray(facts.readShareKeys) ||
+    facts.readShareKeys.some(
+      (shareKey) =>
+        typeof shareKey !== 'string' || !shareKey.trim(),
+    )
+  ) {
+    throw new BadgeEngineError(
+      'Fatti Passaparola non validi',
+      'facts_invalid',
+    );
+  }
+  return { readShareKeys: facts.readShareKeys };
+}
+
 function isMarathonSeason(season: MarathonSeasonFact): boolean {
   if (season.episodeCount < 8) {
     return false;
@@ -1148,6 +1172,32 @@ export const criticEvaluator: BadgeEvaluator = {
   },
 };
 
+export const wordOfMouthEvaluator: BadgeEvaluator = {
+  badgeId: 'word_of_mouth',
+  version: 1,
+  evaluate(definition, rawFacts, context) {
+    const facts = parseWordOfMouthFacts(rawFacts);
+    const evaluation = progressiveDistinctItemEvaluation({
+      definition,
+      badgeId: 'word_of_mouth',
+      itemIds: facts.readShareKeys,
+      context,
+      includeItemIds: false,
+    });
+    return {
+      ...evaluation,
+      evidence: {
+        shareKeys: Array.from(
+          new Set(
+            facts.readShareKeys.map((shareKey) => shareKey.trim()),
+          ),
+        ).sort(),
+        ...(context.isBackfill ? { backfill: true as const } : {}),
+      },
+    };
+  },
+};
+
 export const firstWatchEvaluator: BadgeEvaluator = {
   badgeId: 'first_watch',
   version: 1,
@@ -1324,6 +1374,7 @@ export function createBadgeRegistry(): BadgeEvaluatorRegistry {
   registry.register(marathonEvaluator);
   registry.register(encoreEvaluator);
   registry.register(criticEvaluator);
+  registry.register(wordOfMouthEvaluator);
   registry.register(firstWatchEvaluator);
   registry.register(firstReviewEvaluator);
   registry.register(seasonCompleteEvaluator);

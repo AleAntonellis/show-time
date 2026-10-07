@@ -19,6 +19,7 @@ import { IntroductoryBadgePatch } from '@/components/introductory-badge-patch';
 import { MarathonBadgePatch } from '@/components/marathon-badge-patch';
 import { NostalgicBadgePatch } from '@/components/nostalgic-badge-patch';
 import { OneMoreEpisodeBadgePatch } from '@/components/one-more-episode-badge-patch';
+import { WordOfMouthBadgePatch } from '@/components/word-of-mouth-badge-patch';
 import { SerialistBadgePatch } from '@/components/serialist-badge-patch';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -58,6 +59,7 @@ const PROGRESSIVE_BADGE_ORDER = [
   BADGE_IDS.marathon,
   BADGE_IDS.encore,
   BADGE_IDS.critic,
+  BADGE_IDS.wordOfMouth,
 ] as const;
 
 export default function BadgesTabScreen() {
@@ -598,6 +600,13 @@ function LevelCard({
       )}
       {familyId === BADGE_IDS.critic && (
         <CriticBadgePatch
+          levelKey={level.key}
+          levelName={level.name}
+          state={state}
+        />
+      )}
+      {familyId === BADGE_IDS.wordOfMouth && (
+        <WordOfMouthBadgePatch
           levelKey={level.key}
           levelName={level.name}
           state={state}

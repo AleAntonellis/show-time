@@ -16,6 +16,7 @@ export const BADGE_IDS = {
   marathon: 'marathon',
   encore: 'encore',
   critic: 'critic',
+  wordOfMouth: 'word_of_mouth',
   firstWatch: 'first_watch',
   firstReview: 'first_review',
   seasonComplete: 'season_complete',
@@ -37,6 +38,7 @@ export const ALL_BADGE_IDS = [
   BADGE_IDS.marathon,
   BADGE_IDS.encore,
   BADGE_IDS.critic,
+  BADGE_IDS.wordOfMouth,
   ...INTRODUCTORY_BADGE_IDS,
 ] as const;
 
@@ -248,6 +250,20 @@ export async function evaluateBadgesAndNotify({
   const response = await requestBadgeEvaluation({ badgeIds, backfill });
   notifyBadgeUnlocks(response.totalNewUnlocks);
   return response;
+}
+
+export async function reconcileReadShareBadge(
+  shareId: string,
+): Promise<void> {
+  const { error } = await getSupabase().functions.invoke(
+    'evaluate-badges',
+    {
+      body: { shareReadId: shareId },
+    },
+  );
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 export function queueBadgeEvaluation(

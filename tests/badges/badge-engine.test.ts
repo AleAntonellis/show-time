@@ -412,6 +412,50 @@ const criticDefinition: BadgeDefinition = {
   ],
 };
 
+const wordOfMouthDefinition: BadgeDefinition = {
+  id: 'word_of_mouth',
+  version: 1,
+  category: 'social',
+  name: 'Passaparola',
+  description: 'Condividi titoli letti dai contatti.',
+  iconKey: 'word-of-mouth',
+  isActive: true,
+  levels: [
+    {
+      level: 1,
+      key: 'bronze',
+      name: 'Bronzo',
+      description: 'Fai leggere 25 titoli.',
+      threshold: 25,
+      iconKey: 'word-of-mouth-bronze',
+    },
+    {
+      level: 2,
+      key: 'silver',
+      name: 'Argento',
+      description: 'Fai leggere 100 titoli.',
+      threshold: 100,
+      iconKey: 'word-of-mouth-silver',
+    },
+    {
+      level: 3,
+      key: 'gold',
+      name: 'Oro',
+      description: 'Fai leggere 250 titoli.',
+      threshold: 250,
+      iconKey: 'word-of-mouth-gold',
+    },
+    {
+      level: 4,
+      key: 'platinum',
+      name: 'Platino',
+      description: 'Fai leggere 500 titoli.',
+      threshold: 500,
+      iconKey: 'word-of-mouth-platinum',
+    },
+  ],
+};
+
 function movieIds(count: number): string[] {
   return Array.from({ length: count }, (_, index) => `movie-${index + 1}`);
 }
@@ -1427,6 +1471,62 @@ test('Critico rifiuta fatti malformati', () => {
       createBadgeRegistry().evaluate(
         criticDefinition,
         { reviewIds: ['movie:viewing-1', ' '] },
+        context,
+      ),
+    (error: unknown) =>
+      error instanceof BadgeEngineError &&
+      error.code === 'facts_invalid',
+  );
+});
+
+test('Passaparola deduplica titolo e destinatario', () => {
+  const evaluation = createBadgeRegistry().evaluate(
+    wordOfMouthDefinition,
+    {
+      readShareKeys: [
+        'movie:123:recipient-1',
+        'movie:123:recipient-1',
+        'movie:123:recipient-2',
+        'tv:123:recipient-1',
+      ],
+    },
+    { ...context, isBackfill: true },
+  );
+
+  assert.equal(evaluation.progress, 3);
+  assert.deepEqual(evaluation.unlockedLevels, []);
+  assert.equal(evaluation.nextThreshold, 25);
+  assert.deepEqual(evaluation.evidence.shareKeys, [
+    'movie:123:recipient-1',
+    'movie:123:recipient-2',
+    'tv:123:recipient-1',
+  ]);
+  assert.equal(evaluation.evidence.backfill, true);
+});
+
+test('Passaparola sblocca Argento esattamente a 100 coppie', () => {
+  const evaluation = createBadgeRegistry().evaluate(
+    wordOfMouthDefinition,
+    {
+      readShareKeys: Array.from(
+        { length: 100 },
+        (_, index) => `movie:${index + 1}:recipient-1`,
+      ),
+    },
+    context,
+  );
+
+  assert.equal(evaluation.progress, 100);
+  assert.deepEqual(evaluation.unlockedLevels, [1, 2]);
+  assert.equal(evaluation.nextThreshold, 250);
+});
+
+test('Passaparola rifiuta fatti malformati', () => {
+  assert.throws(
+    () =>
+      createBadgeRegistry().evaluate(
+        wordOfMouthDefinition,
+        { readShareKeys: ['movie:1:recipient-1', 2] },
         context,
       ),
     (error: unknown) =>

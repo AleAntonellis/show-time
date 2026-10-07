@@ -3,7 +3,7 @@
 Registro cronologico delle **decisioni** e dei **progressi** del progetto, così da non perdere nulla.
 Documento vivo: aggiornato a ogni passo di lavoro.
 
-> Ultimo aggiornamento: 2026-10-07 (pubblicazione Critico)
+> Ultimo aggiornamento: 2026-10-07 (implementazione Passaparola)
 
 ---
 
@@ -79,6 +79,7 @@ leggera, condivisione via link privato, tema dark esclusivo.
 | D57 | Maratoneta | Stagioni distinte da almeno 8 episodi, tutti `tracked` in una o due date consecutive; soglie 1/5/15/30 | Premia completamenti verificabili senza dipendere dall’ordine di registrazione o da orari non disponibili |
 | D58 | Encore | Titoli distinti con due visioni reali, oppure import completo seguito da una visione reale; soglie 5/25/100/250 | Premia i rewatch verificabili senza contare due importazioni o progressi serie misti |
 | D59 | Critico | Voci Diario distinte con nota non vuota in film, episodi e serie; soglie 50/150/250/500 | Premia il contributo scritto senza incentivare testi lunghi o contare attività con solo voto |
+| D60 | Passaparola | Coppie distinte titolo + destinatario con `read_at`; soglie 25/100/250/500 | Premia consigli realmente letti e impedisce incrementi da spam, reinvii o riaperture |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -553,6 +554,17 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   `50/150`, un banner e refresh idempotente. Rollback verificato: eliminate tutte le
   48 righe, nessuno sblocco, progresso/massimo reali `2` e UI `2/50`. Produzione
   senza overflow a 360/390 px né errori console.
+- ✅ Implementato localmente **Passaparola**: conta coppie distinte
+  `media type + TMDB ID + destinatario` soltanto per condivisioni con `read_at`.
+  Reinvii e riaperture sono deduplicati, mentre lo stesso titolo letto da contatti
+  differenti contribuisce una volta per ciascuno. Soglie 25/100/250/500, loader
+  paginato ed evidenza privata. La lettura interna e l’accettazione di un invito
+  esterno avviano una riconciliazione cross-user sicura: la Edge Function verifica
+  destinatario e stato letto, rivaluta solo il mittente e non restituisce al
+  destinatario dati privati sugli sblocchi. Aggiunti migration `0027`, test SQL e
+  patch con messaggio video, freccia e conferma. Engine `49/49`, typecheck e lint
+  mirato superati; preview `0/25`, hero `3/43`, senza overflow a 360/390 px né
+  errori console. Rollout ancora da completare.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

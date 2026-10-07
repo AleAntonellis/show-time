@@ -36,6 +36,7 @@ import {
   type SourcedWatchedEpisodeFact,
   type TrackedEpisodeFact,
   type WatchedEpisodeFact,
+  type WordOfMouthFacts,
 } from './badge-engine.ts';
 
 const PAGE_SIZE = 1000;
@@ -60,6 +61,7 @@ const tmdbTitleGenreIdsCache = new Map<
 type EvaluateRequest = {
   badgeIds?: string[];
   backfill?: boolean;
+  shareReadId?: string;
 };
 
 type BadgeDefinitionRow = {
@@ -203,6 +205,20 @@ type CompleteViewingRow = {
   library_item_id: string;
 };
 
+type ReadTitleShareRow = {
+  id: string;
+  recipient_id: string;
+  tmdb_id: number;
+  media_type: string;
+  read_at: string;
+};
+
+type ShareReadTargetRow = {
+  sender_id: string;
+  recipient_id: string;
+  read_at: string | null;
+};
+
 type SourcedEpisodeWatchRow = EpisodeWatchFactRow & {
   source: string;
 };
@@ -307,6 +323,27 @@ function parseBody(value: unknown): EvaluateRequest {
       'backfill_invalid',
     );
   }
+  if (
+    body.shareReadId != null &&
+    (typeof body.shareReadId !== 'string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        body.shareReadId.trim(),
+      ))
+  ) {
+    throw new BadgeEngineError(
+      'Condivisione letta non valida',
+      'share_read_invalid',
+    );
+  }
+  if (
+    body.shareReadId != null &&
+    (body.badgeIds != null || body.backfill != null)
+  ) {
+    throw new BadgeEngineError(
+      'La riconciliazione condivisione non accetta altri parametri',
+      'request_invalid',
+    );
+  }
   return {
     badgeIds: body.badgeIds
       ? Array.from(
@@ -314,6 +351,10 @@ function parseBody(value: unknown): EvaluateRequest {
         )
       : undefined,
     backfill: body.backfill ?? false,
+    shareReadId:
+      typeof body.shareReadId === 'string'
+        ? body.shareReadId.trim()
+        : undefined,
   };
 }
 
@@ -836,6 +877,56 @@ async function loadCriticFacts(
     ])
   ).flat();
   return { reviewIds };
+}
+
+async function loadWordOfMouthFacts(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+): Promise<WordOfMouthFacts> {
+  const readShareKeys: string[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabaseAdmin
+      .from('title_shares')
+      .select(
+        'id, recipient_id, tmdb_id, media_type, read_at',
+      )
+      .eq('sender_id', userId)
+      .not('read_at', 'is', null)
+      .order('id', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      throw new BadgeEngineError(
+        `Impossibile leggere le condivisioni per Passaparola: ${error.message}`,
+        'facts_load_failed',
+      );
+    }
+    const rows = (data ?? []) as ReadTitleShareRow[];
+    for (const row of rows) {
+      if (
+        typeof row.id !== 'string' ||
+        !row.id.trim() ||
+        typeof row.recipient_id !== 'string' ||
+        !row.recipient_id.trim() ||
+        !Number.isInteger(row.tmdb_id) ||
+        row.tmdb_id <= 0 ||
+        !(row.media_type === 'movie' || row.media_type === 'tv') ||
+        typeof row.read_at !== 'string' ||
+        !row.read_at.trim()
+      ) {
+        throw new BadgeEngineError(
+          'Condivisione letta non valida per Passaparola',
+          'facts_load_failed',
+        );
+      }
+      readShareKeys.push(
+        `${row.media_type}:${row.tmdb_id}:${row.recipient_id}`,
+      );
+    }
+    if (rows.length < PAGE_SIZE) {
+      break;
+    }
+  }
+  return { readShareKeys };
 }
 
 function titleRelation(
@@ -2148,6 +2239,12 @@ async function loadFacts(
     return loadCriticFacts(supabaseAdmin, userId);
   }
   if (
+    definition.id === 'word_of_mouth' &&
+    definition.version === 1
+  ) {
+    return loadWordOfMouthFacts(supabaseAdmin, userId);
+  }
+  if (
     definition.version === 1 &&
     ['first_watch', 'first_review', 'season_complete'].includes(
       definition.id,
@@ -2186,9 +2283,13 @@ function statusFor(error: unknown): number {
     error.code === 'request_invalid' ||
     error.code === 'badge_ids_invalid' ||
     error.code === 'backfill_invalid' ||
+    error.code === 'share_read_invalid' ||
     error.code === 'facts_invalid'
   ) {
     return 400;
+  }
+  if (error.code === 'share_read_forbidden') {
+    return 403;
   }
   if (
     error.code === 'evaluator_not_found' ||
@@ -2221,13 +2322,45 @@ export default {
 
     try {
       const body = parseRequestText(await request.text());
-      const userId = context.userClaims?.id;
-      if (!userId) {
+      const callerUserId = context.userClaims?.id;
+      if (!callerUserId) {
         return Response.json(
           { error: { code: 'unauthorized', message: 'Autenticazione richiesta' } },
           { status: 401 },
         );
       }
+      let evaluationUserId = callerUserId;
+      if (body.shareReadId) {
+        const { data, error } = await context.supabaseAdmin
+          .from('title_shares')
+          .select('sender_id, recipient_id, read_at')
+          .eq('id', body.shareReadId)
+          .maybeSingle();
+        if (error) {
+          throw new BadgeEngineError(
+            `Impossibile verificare la condivisione letta: ${error.message}`,
+            'facts_load_failed',
+          );
+        }
+        const share = data as ShareReadTargetRow | null;
+        if (
+          !share ||
+          share.recipient_id !== callerUserId ||
+          typeof share.sender_id !== 'string' ||
+          !share.sender_id.trim() ||
+          typeof share.read_at !== 'string' ||
+          !share.read_at.trim()
+        ) {
+          throw new BadgeEngineError(
+            'Condivisione letta non disponibile',
+            'share_read_forbidden',
+          );
+        }
+        evaluationUserId = share.sender_id;
+      }
+      const requestedBadgeIds = body.shareReadId
+        ? ['word_of_mouth']
+        : body.badgeIds;
 
       let definitionsQuery = context.supabaseAdmin
         .from('badge_definitions')
@@ -2237,8 +2370,11 @@ export default {
         .eq('is_active', true)
         .order('id', { ascending: true })
         .order('version', { ascending: false });
-      if (body.badgeIds?.length) {
-        definitionsQuery = definitionsQuery.in('id', body.badgeIds);
+      if (requestedBadgeIds?.length) {
+        definitionsQuery = definitionsQuery.in(
+          'id',
+          requestedBadgeIds,
+        );
       }
       const { data: rawDefinitions, error: definitionsError } =
         await definitionsQuery;
@@ -2255,11 +2391,11 @@ export default {
         }
       }
       const definitionRows = Array.from(latestDefinitions.values());
-      if (body.badgeIds?.length) {
+      if (requestedBadgeIds?.length) {
         const returnedIds = new Set(
           definitionRows.map((definition) => definition.id),
         );
-        const missingIds = body.badgeIds.filter(
+        const missingIds = requestedBadgeIds.filter(
           (badgeId) => !returnedIds.has(badgeId),
         );
         if (missingIds.length > 0) {
@@ -2298,7 +2434,7 @@ export default {
       const evaluatedAt = new Date().toISOString();
       const evaluationContext: BadgeEvaluationContext = {
         evaluatedAt,
-        isBackfill: body.backfill ?? false,
+        isBackfill: body.shareReadId ? false : body.backfill ?? false,
       };
       const evaluations: BadgeEvaluation[] = [];
       const results: EvaluationResult[] = [];
@@ -2307,7 +2443,7 @@ export default {
         const facts = await loadFacts(
           definition,
           context.supabaseAdmin,
-          userId,
+          evaluationUserId,
         );
         const evaluation = registry.evaluate(
           definition,
@@ -2320,13 +2456,15 @@ export default {
       for (const evaluation of evaluations) {
         const { data: rawUnlocks, error: persistError } =
           await context.supabaseAdmin.rpc('apply_badge_evaluation', {
-            p_user_id: userId,
+            p_user_id: evaluationUserId,
             p_badge_id: evaluation.badgeId,
             p_rule_version: evaluation.version,
             p_progress: evaluation.progress,
             p_evidence: evaluation.evidence,
             p_evaluated_at: evaluatedAt,
-            p_is_backfill: body.backfill ?? false,
+            p_is_backfill: body.shareReadId
+              ? false
+              : body.backfill ?? false,
           });
         if (persistError) {
           throw new BadgeEngineError(
@@ -2348,12 +2486,15 @@ export default {
 
       return Response.json({
         evaluatedAt,
-        backfill: body.backfill ?? false,
-        totalNewUnlocks: results.reduce(
-          (total, result) => total + result.newUnlocks.length,
-          0,
-        ),
-        results,
+        backfill: body.shareReadId ? false : body.backfill ?? false,
+        totalNewUnlocks: body.shareReadId
+          ? 0
+          : results.reduce(
+              (total, result) =>
+                total + result.newUnlocks.length,
+              0,
+            ),
+        results: body.shareReadId ? [] : results,
       });
     } catch (error) {
       const message =
