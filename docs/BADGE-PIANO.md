@@ -8,8 +8,8 @@ Questa proposta affianca, senza sostituirla, la prima raccolta di idee in
 ## Stato
 
 - **Fase:** implementazione
-- **Implementazione:** fino a Critico (C1) pubblicato; Passaparola (C2) completato
-  localmente e in attesa di rollout
+- **Implementazione:** catalogo badge V1 fino a Passaparola (C2) pubblicato e
+  verificato in produzione
 - **Obiettivo:** arrivare a un catalogo V1 piccolo, misurabile e sostenibile
 - **Principio guida:** premiare il percorso personale, non la quantità di tempo
   trascorsa davanti allo schermo
@@ -1150,6 +1150,23 @@ usati dal progetto.
 - patch e accordion verificati senza overflow a 360 e 390 px e senza errori console;
 - `49/49` test engine superati;
 - typecheck e lint mirato superati.
+- bundle monolitico verificato e distribuito con loader, routing e autorizzazione
+  cross-user Passaparola;
+- migration `0027_word_of_mouth_badge.sql` applicata in produzione;
+- test SQL transazionale superato senza dati residui;
+- deploy Azure completato sul commit `11dcaf3`, run `37600140951`;
+- account `@testshowtime`: backfill reale `0/25`, nessuno sblocco, hero `3/43`;
+- secondo refresh reale: `0` nuovi sblocchi;
+- test cross-user autorizzato sul profilo `ale`: 5 coppie reali + 20 temporanee hanno
+  prodotto `25/100` e un solo Bronzo sul mittente;
+- risposta al destinatario verificata con `200`, `totalNewUnlocks: 0` e `results: []`;
+- seconda riconciliazione autorizzata idempotente, senza duplicare lo sblocco;
+- richiesta con Test come mittente, e quindi non destinatario, bloccata con
+  `403 share_read_forbidden`;
+- account Test rimasto invariato a `0/25`;
+- rollback completo verificato: 21 condivisioni temporanee eliminate, profilo `ale`
+  tornato a 5 coppie reali senza progressi o sblocchi Passaparola persistiti;
+- produzione verificata senza overflow a 360/390 px e senza errori console.
 
 ### Fase 4 — Profilo e rifiniture
 
@@ -1296,6 +1313,7 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 - [x] Secondo batch successivo: Esploratore di generi e Ancora un episodio
 - [x] Terzo batch successivo: Maratoneta ed Encore
 - [x] Primo batch Diario: Critico
+- [x] Secondo batch Diario e Social: Passaparola
 
 ---
 
@@ -1303,11 +1321,11 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 
 Le decisioni di prodotto necessarie per la V1 sono chiuse.
 
-Il prossimo passo operativo è completare il rollout di **Passaparola**:
+Il prossimo passo operativo è la **selezione dei badge pubblici**:
 
-1. distribuire la Edge Function con riconciliazione cross-user;
-2. pubblicare la patch con condivisione e conferma di lettura;
-3. applicare la migration `0027_word_of_mouth_badge.sql`;
-4. eseguire il test SQL transazionale;
-5. verificare backfill, privacy e idempotenza sugli account reali;
-6. completare un test live reversibile.
+1. permettere di scegliere fino a 3 badge sbloccati;
+2. mostrare la selezione nel profilo personale;
+3. esporre soltanto i badge scelti ai follower accettati;
+4. mantenere privati progressi, badge bloccati ed evidenze;
+5. gestire ordine, sostituzione e rimozione della selezione;
+6. verificare accessibilità e layout mobile.

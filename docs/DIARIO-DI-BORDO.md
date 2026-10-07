@@ -3,7 +3,7 @@
 Registro cronologico delle **decisioni** e dei **progressi** del progetto, così da non perdere nulla.
 Documento vivo: aggiornato a ogni passo di lavoro.
 
-> Ultimo aggiornamento: 2026-10-07 (implementazione Passaparola)
+> Ultimo aggiornamento: 2026-10-07 (pubblicazione Passaparola)
 
 ---
 
@@ -554,7 +554,7 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   `50/150`, un banner e refresh idempotente. Rollback verificato: eliminate tutte le
   48 righe, nessuno sblocco, progresso/massimo reali `2` e UI `2/50`. Produzione
   senza overflow a 360/390 px né errori console.
-- ✅ Implementato localmente **Passaparola**: conta coppie distinte
+- ✅ Pubblicato **Passaparola**: conta coppie distinte
   `media type + TMDB ID + destinatario` soltanto per condivisioni con `read_at`.
   Reinvii e riaperture sono deduplicati, mentre lo stesso titolo letto da contatti
   differenti contribuisce una volta per ciascuno. Soglie 25/100/250/500, loader
@@ -563,8 +563,13 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   destinatario e stato letto, rivaluta solo il mittente e non restituisce al
   destinatario dati privati sugli sblocchi. Aggiunti migration `0027`, test SQL e
   patch con messaggio video, freccia e conferma. Engine `49/49`, typecheck e lint
-  mirato superati; preview `0/25`, hero `3/43`, senza overflow a 360/390 px né
-  errori console. Rollout ancora da completare.
+  mirato superati. Edge Function, migration e test SQL distribuiti; deploy Azure
+  sul commit `11dcaf3`, run `37600140951`. Backfill Test `0/25`, hero `3/43`.
+  Test cross-user su `ale`: 20 coppie temporanee aggiunte alle 5 reali, Bronzo
+  `25/100`, risposta privata senza risultati, seconda chiamata idempotente e tentativo
+  non autorizzato bloccato `403`. Test rimasto `0/25`. Rollback verificato: eliminate
+  21 condivisioni temporanee e rimosse le righe badge di prova, lasciando 5 coppie
+  reali. Produzione senza overflow a 360/390 px né errori console.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.
