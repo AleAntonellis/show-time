@@ -7,6 +7,11 @@ import { normalizeUsername, usernameValidationError } from '@/services/social';
 import { getSupabase } from '@/services/supabase';
 import { posterUrl, type MediaType } from '@/services/tmdb';
 import { sortProfileTrophies } from '@/utils/profile-trophies';
+import {
+  getLibraryDisplayStatus,
+  type LibraryDisplayStatus,
+  type SeriesTrackingState,
+} from '@/utils/series-tracking-state';
 
 export type FollowedProfile = {
   username: string;
@@ -21,7 +26,7 @@ export type FollowedLibraryItem = {
   title: string;
   year: string | null;
   posterUrl: string | null;
-  status: LibraryStatus;
+  status: LibraryDisplayStatus;
   totalEpisodes: number | null;
   watchedEpisodes: number;
 };
@@ -63,6 +68,7 @@ type LibraryRow = {
   year: string | null;
   poster_path: string | null;
   status: LibraryStatus;
+  series_tracking_state: SeriesTrackingState;
   total_episodes: number | null;
   watched_episodes: number;
 };
@@ -131,7 +137,11 @@ export async function getFollowedLibrary(
     title: row.title,
     year: row.year,
     posterUrl: posterUrl(row.poster_path),
-    status: row.status,
+    status: getLibraryDisplayStatus({
+      mediaType: row.media_type,
+      status: row.status,
+      seriesTrackingState: row.series_tracking_state,
+    }),
     totalEpisodes: row.total_episodes,
     watchedEpisodes: Number(row.watched_episodes),
   }));

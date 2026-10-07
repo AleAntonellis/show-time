@@ -13,20 +13,41 @@ import {
 import { fetchAllPages } from '@/services/pagination';
 import { getSupabase } from '@/services/supabase';
 import { getTvDetails, posterUrl, type MediaType, type Title } from '@/services/tmdb';
+import {
+  getLibraryDisplayStatus,
+  type LibraryDisplayStatus,
+  type SeriesTrackingState,
+} from '@/utils/series-tracking-state';
 
 export type LibraryStatus = 'to_watch' | 'watching' | 'watched';
 export type EpisodeWatchSource = 'tracked' | 'imported';
 export type MovieWatchSource = 'tracked' | 'imported';
 export type WatchedEpisodes = Map<string, EpisodeWatchSource>;
 
-export const STATUS_LABELS: Record<LibraryStatus, string> = {
+export const STATUS_LABELS: Record<LibraryDisplayStatus, string> = {
   to_watch: 'Da vedere',
   watching: 'In corso',
   watched: 'Visto',
+  abandoned: 'Abbandonata',
+};
+
+export const STATUS_GROUP_LABELS: Record<
+  LibraryDisplayStatus,
+  string
+> = {
+  to_watch: 'Da vedere',
+  watching: 'In corso',
+  watched: 'Visti',
+  abandoned: 'Abbandonate',
 };
 
 // Ordine di visualizzazione dei gruppi in libreria.
-export const STATUS_ORDER: LibraryStatus[] = ['watching', 'to_watch', 'watched'];
+export const STATUS_ORDER: LibraryDisplayStatus[] = [
+  'watching',
+  'to_watch',
+  'watched',
+  'abandoned',
+];
 
 // Stati selezionabili manualmente per i film.
 export const MOVIE_STATUSES: LibraryStatus[] = [
@@ -42,6 +63,7 @@ export type LibraryItem = {
   notes: string | null;
   addedAt: string;
   updatedAt: string;
+  seriesTrackingState: SeriesTrackingState;
   tmdbId: number;
   mediaType: MediaType;
   title: string;
@@ -99,6 +121,7 @@ type LibraryRow = {
   notes: string | null;
   added_at: string;
   updated_at: string;
+  series_tracking_state: SeriesTrackingState;
   imported_viewings: number;
   titles: {
     tmdb_id: number;
@@ -141,6 +164,7 @@ function toItem(
     notes: row.notes,
     addedAt: row.added_at,
     updatedAt: row.updated_at,
+    seriesTrackingState: row.series_tracking_state,
     tmdbId: t?.tmdb_id ?? 0,
     mediaType,
     title: t?.title ?? 'Senza titolo',
@@ -199,7 +223,7 @@ function toSeriesViewing(row: SeriesViewingRow): SeriesViewing {
 }
 
 const SELECT =
-  'id, status, rating, notes, added_at, updated_at, imported_viewings, titles ( tmdb_id, media_type, title, year, poster_path, overview, runtime, genres, total_episodes )';
+  'id, status, rating, notes, added_at, updated_at, imported_viewings, series_tracking_state, titles ( tmdb_id, media_type, title, year, poster_path, overview, runtime, genres, total_episodes )';
 
 async function getUserId(): Promise<string> {
   const { data, error } = await getSupabase().auth.getUser();
@@ -243,6 +267,24 @@ export function canReclassifyMovieWatch(
     item.status === 'watched' &&
     getMovieWatchSource(item) !== null
   );
+}
+
+export { getLibraryDisplayStatus };
+
+export async function setSeriesTrackingState(
+  itemId: string,
+  state: SeriesTrackingState,
+): Promise<void> {
+  const { error } = await getSupabase().rpc(
+    'set_series_tracking_state',
+    {
+      p_library_item_id: itemId,
+      p_state: state,
+    },
+  );
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 /** Salva (o aggiorna lo stato di) un titolo TMDB nella libreria dell'utente. */

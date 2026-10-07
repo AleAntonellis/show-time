@@ -27,7 +27,11 @@ import {
   type FollowedProfile,
   type FollowedProfileTrophy,
 } from '@/services/follower-profile';
-import { STATUS_LABELS, STATUS_ORDER, type LibraryStatus } from '@/services/library';
+import {
+  STATUS_GROUP_LABELS,
+  STATUS_ORDER,
+} from '@/services/library';
+import type { LibraryDisplayStatus } from '@/utils/series-tracking-state';
 
 type ProfileTab = 'library' | 'diary';
 
@@ -372,14 +376,14 @@ function LibraryGroup({
   items,
   onOpen,
 }: {
-  status: LibraryStatus;
+  status: LibraryDisplayStatus;
   items: FollowedLibraryItem[];
   onOpen: (item: FollowedLibraryItem) => void;
 }) {
   return (
     <View style={styles.section}>
       <ThemedText type="smallBold" themeColor="textSecondary">
-        {STATUS_LABELS[status]} · {items.length}
+        {STATUS_GROUP_LABELS[status]} · {items.length}
       </ThemedText>
       {items.map((item) => (
         <Pressable

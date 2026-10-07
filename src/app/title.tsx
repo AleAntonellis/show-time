@@ -31,17 +31,20 @@ import { useAuth } from '@/hooks/use-auth';
 import {
   addToLibrary,
   canReclassifyMovieWatch,
+  getLibraryDisplayStatus,
   getLibraryItemByTmdb,
   MOVIE_STATUSES,
   recordMovieWatched,
   reclassifyMovieWatched,
   removeFromLibrary,
+  setSeriesTrackingState,
   STATUS_LABELS as LIBRARY_STATUS_LABELS,
   updateStatus,
   type LibraryItem,
   type LibraryStatus,
   type MovieWatchSource,
 } from '@/services/library';
+import type { SeriesTrackingState } from '@/utils/series-tracking-state';
 import {
   createTitleShareInvite,
   revokeTitleShareInvite,
@@ -257,6 +260,34 @@ export default function TitleScreen() {
       setLibraryItem({ ...libraryItem, status });
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Impossibile aggiornare lo stato');
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function changeSeriesState(state: SeriesTrackingState) {
+    if (
+      !libraryItem ||
+      libraryItem.mediaType !== 'tv' ||
+      libraryItem.status !== 'watching' ||
+      actionBusy
+    ) {
+      return;
+    }
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      await setSeriesTrackingState(libraryItem.id, state);
+      setLibraryItem({
+        ...libraryItem,
+        seriesTrackingState: state,
+      });
+    } catch (err) {
+      setActionError(
+        err instanceof Error
+          ? err.message
+          : 'Impossibile aggiornare lo stato della serie',
+      );
     } finally {
       setActionBusy(false);
     }
@@ -662,7 +693,10 @@ export default function TitleScreen() {
           ) : (
             <View style={styles.libraryActions}>
               <ThemedText type="small" themeColor="textSecondary">
-                {LIBRARY_STATUS_LABELS[libraryItem.status]} ·{' '}
+                {LIBRARY_STATUS_LABELS[
+                  getLibraryDisplayStatus(libraryItem)
+                ]}{' '}
+                ·{' '}
                 {libraryItem.totalEpisodes != null
                   ? `${libraryItem.watchedEpisodes}/${libraryItem.totalEpisodes} ep.`
                   : `${libraryItem.watchedEpisodes} ep.`}
@@ -677,6 +711,27 @@ export default function TitleScreen() {
                   Note e visioni ›
                 </ThemedText>
               </Pressable>
+              {libraryItem.status === 'watching' && (
+                <View style={styles.seriesStateActions}>
+                  {libraryItem.seriesTrackingState === 'active' ? (
+                    <SeriesStateAction
+                      label="Abbandona serie"
+                      destructive
+                      disabled={actionBusy}
+                      onPress={() =>
+                        void changeSeriesState('abandoned')
+                      }
+                    />
+                  ) : (
+                    <SeriesStateAction
+                      label="Riprendi serie"
+                      active
+                      disabled={actionBusy}
+                      onPress={() => void changeSeriesState('active')}
+                    />
+                  )}
+                </View>
+              )}
             </View>
           )}
 
@@ -807,6 +862,45 @@ export default function TitleScreen() {
         />
       )}
     </ThemedView>
+  );
+}
+
+function SeriesStateAction({
+  label,
+  active = false,
+  destructive = false,
+  disabled,
+  onPress,
+}: {
+  label: string;
+  active?: boolean;
+  destructive?: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      disabled={disabled}
+      style={({ pressed }) => [
+        styles.seriesStateButton,
+        active && styles.seriesStateButtonActive,
+        destructive && styles.seriesStateButtonDestructive,
+        pressed && styles.pressed,
+        disabled && styles.disabled,
+      ]}>
+      <ThemedText
+        type="smallBold"
+        style={[
+          styles.seriesStateButtonText,
+          active && styles.seriesStateButtonTextActive,
+          destructive && styles.seriesStateButtonTextDestructive,
+        ]}>
+        {label}
+      </ThemedText>
+    </Pressable>
   );
 }
 
@@ -1036,6 +1130,34 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,106,44,0.18)',
   },
   secondaryButtonText: {
+    color: Brand.sunsetOrange,
+  },
+  seriesStateActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  seriesStateButton: {
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.three,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  seriesStateButtonActive: {
+    backgroundColor: Brand.glowBlue,
+  },
+  seriesStateButtonDestructive: {
+    backgroundColor: 'rgba(255,106,44,0.14)',
+  },
+  seriesStateButtonText: {
+    color: Brand.softViolet,
+  },
+  seriesStateButtonTextActive: {
+    color: Brand.pureWhite,
+  },
+  seriesStateButtonTextDestructive: {
     color: Brand.sunsetOrange,
   },
   removeText: {

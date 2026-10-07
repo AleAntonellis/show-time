@@ -1,5 +1,6 @@
 import {
   getLibrary,
+  getLibraryDisplayStatus,
   type EpisodeWatchSource,
   type LibraryItem,
 } from '@/services/library';
@@ -61,6 +62,7 @@ export type PersonalStatistics = {
   series: number;
   watchlist: number;
   inProgress: number;
+  abandoned: number;
   completed: number;
   watchedEpisodes: number;
   importedEpisodes: number;
@@ -366,8 +368,15 @@ function buildPersonalStatistics(
 
   return {
     ...completedCatalog,
-    watchlist: items.filter((item) => item.status === 'to_watch').length,
-    inProgress: items.filter((item) => item.status === 'watching').length,
+    watchlist: items.filter(
+      (item) => getLibraryDisplayStatus(item) === 'to_watch',
+    ).length,
+    inProgress: items.filter(
+      (item) => getLibraryDisplayStatus(item) === 'watching',
+    ).length,
+    abandoned: items.filter(
+      (item) => getLibraryDisplayStatus(item) === 'abandoned',
+    ).length,
     completed: completedCatalog.totalTitles,
     watchedEpisodes: episodeWatchRows.length,
     importedEpisodes: episodeWatchRows.filter((row) => row.source === 'imported').length,

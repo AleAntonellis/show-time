@@ -150,7 +150,10 @@ export default function StatisticsTabScreen() {
   const statistics: PersonalStatistics | null =
     statisticsByMedia?.[mediaFilter] ?? null;
   const libraryTitles = statistics
-    ? statistics.watchlist + statistics.inProgress + statistics.completed
+    ?     statistics.watchlist +
+    statistics.inProgress +
+    statistics.completed +
+      statistics.abandoned
     : 0;
   const catalogMediaLabel = statistics
     ? mediaFilter === 'movie'
@@ -239,6 +242,12 @@ export default function StatisticsTabScreen() {
                 <Breakdown value={statistics.watchlist} label="Da vedere" />
                 <Breakdown value={statistics.inProgress} label="In corso" />
                 <Breakdown value={statistics.completed} label="Completati" />
+                {statistics.abandoned > 0 && (
+                  <Breakdown
+                    value={statistics.abandoned}
+                    label="Abbandonate"
+                  />
+                )}
                 <Breakdown value={statistics.viewingCount} label="Visioni registrate" />
               </View>
             </ThemedView>

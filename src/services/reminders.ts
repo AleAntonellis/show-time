@@ -8,6 +8,7 @@ import {
   type MediaType,
   type TitleDetails,
 } from '@/services/tmdb';
+import { isReminderEligible } from '@/utils/series-tracking-state';
 
 export type ReminderKind =
   | 'movie_release'
@@ -145,7 +146,7 @@ export async function getReminderCenter({
     throw new Error('La finestra dei reminder deve essere un numero intero positivo');
   }
 
-  const items = await getLibrary();
+  const items = (await getLibrary()).filter(isReminderEligible);
   const reminders: UpcomingReminder[] = [];
   const failures: string[] = [];
   let cursor = 0;

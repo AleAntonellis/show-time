@@ -17,6 +17,7 @@ import { Brand, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
   deriveSeriesStatus,
+  getLibraryDisplayStatus,
   getWatchedEpisodes,
   setEpisodeWatched,
   setSeasonWatched,
@@ -374,6 +375,9 @@ export function SeriesEpisodesContent({
   ).length;
   const trackedCount = watchedCount - importedCount;
   const status = deriveSeriesStatus(watchedCount, totalEpisodes);
+  const displayStatus = item
+    ? getLibraryDisplayStatus({ ...item, status })
+    : status;
 
   return (
     <View style={styles.content}>
@@ -385,7 +389,7 @@ export function SeriesEpisodesContent({
               ? `${totalEpisodes ?? seasons.reduce((total, season) => total + season.episodeCount, 0)} episodi · anteprima`
               : watchedLoading
               ? 'Caricamento progresso…'
-              : `${STATUS_LABELS[status]} · ${
+              : `${STATUS_LABELS[displayStatus]} · ${
                   totalEpisodes != null
                     ? `${watchedCount}/${totalEpisodes} ep.`
                     : `${watchedCount} ep.`

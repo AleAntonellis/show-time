@@ -1,6 +1,7 @@
 import type { LibraryItem } from '@/services/library';
 import { getCachedTitleDetails } from '@/services/tmdb-cache';
 import type { NextEpisode, TitleDetails } from '@/services/tmdb';
+import { isContinueWatchingEligible } from '@/utils/series-tracking-state';
 
 export type ContinueWatchingResult = {
   items: LibraryItem[];
@@ -93,7 +94,9 @@ export async function filterContinueWatching(
   today = new Date(),
 ): Promise<ContinueWatchingResult> {
   const seriesCandidates = items.filter(
-    (item) => item.mediaType === 'tv' && item.status === 'watching',
+    (item) =>
+      item.mediaType === 'tv' &&
+      isContinueWatchingEligible(item),
   );
   const checks: AvailabilityCheck[] = [];
   let cursor = 0;
@@ -140,7 +143,7 @@ export async function filterContinueWatching(
   return {
     items: items.filter(
       (item) =>
-        item.status === 'watching' &&
+        isContinueWatchingEligible(item) &&
         (item.mediaType === 'movie' || availableSeriesIds.has(item.id)),
     ),
     unverifiedTitles: checks

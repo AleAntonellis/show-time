@@ -34,11 +34,14 @@ import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
 import {
   canReclassifyMovieWatch,
+  getLibraryDisplayStatus,
   getLibrary,
   MOVIE_STATUSES,
   recordMovieWatched,
   reclassifyMovieWatched,
   removeFromLibrary,
+  setSeriesTrackingState,
+  STATUS_GROUP_LABELS,
   STATUS_LABELS,
   STATUS_ORDER,
   updateStatus,
@@ -51,6 +54,10 @@ import {
   sortLibraryItems,
   type LibraryGroupSortMode,
 } from '@/utils/library-sort';
+import type {
+  LibraryDisplayStatus,
+  SeriesTrackingState,
+} from '@/utils/series-tracking-state';
 
 export default function LibraryTabScreen() {
   const theme = useTheme();
@@ -62,11 +69,12 @@ export default function LibraryTabScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [groupSortModes, setGroupSortModes] = useState<
-    Record<LibraryStatus, LibraryGroupSortMode>
+    Record<LibraryDisplayStatus, LibraryGroupSortMode>
   >({
     watching: 'default',
     to_watch: 'default',
     watched: 'default',
+    abandoned: 'default',
   });
   const [selectedSeries, setSelectedSeries] = useState<LibraryItem | null>(null);
   const [selectedMovie, setSelectedMovie] = useState<LibraryItem | null>(null);
@@ -115,6 +123,30 @@ export default function LibraryTabScreen() {
     }
   }
 
+  async function changeSeriesTrackingState(
+    item: LibraryItem,
+    state: SeriesTrackingState,
+  ) {
+    setItems((current) =>
+      current.map((entry) =>
+        entry.id === item.id
+          ? { ...entry, seriesTrackingState: state }
+          : entry,
+      ),
+    );
+    setError(null);
+    try {
+      await setSeriesTrackingState(item.id, state);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Impossibile aggiornare lo stato della serie',
+      );
+      load();
+    }
+  }
+
   async function markMovieWatched(
     item: LibraryItem,
     mode: MovieWatchChoiceMode,
@@ -157,7 +189,7 @@ export default function LibraryTabScreen() {
     }
   }
 
-  function toggleGroupSort(status: LibraryStatus) {
+  function toggleGroupSort(status: LibraryDisplayStatus) {
     setGroupSortModes((current) => ({
       ...current,
       [status]:
@@ -230,7 +262,10 @@ export default function LibraryTabScreen() {
             const alphabetical =
               groupSortModes[status] === 'alphabetical';
             const group = sortLibraryGroup(
-              filteredItems.filter((item) => item.status === status),
+              filteredItems.filter(
+                (item) =>
+                  getLibraryDisplayStatus(item) === status,
+              ),
               groupSortModes[status],
             );
             if (group.length === 0) {
@@ -243,14 +278,14 @@ export default function LibraryTabScreen() {
                     type="smallBold"
                     themeColor="textSecondary"
                     style={styles.sectionTitle}>
-                    {STATUS_LABELS[status]} · {group.length}
+                    {STATUS_GROUP_LABELS[status]} · {group.length}
                   </ThemedText>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={
                       alphabetical
-                        ? `Ripristina ordinamento predefinito per ${STATUS_LABELS[status]}`
-                        : `Ordina alfabeticamente ${STATUS_LABELS[status]}`
+                        ? `Ripristina ordinamento predefinito per ${STATUS_GROUP_LABELS[status]}`
+                        : `Ordina alfabeticamente ${STATUS_GROUP_LABELS[status]}`
                     }
                     accessibilityState={{ selected: alphabetical }}
                     onPress={() => toggleGroupSort(status)}
@@ -271,7 +306,10 @@ export default function LibraryTabScreen() {
                     </ThemedText>
                   </Pressable>
                 </View>
-                {group.map((item) => (
+                {group.map((item) => {
+                  const displayStatus =
+                    getLibraryDisplayStatus(item);
+                  return (
                   <ThemedView key={item.id} type="backgroundElement" style={styles.row}>
                     <Pressable
                       onPress={() =>
@@ -407,20 +445,49 @@ export default function LibraryTabScreen() {
                           </Pressable>
                         </View>
                       ) : (
-                        <View style={styles.seriesRow}>
-                          <ThemedText type="small" themeColor="textSecondary">
-                            {STATUS_LABELS[item.status]} ·{' '}
-                            {item.totalEpisodes != null
-                              ? `${item.watchedEpisodes}/${item.totalEpisodes} ep.`
-                              : `${item.watchedEpisodes} ep.`}
-                          </ThemedText>
-                          <Pressable
-                            style={styles.episodesButton}
-                            onPress={() => setSelectedSeries(item)}>
-                            <ThemedText type="small" style={styles.episodesText}>
-                              Episodi ▸
+                        <View style={styles.seriesActions}>
+                          <View style={styles.seriesRow}>
+                            <ThemedText type="small" themeColor="textSecondary">
+                              {STATUS_LABELS[displayStatus]} ·{' '}
+                              {item.totalEpisodes != null
+                                ? `${item.watchedEpisodes}/${item.totalEpisodes} ep.`
+                                : `${item.watchedEpisodes} ep.`}
                             </ThemedText>
-                          </Pressable>
+                            <Pressable
+                              style={styles.episodesButton}
+                              onPress={() => setSelectedSeries(item)}>
+                              <ThemedText type="small" style={styles.episodesText}>
+                                Episodi ▸
+                              </ThemedText>
+                            </Pressable>
+                          </View>
+                          {item.status === 'watching' && (
+                            <View style={styles.seriesStateActions}>
+                              {item.seriesTrackingState === 'active' ? (
+                                <SeriesStateButton
+                                  label="Abbandona"
+                                  destructive
+                                  onPress={() =>
+                                    void changeSeriesTrackingState(
+                                      item,
+                                      'abandoned',
+                                    )
+                                  }
+                                />
+                              ) : (
+                                <SeriesStateButton
+                                  label="Riprendi"
+                                  active
+                                  onPress={() =>
+                                    void changeSeriesTrackingState(
+                                      item,
+                                      'active',
+                                    )
+                                  }
+                                />
+                              )}
+                            </View>
+                          )}
                         </View>
                       )}
                     </View>
@@ -430,7 +497,8 @@ export default function LibraryTabScreen() {
                       </ThemedText>
                     </Pressable>
                   </ThemedView>
-                ))}
+                  );
+                })}
               </View>
             );
           })
@@ -462,6 +530,41 @@ export default function LibraryTabScreen() {
         />
       )}
     </ThemedView>
+  );
+}
+
+function SeriesStateButton({
+  label,
+  active = false,
+  destructive = false,
+  onPress,
+}: {
+  label: string;
+  active?: boolean;
+  destructive?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${label} serie`}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.seriesStateButton,
+        active && styles.seriesStateButtonActive,
+        destructive && styles.seriesStateButtonDestructive,
+        pressed && styles.sortButtonPressed,
+      ]}>
+      <ThemedText
+        type="smallBold"
+        style={[
+          styles.seriesStateButtonText,
+          active && styles.seriesStateButtonTextActive,
+          destructive && styles.seriesStateButtonTextDestructive,
+        ]}>
+        {label}
+      </ThemedText>
+    </Pressable>
   );
 }
 
@@ -594,6 +697,37 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.two,
     marginTop: Spacing.one,
+  },
+  seriesActions: {
+    gap: Spacing.two,
+  },
+  seriesStateActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.one,
+  },
+  seriesStateButton: {
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.two,
+    borderRadius: Spacing.three,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  seriesStateButtonActive: {
+    backgroundColor: Brand.glowBlue,
+  },
+  seriesStateButtonDestructive: {
+    backgroundColor: 'rgba(255,106,44,0.14)',
+  },
+  seriesStateButtonText: {
+    color: Brand.softViolet,
+  },
+  seriesStateButtonTextActive: {
+    color: Brand.pureWhite,
+  },
+  seriesStateButtonTextDestructive: {
+    color: Brand.sunsetOrange,
   },
   episodesButton: {
     paddingHorizontal: Spacing.two,

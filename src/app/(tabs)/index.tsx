@@ -27,7 +27,8 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { useWeeklyTrends } from '@/hooks/use-weekly-trends';
 import { filterContinueWatching } from '@/services/continue-watching';
-import { getLibrary, type LibraryItem } from '@/services/library';
+import { getLibraryDisplayStatus,
+getLibrary, type LibraryItem } from '@/services/library';
 import { type MediaType, type Title } from '@/services/tmdb';
 
 function greeting(): string {
@@ -127,7 +128,7 @@ export default function HomeTabScreen() {
       ? items
       : items.filter((item) => item.mediaType === mediaFilter);
   const watchingCount = filteredItems.filter(
-    (item) => item.status === 'watching',
+    (item) => getLibraryDisplayStatus(item) === 'watching',
   ).length;
   const watchlist = filteredItems.filter((item) => item.status === 'to_watch');
   const completed = filteredItems

@@ -3,7 +3,7 @@
 Registro cronologico delle **decisioni** e dei **progressi** del progetto, così da non perdere nulla.
 Documento vivo: aggiornato a ogni passo di lavoro.
 
-> Ultimo aggiornamento: 2026-10-07 (dettaglio mensile Statistiche)
+> Ultimo aggiornamento: 2026-10-07 (barra Cerca estesa)
 
 ---
 
@@ -84,6 +84,8 @@ leggera, condivisione via link privato, tema dark esclusivo.
 | D62 | Durate Statistiche | Formato compatto `y M d h`; anni da 365 giorni, mesi da 30 e totale ore separato | Rende Tempo catalogato e Tempo visto immediatamente leggibili senza cambiare i calcoli |
 | D63 | Ordinamento Libreria | In corso per ultimo episodio, Da vedere per aggiunta, Visti prima per attività ShowTime e poi per import | Porta in alto i contenuti realmente aggiornati e mantiene un fallback deterministico per lo storico |
 | D64 | Dettaglio istogramma | Tap sul mese apre un pannello inline con tutte le attività reali del periodo | Approfondisce il trend senza nuova route o query e mantiene il contesto delle Statistiche |
+| D65 | Serie abbandonate | Override manuale solo per serie TV in corso, separato dal progresso episodico | Conserva cronologia e ore, rimuove la serie da Continua a guardare e rende esplicita l’intenzione dell’utente |
+| D66 | Barra Cerca web | Home e azioni globali restano fisse, Cerca assorbe tutto lo spazio centrale disponibile | Migliora il target e rende più evidente la ricerca senza alterare la navigazione |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -496,6 +498,22 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   Preview Test: ottobre mostra 2 attività Matrix, agosto nessuna attività. Test
   statistiche `8/8`, typecheck e lint mirato superati; nessun overflow o errore
   console a 390 px.
+- ✅ Implementato localmente lo stato manuale **Abbandonata** per le sole serie TV
+  realmente In corso. L’override è separato dallo stato derivato dagli episodi:
+  progresso, ore, Diario e Calendario restano invariati; la serie è esclusa da
+  Continua a guardare e dai Reminder. Libreria e profili hanno una sezione dedicata;
+  Statistiche separa In corso e Abbandonate. “Riprendi serie” riporta lo stato ad
+  active e il completamento
+  totale azzera automaticamente l’override. Azioni disponibili anche nella scheda
+  titolo e riepilogo episodi coerente. Migration `0029` e test SQL transazionale
+  pronti; test Libreria dedicati, typecheck e lint mirato superati. Preview simulata:
+  In corso → Abbandonate → Riprendi, esclusione Home e scheda titolo
+  “Abbandonata · 1/62 ep.”, senza overflow a 390 px.
+- ✅ Estesa localmente la **barra Cerca web**: il gruppo Home+Cerca usa lo spazio
+  flessibile della top bar, Home resta a larghezza fissa e Cerca occupa tutto lo spazio
+  libero prima di Inbox, Reminder e menu. Misure reali: circa 158 px su viewport 390
+  e 600 px su viewport 834; apertura ricerca, azioni di destra e assenza di overflow
+  verificate. Typecheck e lint mirato superati.
 - ✅ Implementato localmente il **Batch A1 badge**: Primo ciak considera film, episodi
   `tracked`, revisioni episodio e visioni complete serie; Prima recensione richiede una
   nota testuale; Stagione chiusa verifica tutti gli episodi tramite TMDB, accetta importati
