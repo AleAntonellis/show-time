@@ -3,7 +3,7 @@
 Registro cronologico delle **decisioni** e dei **progressi** del progetto, così da non perdere nulla.
 Documento vivo: aggiornato a ogni passo di lavoro.
 
-> Ultimo aggiornamento: 2026-10-07 (pubblicazione Maratoneta)
+> Ultimo aggiornamento: 2026-10-07 (implementazione Encore)
 
 ---
 
@@ -77,6 +77,7 @@ leggera, condivisione via link privato, tema dark esclusivo.
 | D55 | Esploratore di generi | 15 categorie canoniche ricavate da ID TMDB e alias storici; `TV Movie` escluso | Misura la varietà del catalogo senza duplicare generi equivalenti tra film e serie |
 | D56 | Ancora un episodio | Massimo storico di episodi `tracked` distinti della stessa serie e data; Speciali esclusi | Premia una sessione reale senza sommare importazioni, serie o giorni differenti |
 | D57 | Maratoneta | Stagioni distinte da almeno 8 episodi, tutti `tracked` in una o due date consecutive; soglie 1/5/15/30 | Premia completamenti verificabili senza dipendere dall’ordine di registrazione o da orari non disponibili |
+| D58 | Encore | Titoli distinti con due visioni reali, oppure import completo seguito da una visione reale; soglie 5/25/100/250 | Premia i rewatch verificabili senza contare due importazioni o progressi serie misti |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -526,6 +527,15 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   e refresh idempotente. Rollback completo a 13 episodi `imported`, nessuno sblocco,
   progresso/massimo `0` e UI `0/1`. Produzione senza overflow a 360/390 px né errori
   console; titoli badge ridotti a 28 px rispetto ai 32 px di Sala trofei.
+- ✅ Implementato localmente **Encore**: conta titoli distinti con due visioni
+  complete reali, oppure una prima visione importata seguita da una visione reale.
+  Per le serie accetta un completamento episodio iniziale uniforme `tracked` o
+  `imported` seguito da `series_viewings`; progressi misti e `episode_viewings` sono
+  esclusi dalla V1. Soglie 5/25/100/250, cache TMDB condivisa, deduplica titoli e
+  storici, trigger mirati e riclassificazione film protetta da valutazioni intermedie.
+  Aggiunti migration `0025`, test SQL e patch a doppio fotogramma/replay. Engine
+  `43/43`, typecheck e lint mirato superati; preview `0/5`, hero `3/35`, senza
+  overflow a 360/390 px né errori console. Rollout ancora da completare.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

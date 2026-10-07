@@ -190,6 +190,18 @@ export type MarathonFacts = {
   seasons: MarathonSeasonFact[];
 };
 
+export type CompleteViewingSource = 'tracked' | 'imported';
+
+export type EncoreTitleFact = {
+  itemId: string;
+  initialViewingSource: CompleteViewingSource | null;
+  trackedViewingIds: string[];
+};
+
+export type EncoreFacts = {
+  titles: EncoreTitleFact[];
+};
+
 export type RegularSeasonDefinition = {
   seasonNumber: number;
   episodeCount: number;
@@ -198,6 +210,10 @@ export type RegularSeasonDefinition = {
 export type WatchedEpisodeFact = {
   seasonNumber: number;
   episodeNumber: number;
+};
+
+export type SourcedWatchedEpisodeFact = WatchedEpisodeFact & {
+  source: CompleteViewingSource;
 };
 
 export type FirstWatchFacts = {
@@ -620,6 +636,59 @@ function parseMarathonFacts(facts: unknown): MarathonFacts {
   return { seasons };
 }
 
+function parseEncoreFacts(facts: unknown): EncoreFacts {
+  if (
+    typeof facts !== 'object' ||
+    facts == null ||
+    !('titles' in facts) ||
+    !Array.isArray(facts.titles)
+  ) {
+    throw new BadgeEngineError(
+      'Fatti Encore non validi',
+      'facts_invalid',
+    );
+  }
+  const itemIds = new Set<string>();
+  const titles: EncoreTitleFact[] = [];
+  for (const title of facts.titles) {
+    if (
+      typeof title !== 'object' ||
+      title == null ||
+      !('itemId' in title) ||
+      typeof title.itemId !== 'string' ||
+      !title.itemId.trim() ||
+      itemIds.has(title.itemId.trim()) ||
+      !('initialViewingSource' in title) ||
+      !(
+        title.initialViewingSource == null ||
+        title.initialViewingSource === 'tracked' ||
+        title.initialViewingSource === 'imported'
+      ) ||
+      !('trackedViewingIds' in title) ||
+      !Array.isArray(title.trackedViewingIds) ||
+      title.trackedViewingIds.some(
+        (viewingId: unknown) =>
+          typeof viewingId !== 'string' || !viewingId.trim(),
+      )
+    ) {
+      throw new BadgeEngineError(
+        'Fatti Encore non validi',
+        'facts_invalid',
+      );
+    }
+    const itemId = title.itemId.trim();
+    itemIds.add(itemId);
+    titles.push({
+      itemId,
+      initialViewingSource: title.initialViewingSource,
+      trackedViewingIds: title.trackedViewingIds.map(
+        (viewingId: string) => viewingId.trim(),
+      ),
+    });
+  }
+  return { titles };
+}
+
 function isMarathonSeason(season: MarathonSeasonFact): boolean {
   if (season.episodeCount < 8) {
     return false;
@@ -1002,6 +1071,34 @@ export const marathonEvaluator: BadgeEvaluator = {
   },
 };
 
+export const encoreEvaluator: BadgeEvaluator = {
+  badgeId: 'encore',
+  version: 1,
+  evaluate(definition, rawFacts, context) {
+    const facts = parseEncoreFacts(rawFacts);
+    const rewatchedItemIds = facts.titles.flatMap((title) => {
+      const trackedViewingCount = new Set(
+        title.trackedViewingIds,
+      ).size;
+      const completeTrackedViewings =
+        trackedViewingCount +
+        (title.initialViewingSource === 'tracked' ? 1 : 0);
+      return completeTrackedViewings >= 2 ||
+        (title.initialViewingSource === 'imported' &&
+          trackedViewingCount >= 1)
+        ? [title.itemId]
+        : [];
+    });
+    return progressiveDistinctItemEvaluation({
+      definition,
+      badgeId: 'encore',
+      itemIds: rewatchedItemIds,
+      context,
+      includeItemIds: true,
+    });
+  },
+};
+
 export const firstWatchEvaluator: BadgeEvaluator = {
   badgeId: 'first_watch',
   version: 1,
@@ -1148,6 +1245,25 @@ export function hasCompletedRegularSeries(
   });
 }
 
+export function completedRegularSeriesSource(
+  watchedEpisodes: readonly SourcedWatchedEpisodeFact[],
+  regularSeasons: readonly RegularSeasonDefinition[],
+): CompleteViewingSource | null {
+  for (const source of ['tracked', 'imported'] as const) {
+    if (
+      hasCompletedRegularSeries(
+        watchedEpisodes.filter(
+          (episode) => episode.source === source,
+        ),
+        regularSeasons,
+      )
+    ) {
+      return source;
+    }
+  }
+  return null;
+}
+
 export function createBadgeRegistry(): BadgeEvaluatorRegistry {
   const registry = new BadgeEvaluatorRegistry();
   registry.register(cinephileEvaluator);
@@ -1157,6 +1273,7 @@ export function createBadgeRegistry(): BadgeEvaluatorRegistry {
   registry.register(genreExplorerEvaluator);
   registry.register(oneMoreEpisodeEvaluator);
   registry.register(marathonEvaluator);
+  registry.register(encoreEvaluator);
   registry.register(firstWatchEvaluator);
   registry.register(firstReviewEvaluator);
   registry.register(seasonCompleteEvaluator);

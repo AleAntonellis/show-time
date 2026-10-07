@@ -7,6 +7,7 @@ import {
   canonicalGenreKeysFromNames,
   canonicalGenreKeysFromTmdbIds,
   cinephileEvaluator,
+  completedRegularSeriesSource,
   createBadgeRegistry,
   getNewlyUnlockedLevels,
   hasCompletedRegularSeries,
@@ -319,6 +320,50 @@ const marathonDefinition: BadgeDefinition = {
       description: 'Completa 30 stagioni.',
       threshold: 30,
       iconKey: 'marathon-platinum',
+    },
+  ],
+};
+
+const encoreDefinition: BadgeDefinition = {
+  id: 'encore',
+  version: 1,
+  category: 'viewing',
+  name: 'Encore',
+  description: 'Rivedi titoli già completati.',
+  iconKey: 'encore',
+  isActive: true,
+  levels: [
+    {
+      level: 1,
+      key: 'bronze',
+      name: 'Bronzo',
+      description: 'Rivedi 5 titoli.',
+      threshold: 5,
+      iconKey: 'encore-bronze',
+    },
+    {
+      level: 2,
+      key: 'silver',
+      name: 'Argento',
+      description: 'Rivedi 25 titoli.',
+      threshold: 25,
+      iconKey: 'encore-silver',
+    },
+    {
+      level: 3,
+      key: 'gold',
+      name: 'Oro',
+      description: 'Rivedi 100 titoli.',
+      threshold: 100,
+      iconKey: 'encore-gold',
+    },
+    {
+      level: 4,
+      key: 'platinum',
+      name: 'Platino',
+      description: 'Rivedi 250 titoli.',
+      threshold: 250,
+      iconKey: 'encore-platinum',
     },
   ],
 };
@@ -1145,6 +1190,149 @@ test('Maratoneta rifiuta date non valide ed episodi duplicati', () => {
         error.code === 'facts_invalid',
     );
   }
+});
+
+test('Encore conta import più tracked e due visioni tracked', () => {
+  const evaluation = createBadgeRegistry().evaluate(
+    encoreDefinition,
+    {
+      titles: [
+        {
+          itemId: 'movie-imported',
+          initialViewingSource: 'imported',
+          trackedViewingIds: ['viewing-1'],
+        },
+        {
+          itemId: 'movie-tracked',
+          initialViewingSource: null,
+          trackedViewingIds: ['viewing-2', 'viewing-3'],
+        },
+        {
+          itemId: 'series-tracked',
+          initialViewingSource: 'tracked',
+          trackedViewingIds: ['series-viewing-1'],
+        },
+        {
+          itemId: 'not-rewatched',
+          initialViewingSource: null,
+          trackedViewingIds: ['single-viewing'],
+        },
+      ],
+    },
+    { ...context, isBackfill: true },
+  );
+
+  assert.equal(evaluation.progress, 3);
+  assert.deepEqual(evaluation.unlockedLevels, []);
+  assert.equal(evaluation.nextThreshold, 5);
+  assert.deepEqual(evaluation.evidence.itemIds, [
+    'movie-imported',
+    'movie-tracked',
+    'series-tracked',
+  ]);
+  assert.equal(evaluation.evidence.backfill, true);
+});
+
+test('Encore non conta due volte la stessa visione tracked', () => {
+  const evaluation = createBadgeRegistry().evaluate(
+    encoreDefinition,
+    {
+      titles: [
+        {
+          itemId: 'movie-1',
+          initialViewingSource: null,
+          trackedViewingIds: ['viewing-1', 'viewing-1'],
+        },
+      ],
+    },
+    context,
+  );
+
+  assert.equal(evaluation.progress, 0);
+  assert.deepEqual(evaluation.evidence.itemIds, []);
+});
+
+test('Encore sblocca Argento esattamente a 25 titoli', () => {
+  const evaluation = createBadgeRegistry().evaluate(
+    encoreDefinition,
+    {
+      titles: Array.from({ length: 25 }, (_, index) => ({
+        itemId: `title-${index + 1}`,
+        initialViewingSource: 'imported',
+        trackedViewingIds: [`viewing-${index + 1}`],
+      })),
+    },
+    context,
+  );
+
+  assert.equal(evaluation.progress, 25);
+  assert.deepEqual(evaluation.unlockedLevels, [1, 2]);
+  assert.equal(evaluation.nextThreshold, 100);
+});
+
+test('Encore rifiuta fatti malformati', () => {
+  for (const title of [
+    {
+      itemId: 'movie-1',
+      initialViewingSource: 'unknown',
+      trackedViewingIds: ['viewing-1'],
+    },
+    {
+      itemId: 'movie-1',
+      initialViewingSource: null,
+      trackedViewingIds: [1],
+    },
+  ]) {
+    assert.throws(
+      () =>
+        createBadgeRegistry().evaluate(
+          encoreDefinition,
+          { titles: [title] },
+          context,
+        ),
+      (error: unknown) =>
+        error instanceof BadgeEngineError &&
+        error.code === 'facts_invalid',
+    );
+  }
+});
+
+test('Encore riconosce soltanto una prima visione serie uniforme', () => {
+  const seasons = [{ seasonNumber: 1, episodeCount: 3 }];
+
+  assert.equal(
+    completedRegularSeriesSource(
+      [1, 2, 3].map((episodeNumber) => ({
+        seasonNumber: 1,
+        episodeNumber,
+        source: 'imported',
+      })),
+      seasons,
+    ),
+    'imported',
+  );
+  assert.equal(
+    completedRegularSeriesSource(
+      [1, 2, 3].map((episodeNumber) => ({
+        seasonNumber: 1,
+        episodeNumber,
+        source: 'tracked',
+      })),
+      seasons,
+    ),
+    'tracked',
+  );
+  assert.equal(
+    completedRegularSeriesSource(
+      [
+        { seasonNumber: 1, episodeNumber: 1, source: 'imported' },
+        { seasonNumber: 1, episodeNumber: 2, source: 'tracked' },
+        { seasonNumber: 1, episodeNumber: 3, source: 'tracked' },
+      ],
+      seasons,
+    ),
+    null,
+  );
 });
 
 test('Primo ciak si sblocca con una sola attività reale distinta', () => {

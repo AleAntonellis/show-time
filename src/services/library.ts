@@ -438,6 +438,7 @@ export async function recordMovieWatched(
     BADGE_IDS.cinephile,
     BADGE_IDS.nostalgic,
     BADGE_IDS.genreExplorer,
+    BADGE_IDS.encore,
   ]);
 }
 
@@ -493,7 +494,13 @@ export async function reclassifyMovieWatched(
   }
 
   if (source === 'tracked') {
-    const viewing = await addViewing(item.id, localDateString(), null, null);
+    const viewing = await addViewing(
+      item.id,
+      localDateString(),
+      null,
+      null,
+      false,
+    );
     try {
       await setImportedViewings(item.id, 0, 1);
     } catch (classificationError) {
@@ -514,6 +521,13 @@ export async function reclassifyMovieWatched(
       }
       throw classificationError;
     }
+    queueBadgeEvaluation([
+      BADGE_IDS.cinephile,
+      BADGE_IDS.nostalgic,
+      BADGE_IDS.genreExplorer,
+      BADGE_IDS.firstWatch,
+      BADGE_IDS.encore,
+    ]);
     return;
   }
 
@@ -549,7 +563,10 @@ export async function reclassifyMovieWatched(
     }
     throw classificationError;
   }
-  queueBadgeEvaluation([BADGE_IDS.firstWatch]);
+  queueBadgeEvaluation([
+    BADGE_IDS.firstWatch,
+    BADGE_IDS.encore,
+  ]);
 }
 
 /** Rimuove una voce dalla libreria. */
@@ -583,6 +600,7 @@ export async function addViewing(
   watchedOn: string,
   note: string | null,
   rating: number | null,
+  evaluateBadges = true,
 ): Promise<Viewing> {
   const { data, error } = await getSupabase().rpc(
     'record_movie_viewing',
@@ -601,13 +619,16 @@ export async function addViewing(
     throw new Error('La visione salvata non è disponibile');
   }
 
-  queueBadgeEvaluation([
-    BADGE_IDS.cinephile,
-    BADGE_IDS.nostalgic,
-    BADGE_IDS.genreExplorer,
-    BADGE_IDS.firstWatch,
-    ...(note?.trim() ? [BADGE_IDS.firstReview] : []),
-  ]);
+  if (evaluateBadges) {
+    queueBadgeEvaluation([
+      BADGE_IDS.cinephile,
+      BADGE_IDS.nostalgic,
+      BADGE_IDS.genreExplorer,
+      BADGE_IDS.firstWatch,
+      BADGE_IDS.encore,
+      ...(note?.trim() ? [BADGE_IDS.firstReview] : []),
+    ]);
+  }
   return toViewing(rows[0]);
 }
 
@@ -620,6 +641,7 @@ export async function removeViewing(viewingId: string): Promise<void> {
   queueBadgeEvaluation([
     BADGE_IDS.firstWatch,
     BADGE_IDS.firstReview,
+    BADGE_IDS.encore,
   ]);
 }
 
@@ -825,6 +847,7 @@ export async function addSeriesViewing(
   }
   queueBadgeEvaluation([
     BADGE_IDS.firstWatch,
+    BADGE_IDS.encore,
     ...(trimmedNote ? [BADGE_IDS.firstReview] : []),
   ]);
   return toSeriesViewing(data as SeriesViewingRow);
@@ -841,6 +864,7 @@ export async function removeSeriesViewing(viewingId: string): Promise<void> {
   queueBadgeEvaluation([
     BADGE_IDS.firstWatch,
     BADGE_IDS.firstReview,
+    BADGE_IDS.encore,
   ]);
 }
 
@@ -936,6 +960,7 @@ export async function setEpisodeWatched(
     BADGE_IDS.firstWatch,
     BADGE_IDS.oneMoreEpisode,
     BADGE_IDS.marathon,
+    BADGE_IDS.encore,
   ]);
   return status;
 }
@@ -993,6 +1018,7 @@ export async function setSeasonWatched(
     BADGE_IDS.firstWatch,
     BADGE_IDS.oneMoreEpisode,
     BADGE_IDS.marathon,
+    BADGE_IDS.encore,
   ]);
   return status;
 }
@@ -1025,5 +1051,6 @@ export async function setWatchedEpisodesSource(
     BADGE_IDS.firstWatch,
     BADGE_IDS.oneMoreEpisode,
     BADGE_IDS.marathon,
+    BADGE_IDS.encore,
   ]);
 }

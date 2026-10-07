@@ -8,7 +8,8 @@ Questa proposta affianca, senza sostituirla, la prima raccolta di idee in
 ## Stato
 
 - **Fase:** implementazione
-- **Implementazione:** fino a Maratoneta (B3) pubblicato e verificato in produzione
+- **Implementazione:** fino a Maratoneta (B3) pubblicato; Encore (B4) completato
+  localmente e in attesa di rollout
 - **Obiettivo:** arrivare a un catalogo V1 piccolo, misurabile e sostenibile
 - **Principio guida:** premiare il percorso personale, non la quantità di tempo
   trascorsa davanti allo schermo
@@ -309,7 +310,8 @@ Fonti:
 
 - storico visioni film;
 - storico visioni complete serie;
-- storico visioni episodio, per una futura variante specifica.
+- completamento iniziale delle serie tramite `episode_watches`;
+- storico visioni episodio, per una futura variante specifica e non incluso nella V1.
 
 Un titolo conta come rivisto quando:
 
@@ -321,6 +323,10 @@ Due visioni soltanto importate non contano.
 Per le serie, la prima visione importata richiede che tutti gli episodi della serie
 risultino completati come storico importato; il rewatch viene registrato nello storico
 `series_viewings`.
+
+Anche un completamento iniziale interamente `tracked` seguito da una voce
+`series_viewings` conta come rewatch. Un completamento episodio misto tra importato e
+tracked non viene considerato una prima visione completa.
 
 ### 3.9 Critico
 
@@ -638,7 +644,7 @@ Esempi di fonti:
 | Nostalgico | `library_items`, `titles` |
 | Generi | `library_items`, `titles.genres` |
 | Binge / Maratoneta | `episode_watches` con `source = tracked` |
-| Encore | `viewings`, `series_viewings`, `episode_viewings` |
+| Encore | `viewings`, `series_viewings`, `episode_watches` |
 | Critico | `viewings`, `episode_viewings`, `series_viewings` |
 | Passaparola | `title_shares` con `read_at` |
 
@@ -957,7 +963,7 @@ usati dal progetto.
 - [x] Esploratore di generi
 - [x] Ancora un episodio
 - [x] Maratoneta
-- [ ] Encore
+- [x] Encore
 
 ### Verifica Batch B1 — Esploratore di generi
 
@@ -1052,6 +1058,27 @@ usati dal progetto.
   originale, sblocco rimosso, progresso e massimo a `0`, UI tornata a `0/1`;
 - produzione verificata senza overflow a 360/390 px e senza errori console;
 - gerarchia titoli verificata: Sala trofei `32 px`, gruppi badge `28 px`.
+
+### Verifica Batch B4 — Encore
+
+- soglie `5 / 25 / 100 / 250` titoli distinti rivisti;
+- film valido con almeno due righe `viewings`, oppure import iniziale e una visione reale;
+- serie valida con almeno due righe `series_viewings`;
+- una serie è valida anche con completamento iniziale uniforme `tracked` o `imported`
+  seguito da una riga `series_viewings`;
+- progressi episodio misti tra `tracked` e `imported` non simulano una visione iniziale;
+- `episode_viewings` escluso dalla V1 e riservato a una futura variante;
+- riusa la cache TMDB protetta per verificare tutti gli episodi regolari delle serie;
+- deduplica sia le visioni sia i titoli;
+- evidenza privata limitata agli ID tecnici dei titoli validi;
+- rivalutazioni dopo visioni film/serie, riclassificazioni e cambi al progresso episodio;
+- riclassificazione film resa atomica rispetto alla coda badge, evitando sblocchi intermedi;
+- migration `0025_encore_badge.sql` e test SQL transazionale pronti;
+- patch originale con doppio fotogramma e circuito di replay;
+- preview locale con catalogo intercettato: `Encore 0/4`, progresso `0/5`, hero `3/35`;
+- patch e accordion verificati senza overflow a 360 e 390 px e senza errori console;
+- `43/43` test engine superati;
+- typecheck e lint mirato superati.
 
 #### Batch C — Diario e Social
 
@@ -1208,11 +1235,11 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 
 Le decisioni di prodotto necessarie per la V1 sono chiuse.
 
-Il prossimo passo operativo è **Encore**:
+Il prossimo passo operativo è completare il rollout di **Encore**:
 
-1. contare titoli distinti con almeno una revisione reale;
-2. accettare una prima visione importata seguita da una visione `tracked`;
-3. usare gli storici film e serie senza duplicare lo stesso titolo;
-4. applicare le soglie `5 / 25 / 100 / 250`;
-5. implementare valutatore, loader, migration, test e patch dedicata;
-6. verificare localmente e poi con un rollout reversibile.
+1. distribuire la Edge Function aggiornata;
+2. pubblicare la patch con doppio fotogramma e replay;
+3. applicare la migration `0025_encore_badge.sql`;
+4. eseguire il test SQL transazionale;
+5. verificare backfill e idempotenza sugli account reali;
+6. completare un test live reversibile.

@@ -5,6 +5,7 @@ import {
   BADGE_CATEGORIES,
   BADGE_LEVEL_KEYS,
   BadgeEngineError,
+  completedRegularSeriesSource,
   createBadgeRegistry,
   hasCompletedRegularSeries,
   hasCompletedSeason,
@@ -17,6 +18,9 @@ import {
   type BadgeLevelKey,
   type ArchivistFacts,
   type CinephileFacts,
+  type CompleteViewingSource,
+  type EncoreFacts,
+  type EncoreTitleFact,
   type FirstReviewFacts,
   type FirstWatchFacts,
   type GenreExplorerFacts,
@@ -28,6 +32,7 @@ import {
   type RegularSeasonDefinition,
   type SeasonCompleteFacts,
   type SerialistFacts,
+  type SourcedWatchedEpisodeFact,
   type TrackedEpisodeFact,
   type WatchedEpisodeFact,
 } from './badge-engine.ts';
@@ -172,6 +177,40 @@ type MarathonCandidate = {
   titleId: string;
   tmdbId: number;
   trackedEpisodes: TrackedEpisodeFact[];
+};
+
+type EncoreLibraryRow = {
+  id: string;
+  title_id: string;
+  imported_viewings: number;
+  titles:
+    | {
+        id: string;
+        tmdb_id: number;
+        media_type: string;
+      }
+    | {
+        id: string;
+        tmdb_id: number;
+        media_type: string;
+      }[]
+    | null;
+};
+
+type CompleteViewingRow = {
+  id: string;
+  library_item_id: string;
+};
+
+type SourcedEpisodeWatchRow = EpisodeWatchFactRow & {
+  source: string;
+};
+
+type EncoreSeriesCandidate = {
+  libraryItemId: string;
+  titleId: string;
+  tmdbId: number;
+  trackedViewingIds: string[];
 };
 
 type TvBadgeMetadata = {
@@ -1778,6 +1817,244 @@ async function loadMarathonFacts(
   return { seasons };
 }
 
+function encoreTitleRelation(
+  row: EncoreLibraryRow,
+): { id: string; tmdb_id: number; media_type: string } | null {
+  if (Array.isArray(row.titles)) {
+    return row.titles[0] ?? null;
+  }
+  return row.titles;
+}
+
+async function loadEncoreLibraryRows(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+): Promise<EncoreLibraryRow[]> {
+  const rows: EncoreLibraryRow[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabaseAdmin
+      .from('library_items')
+      .select(
+        'id, title_id, imported_viewings, titles!inner(id, tmdb_id, media_type)',
+      )
+      .eq('user_id', userId)
+      .order('id', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      throw new BadgeEngineError(
+        `Impossibile leggere la Libreria per Encore: ${error.message}`,
+        'facts_load_failed',
+      );
+    }
+    const pageRows = (data ?? []) as unknown as EncoreLibraryRow[];
+    rows.push(...pageRows);
+    if (pageRows.length < PAGE_SIZE) {
+      break;
+    }
+  }
+  return rows;
+}
+
+async function loadCompleteViewingIdsByItem(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+  table: 'viewings' | 'series_viewings',
+  label: string,
+): Promise<Map<string, string[]>> {
+  const viewingIdsByItem = new Map<string, string[]>();
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabaseAdmin
+      .from(table)
+      .select('id, library_item_id')
+      .eq('user_id', userId)
+      .order('id', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      throw new BadgeEngineError(
+        `Impossibile leggere ${label} per Encore: ${error.message}`,
+        'facts_load_failed',
+      );
+    }
+    const rows = (data ?? []) as CompleteViewingRow[];
+    for (const row of rows) {
+      if (
+        typeof row.id !== 'string' ||
+        !row.id.trim() ||
+        typeof row.library_item_id !== 'string' ||
+        !row.library_item_id.trim()
+      ) {
+        throw new BadgeEngineError(
+          `Storico ${label} non valido per Encore`,
+          'facts_load_failed',
+        );
+      }
+      const viewingIds =
+        viewingIdsByItem.get(row.library_item_id) ?? [];
+      viewingIds.push(row.id);
+      viewingIdsByItem.set(row.library_item_id, viewingIds);
+    }
+    if (rows.length < PAGE_SIZE) {
+      break;
+    }
+  }
+  return viewingIdsByItem;
+}
+
+async function loadEncoreEpisodeWatches(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+): Promise<Map<string, SourcedWatchedEpisodeFact[]>> {
+  const episodesByItem = new Map<
+    string,
+    SourcedWatchedEpisodeFact[]
+  >();
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabaseAdmin
+      .from('episode_watches')
+      .select(
+        'library_item_id, season_number, episode_number, source',
+      )
+      .eq('user_id', userId)
+      .gt('season_number', 0)
+      .order('id', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      throw new BadgeEngineError(
+        `Impossibile leggere gli episodi per Encore: ${error.message}`,
+        'facts_load_failed',
+      );
+    }
+    const rows = (data ?? []) as SourcedEpisodeWatchRow[];
+    for (const row of rows) {
+      if (
+        typeof row.library_item_id !== 'string' ||
+        !row.library_item_id.trim() ||
+        !Number.isInteger(row.season_number) ||
+        row.season_number <= 0 ||
+        !Number.isInteger(row.episode_number) ||
+        row.episode_number <= 0 ||
+        !(row.source === 'tracked' || row.source === 'imported')
+      ) {
+        throw new BadgeEngineError(
+          'Progresso episodio non valido per Encore',
+          'facts_load_failed',
+        );
+      }
+      const episodes =
+        episodesByItem.get(row.library_item_id) ?? [];
+      episodes.push({
+        seasonNumber: row.season_number,
+        episodeNumber: row.episode_number,
+        source: row.source as CompleteViewingSource,
+      });
+      episodesByItem.set(row.library_item_id, episodes);
+    }
+    if (rows.length < PAGE_SIZE) {
+      break;
+    }
+  }
+  return episodesByItem;
+}
+
+async function loadEncoreFacts(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+): Promise<EncoreFacts> {
+  const [libraryRows, movieViewings, seriesViewings] =
+    await Promise.all([
+      loadEncoreLibraryRows(supabaseAdmin, userId),
+      loadCompleteViewingIdsByItem(
+        supabaseAdmin,
+        userId,
+        'viewings',
+        'le visioni film',
+      ),
+      loadCompleteViewingIdsByItem(
+        supabaseAdmin,
+        userId,
+        'series_viewings',
+        'le visioni serie',
+      ),
+    ]);
+  const titles: EncoreTitleFact[] = [];
+  const seriesCandidates: EncoreSeriesCandidate[] = [];
+
+  for (const row of libraryRows) {
+    const title = encoreTitleRelation(row);
+    if (
+      typeof row.id !== 'string' ||
+      !row.id.trim() ||
+      typeof row.title_id !== 'string' ||
+      !row.title_id.trim() ||
+      !Number.isInteger(row.imported_viewings) ||
+      row.imported_viewings < 0 ||
+      !title ||
+      title.id !== row.title_id ||
+      !Number.isInteger(title.tmdb_id) ||
+      title.tmdb_id <= 0 ||
+      !(title.media_type === 'movie' || title.media_type === 'tv')
+    ) {
+      throw new BadgeEngineError(
+        'Metadati Libreria non validi per Encore',
+        'facts_load_failed',
+      );
+    }
+    const trackedViewingIds =
+      title.media_type === 'movie'
+        ? movieViewings.get(row.id) ?? []
+        : seriesViewings.get(row.id) ?? [];
+    if (trackedViewingIds.length === 0) {
+      continue;
+    }
+    if (title.media_type === 'movie') {
+      titles.push({
+        itemId: row.id,
+        initialViewingSource:
+          row.imported_viewings > 0 ? 'imported' : null,
+        trackedViewingIds,
+      });
+      continue;
+    }
+    if (trackedViewingIds.length >= 2) {
+      titles.push({
+        itemId: row.id,
+        initialViewingSource: null,
+        trackedViewingIds,
+      });
+      continue;
+    }
+    seriesCandidates.push({
+      libraryItemId: row.id,
+      titleId: row.title_id,
+      tmdbId: title.tmdb_id,
+      trackedViewingIds,
+    });
+  }
+  if (seriesCandidates.length === 0) {
+    return { titles };
+  }
+
+  const [episodesByItem, metadata] = await Promise.all([
+    loadEncoreEpisodeWatches(supabaseAdmin, userId),
+    resolveTvBadgeMetadata(supabaseAdmin, seriesCandidates),
+  ]);
+  seriesCandidates.forEach((candidate, index) => {
+    const regularSeasons = metadata[index].regularSeasons;
+    titles.push({
+      itemId: candidate.libraryItemId,
+      initialViewingSource:
+        regularSeasons.length > 0
+          ? completedRegularSeriesSource(
+              episodesByItem.get(candidate.libraryItemId) ?? [],
+              regularSeasons,
+            )
+          : null,
+      trackedViewingIds: candidate.trackedViewingIds,
+    });
+  });
+  return { titles };
+}
+
 async function loadFacts(
   definition: BadgeDefinition,
   supabaseAdmin: SupabaseClient,
@@ -1809,6 +2086,9 @@ async function loadFacts(
   }
   if (definition.id === 'marathon' && definition.version === 1) {
     return loadMarathonFacts(supabaseAdmin, userId);
+  }
+  if (definition.id === 'encore' && definition.version === 1) {
+    return loadEncoreFacts(supabaseAdmin, userId);
   }
   if (
     definition.version === 1 &&
