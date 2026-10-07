@@ -279,6 +279,50 @@ const oneMoreEpisodeDefinition: BadgeDefinition = {
   ],
 };
 
+const marathonDefinition: BadgeDefinition = {
+  id: 'marathon',
+  version: 1,
+  category: 'viewing',
+  name: 'Maratoneta',
+  description: 'Completa stagioni in uno o due giorni consecutivi.',
+  iconKey: 'marathon',
+  isActive: true,
+  levels: [
+    {
+      level: 1,
+      key: 'bronze',
+      name: 'Bronzo',
+      description: 'Completa 1 stagione.',
+      threshold: 1,
+      iconKey: 'marathon-bronze',
+    },
+    {
+      level: 2,
+      key: 'silver',
+      name: 'Argento',
+      description: 'Completa 5 stagioni.',
+      threshold: 5,
+      iconKey: 'marathon-silver',
+    },
+    {
+      level: 3,
+      key: 'gold',
+      name: 'Oro',
+      description: 'Completa 15 stagioni.',
+      threshold: 15,
+      iconKey: 'marathon-gold',
+    },
+    {
+      level: 4,
+      key: 'platinum',
+      name: 'Platino',
+      description: 'Completa 30 stagioni.',
+      threshold: 30,
+      iconKey: 'marathon-platinum',
+    },
+  ],
+};
+
 function movieIds(count: number): string[] {
   return Array.from({ length: count }, (_, index) => `movie-${index + 1}`);
 }
@@ -919,6 +963,181 @@ test('Ancora un episodio rifiuta Speciali e date non valide', () => {
         createBadgeRegistry().evaluate(
           oneMoreEpisodeDefinition,
           { trackedEpisodes: [trackedEpisode] },
+          context,
+        ),
+      (error: unknown) =>
+        error instanceof BadgeEngineError &&
+        error.code === 'facts_invalid',
+    );
+  }
+});
+
+test('Maratoneta conta stagioni complete in uno o due giorni consecutivi', () => {
+  const evaluation = createBadgeRegistry().evaluate(
+    marathonDefinition,
+    {
+      seasons: [
+        {
+          seasonKey: 'series-2:S3',
+          episodeCount: 8,
+          trackedEpisodes: Array.from({ length: 8 }, (_, index) => ({
+            watchId: `series-2-watch-${index + 1}`,
+            episodeNumber: 8 - index,
+            watchedOn: index < 4 ? '2026-10-07' : '2026-10-06',
+          })),
+        },
+        {
+          seasonKey: 'series-1:S1',
+          episodeCount: 10,
+          trackedEpisodes: Array.from({ length: 10 }, (_, index) => ({
+            watchId: `series-1-watch-${index + 1}`,
+            episodeNumber: index + 1,
+            watchedOn: '2026-10-05',
+          })),
+        },
+      ],
+    },
+    { ...context, isBackfill: true },
+  );
+
+  assert.equal(evaluation.progress, 2);
+  assert.deepEqual(evaluation.unlockedLevels, [1]);
+  assert.equal(evaluation.nextThreshold, 5);
+  assert.deepEqual(evaluation.evidence.seasonKeys, [
+    'series-1:S1',
+    'series-2:S3',
+  ]);
+  assert.equal(evaluation.evidence.backfill, true);
+});
+
+test('Maratoneta richiede almeno 8 episodi e la stagione completa', () => {
+  const evaluation = createBadgeRegistry().evaluate(
+    marathonDefinition,
+    {
+      seasons: [
+        {
+          seasonKey: 'short:S1',
+          episodeCount: 7,
+          trackedEpisodes: Array.from({ length: 7 }, (_, index) => ({
+            watchId: `short-${index + 1}`,
+            episodeNumber: index + 1,
+            watchedOn: '2026-10-05',
+          })),
+        },
+        {
+          seasonKey: 'incomplete:S1',
+          episodeCount: 8,
+          trackedEpisodes: Array.from({ length: 7 }, (_, index) => ({
+            watchId: `incomplete-${index + 1}`,
+            episodeNumber: index + 1,
+            watchedOn: '2026-10-05',
+          })),
+        },
+      ],
+    },
+    context,
+  );
+
+  assert.equal(evaluation.progress, 0);
+  assert.deepEqual(evaluation.unlockedLevels, []);
+  assert.equal(evaluation.nextThreshold, 1);
+  assert.deepEqual(evaluation.evidence.seasonKeys, []);
+});
+
+test('Maratoneta sblocca Argento esattamente a 5 stagioni', () => {
+  const evaluation = createBadgeRegistry().evaluate(
+    marathonDefinition,
+    {
+      seasons: Array.from({ length: 5 }, (_, seasonIndex) => ({
+        seasonKey: `series-${seasonIndex + 1}:S1`,
+        episodeCount: 8,
+        trackedEpisodes: Array.from(
+          { length: 8 },
+          (_, episodeIndex) => ({
+            watchId:
+              `series-${seasonIndex + 1}-watch-${episodeIndex + 1}`,
+            episodeNumber: episodeIndex + 1,
+            watchedOn: '2026-10-05',
+          }),
+        ),
+      })),
+    },
+    context,
+  );
+
+  assert.equal(evaluation.progress, 5);
+  assert.deepEqual(evaluation.unlockedLevels, [1, 2]);
+  assert.equal(evaluation.nextThreshold, 15);
+});
+
+test('Maratoneta non combina date distanti e gestisce il cambio anno', () => {
+  const evaluation = createBadgeRegistry().evaluate(
+    marathonDefinition,
+    {
+      seasons: [
+        {
+          seasonKey: 'invalid-window:S1',
+          episodeCount: 8,
+          trackedEpisodes: Array.from({ length: 8 }, (_, index) => ({
+            watchId: `invalid-window-${index + 1}`,
+            episodeNumber: index + 1,
+            watchedOn: index < 4 ? '2026-10-05' : '2026-10-07',
+          })),
+        },
+        {
+          seasonKey: 'new-year:S1',
+          episodeCount: 8,
+          trackedEpisodes: Array.from({ length: 8 }, (_, index) => ({
+            watchId: `new-year-${index + 1}`,
+            episodeNumber: index + 1,
+            watchedOn:
+              index < 4 ? '2026-12-31' : '2027-01-01',
+          })),
+        },
+      ],
+    },
+    context,
+  );
+
+  assert.equal(evaluation.progress, 1);
+  assert.deepEqual(evaluation.evidence.seasonKeys, ['new-year:S1']);
+});
+
+test('Maratoneta rifiuta date non valide ed episodi duplicati', () => {
+  for (const trackedEpisodes of [
+    [
+      {
+        watchId: 'invalid-date',
+        episodeNumber: 1,
+        watchedOn: '2026-02-30',
+      },
+    ],
+    [
+      {
+        watchId: 'first',
+        episodeNumber: 1,
+        watchedOn: '2026-10-06',
+      },
+      {
+        watchId: 'duplicate',
+        episodeNumber: 1,
+        watchedOn: '2026-10-06',
+      },
+    ],
+  ]) {
+    assert.throws(
+      () =>
+        createBadgeRegistry().evaluate(
+          marathonDefinition,
+          {
+            seasons: [
+              {
+                seasonKey: 'series-1:S1',
+                episodeCount: 8,
+                trackedEpisodes,
+              },
+            ],
+          },
           context,
         ),
       (error: unknown) =>

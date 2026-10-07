@@ -935,6 +935,7 @@ export async function setEpisodeWatched(
   queueBadgeEvaluation([
     BADGE_IDS.firstWatch,
     BADGE_IDS.oneMoreEpisode,
+    BADGE_IDS.marathon,
   ]);
   return status;
 }
@@ -991,6 +992,7 @@ export async function setSeasonWatched(
   queueBadgeEvaluation([
     BADGE_IDS.firstWatch,
     BADGE_IDS.oneMoreEpisode,
+    BADGE_IDS.marathon,
   ]);
   return status;
 }
@@ -1022,5 +1024,6 @@ export async function setWatchedEpisodesSource(
   queueBadgeEvaluation([
     BADGE_IDS.firstWatch,
     BADGE_IDS.oneMoreEpisode,
+    BADGE_IDS.marathon,
   ]);
 }

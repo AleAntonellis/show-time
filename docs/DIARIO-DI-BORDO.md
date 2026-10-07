@@ -3,7 +3,7 @@
 Registro cronologico delle **decisioni** e dei **progressi** del progetto, così da non perdere nulla.
 Documento vivo: aggiornato a ogni passo di lavoro.
 
-> Ultimo aggiornamento: 2026-10-06 (pubblicazione Ancora un episodio)
+> Ultimo aggiornamento: 2026-10-07 (implementazione Maratoneta)
 
 ---
 
@@ -76,6 +76,7 @@ leggera, condivisione via link privato, tema dark esclusivo.
 | D54 | Serialista | Serie TMDB `Ended` con ogni episodio regolare completato; Speciali esclusi | Premia completamenti verificabili senza far dipendere lo sblocco da serie ancora in corso |
 | D55 | Esploratore di generi | 15 categorie canoniche ricavate da ID TMDB e alias storici; `TV Movie` escluso | Misura la varietà del catalogo senza duplicare generi equivalenti tra film e serie |
 | D56 | Ancora un episodio | Massimo storico di episodi `tracked` distinti della stessa serie e data; Speciali esclusi | Premia una sessione reale senza sommare importazioni, serie o giorni differenti |
+| D57 | Maratoneta | Stagioni distinte da almeno 8 episodi, tutti `tracked` in una o due date consecutive; soglie 1/5/15/30 | Premia completamenti verificabili senza dipendere dall’ordine di registrazione o da orari non disponibili |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -513,6 +514,14 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   banner; secondo refresh idempotente. Rollback verificato: visioni ripristinate
   `imported` con la data originale, sblocco rimosso, progresso/massimo `0` e UI
   nuovamente `0/3`.
+- ✅ Implementato localmente **Maratoneta**: conta stagioni distinte da almeno
+  8 episodi regolari, tutti `tracked` nella stessa data o in due date consecutive.
+  Soglie 1/5/15/30; Stagione 0 e importati esclusi; ordine di registrazione
+  irrilevante e cambio mese/anno gestito correttamente. Riusa la cache TMDB protetta
+  di Serialista. Aggiunti migration `0024`, test SQL, trigger mirati e patch a
+  cronometro con otto episodi e traguardo. Engine `38/38`, typecheck e lint mirato
+  superati. Preview locale `0/1`, hero `3/31`, senza overflow a 360/390 px né errori
+  console. Rollout ancora da completare.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

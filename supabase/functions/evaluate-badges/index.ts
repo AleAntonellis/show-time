@@ -21,6 +21,8 @@ import {
   type FirstWatchFacts,
   type GenreExplorerFacts,
   type GenreTitleFact,
+  type MarathonFacts,
+  type MarathonSeasonFact,
   type NostalgicFacts,
   type OneMoreEpisodeFacts,
   type RegularSeasonDefinition,
@@ -163,6 +165,13 @@ type SerialistCandidate = {
   titleId: string;
   tmdbId: number;
   watchedEpisodes: WatchedEpisodeFact[];
+};
+
+type MarathonCandidate = {
+  libraryItemId: string;
+  titleId: string;
+  tmdbId: number;
+  trackedEpisodes: TrackedEpisodeFact[];
 };
 
 type TvBadgeMetadata = {
@@ -967,6 +976,36 @@ async function loadSerialistLibraryRows(
   return libraryRows;
 }
 
+async function loadMarathonLibraryRows(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+): Promise<SerialistLibraryRow[]> {
+  const libraryRows: SerialistLibraryRow[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabaseAdmin
+      .from('library_items')
+      .select(
+        'id, title_id, titles!inner(id, tmdb_id, media_type)',
+      )
+      .eq('user_id', userId)
+      .eq('titles.media_type', 'tv')
+      .order('id', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      throw new BadgeEngineError(
+        `Impossibile leggere le serie per Maratoneta: ${error.message}`,
+        'facts_load_failed',
+      );
+    }
+    const rows = (data ?? []) as unknown as SerialistLibraryRow[];
+    libraryRows.push(...rows);
+    if (rows.length < PAGE_SIZE) {
+      break;
+    }
+  }
+  return libraryRows;
+}
+
 async function loadSerialistWatchedEpisodes(
   supabaseAdmin: SupabaseClient,
   userId: string,
@@ -1124,7 +1163,7 @@ function parseTmdbTvBadgeMetadata(payload: unknown): TvBadgeMetadata {
     !Array.isArray(payload.seasons)
   ) {
     throw new BadgeEngineError(
-      'Risposta TMDB serie non valida per Serialista',
+      'Risposta TMDB serie non valida per i badge',
       'tmdb_response_invalid',
     );
   }
@@ -1206,48 +1245,10 @@ function loadTmdbTvBadgeMetadata(
   return promise;
 }
 
-async function loadSerialistFacts(
+async function resolveTvBadgeMetadata(
   supabaseAdmin: SupabaseClient,
-  userId: string,
-): Promise<SerialistFacts> {
-  const [libraryRows, episodesByItem] = await Promise.all([
-    loadSerialistLibraryRows(supabaseAdmin, userId),
-    loadSerialistWatchedEpisodes(supabaseAdmin, userId),
-  ]);
-  const candidates: SerialistCandidate[] = libraryRows.flatMap((row) => {
-    const title = serialistTitleRelation(row);
-    const watchedEpisodes = episodesByItem.get(row.id) ?? [];
-    if (
-      typeof row.id !== 'string' ||
-      !row.id.trim() ||
-      typeof row.title_id !== 'string' ||
-      !row.title_id.trim() ||
-      !title ||
-      title.id !== row.title_id ||
-      title.media_type !== 'tv' ||
-      !Number.isInteger(title.tmdb_id) ||
-      title.tmdb_id <= 0
-    ) {
-      throw new BadgeEngineError(
-        'Metadati Libreria non validi per Serialista',
-        'facts_load_failed',
-      );
-    }
-    return watchedEpisodes.length > 0
-      ? [
-          {
-            libraryItemId: row.id,
-            titleId: row.title_id,
-            tmdbId: title.tmdb_id,
-            watchedEpisodes,
-          },
-        ]
-      : [];
-  });
-  if (candidates.length === 0) {
-    return { completedEndedSeriesIds: [] };
-  }
-
+  candidates: readonly { titleId: string; tmdbId: number }[],
+): Promise<ResolvedTvBadgeMetadata[]> {
   const metadataByTitle = await loadBadgeTitleMetadata(
     supabaseAdmin,
     candidates.map((candidate) => candidate.titleId),
@@ -1299,6 +1300,55 @@ async function loadSerialistFacts(
       );
     }
   }
+  return resolvedMetadata;
+}
+
+async function loadSerialistFacts(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+): Promise<SerialistFacts> {
+  const [libraryRows, episodesByItem] = await Promise.all([
+    loadSerialistLibraryRows(supabaseAdmin, userId),
+    loadSerialistWatchedEpisodes(supabaseAdmin, userId),
+  ]);
+  const candidates: SerialistCandidate[] = libraryRows.flatMap((row) => {
+    const title = serialistTitleRelation(row);
+    const watchedEpisodes = episodesByItem.get(row.id) ?? [];
+    if (
+      typeof row.id !== 'string' ||
+      !row.id.trim() ||
+      typeof row.title_id !== 'string' ||
+      !row.title_id.trim() ||
+      !title ||
+      title.id !== row.title_id ||
+      title.media_type !== 'tv' ||
+      !Number.isInteger(title.tmdb_id) ||
+      title.tmdb_id <= 0
+    ) {
+      throw new BadgeEngineError(
+        'Metadati Libreria non validi per Serialista',
+        'facts_load_failed',
+      );
+    }
+    return watchedEpisodes.length > 0
+      ? [
+          {
+            libraryItemId: row.id,
+            titleId: row.title_id,
+            tmdbId: title.tmdb_id,
+            watchedEpisodes,
+          },
+        ]
+      : [];
+  });
+  if (candidates.length === 0) {
+    return { completedEndedSeriesIds: [] };
+  }
+
+  const resolvedMetadata = await resolveTvBadgeMetadata(
+    supabaseAdmin,
+    candidates,
+  );
 
   return {
     completedEndedSeriesIds: candidates.flatMap(
@@ -1642,6 +1692,92 @@ async function loadOneMoreEpisodeFacts(
   return { trackedEpisodes };
 }
 
+async function loadMarathonFacts(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+): Promise<MarathonFacts> {
+  const [libraryRows, oneMoreEpisodeFacts] = await Promise.all([
+    loadMarathonLibraryRows(supabaseAdmin, userId),
+    loadOneMoreEpisodeFacts(supabaseAdmin, userId),
+  ]);
+  const trackedEpisodesByItem = new Map<
+    string,
+    TrackedEpisodeFact[]
+  >();
+  for (const episode of oneMoreEpisodeFacts.trackedEpisodes) {
+    const episodes =
+      trackedEpisodesByItem.get(episode.libraryItemId) ?? [];
+    episodes.push(episode);
+    trackedEpisodesByItem.set(episode.libraryItemId, episodes);
+  }
+
+  const candidates: MarathonCandidate[] = libraryRows.flatMap((row) => {
+    const title = serialistTitleRelation(row);
+    const trackedEpisodes = trackedEpisodesByItem.get(row.id) ?? [];
+    if (
+      typeof row.id !== 'string' ||
+      !row.id.trim() ||
+      typeof row.title_id !== 'string' ||
+      !row.title_id.trim() ||
+      !title ||
+      title.id !== row.title_id ||
+      title.media_type !== 'tv' ||
+      !Number.isInteger(title.tmdb_id) ||
+      title.tmdb_id <= 0
+    ) {
+      throw new BadgeEngineError(
+        'Metadati Libreria non validi per Maratoneta',
+        'facts_load_failed',
+      );
+    }
+    return trackedEpisodes.length > 0
+      ? [
+          {
+            libraryItemId: row.id,
+            titleId: row.title_id,
+            tmdbId: title.tmdb_id,
+            trackedEpisodes,
+          },
+        ]
+      : [];
+  });
+  if (candidates.length === 0) {
+    return { seasons: [] };
+  }
+
+  const metadata = await resolveTvBadgeMetadata(
+    supabaseAdmin,
+    candidates,
+  );
+  const seasons: MarathonSeasonFact[] = [];
+  candidates.forEach((candidate, index) => {
+    for (const regularSeason of metadata[index].regularSeasons) {
+      if (regularSeason.episodeCount < 8) {
+        continue;
+      }
+      const trackedEpisodes = candidate.trackedEpisodes
+        .filter(
+          (episode) =>
+            episode.seasonNumber === regularSeason.seasonNumber,
+        )
+        .map((episode) => ({
+          watchId: episode.watchId,
+          episodeNumber: episode.episodeNumber,
+          watchedOn: episode.watchedOn,
+        }));
+      if (trackedEpisodes.length === 0) {
+        continue;
+      }
+      seasons.push({
+        seasonKey: `${candidate.libraryItemId}:S${regularSeason.seasonNumber}`,
+        episodeCount: regularSeason.episodeCount,
+        trackedEpisodes,
+      });
+    }
+  });
+  return { seasons };
+}
+
 async function loadFacts(
   definition: BadgeDefinition,
   supabaseAdmin: SupabaseClient,
@@ -1670,6 +1806,9 @@ async function loadFacts(
     definition.version === 1
   ) {
     return loadOneMoreEpisodeFacts(supabaseAdmin, userId);
+  }
+  if (definition.id === 'marathon' && definition.version === 1) {
+    return loadMarathonFacts(supabaseAdmin, userId);
   }
   if (
     definition.version === 1 &&

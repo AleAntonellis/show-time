@@ -8,8 +8,8 @@ Questa proposta affianca, senza sostituirla, la prima raccolta di idee in
 ## Stato
 
 - **Fase:** implementazione
-- **Implementazione:** fino ad Ancora un episodio (B2) pubblicato e verificato in
-  produzione
+- **Implementazione:** fino ad Ancora un episodio (B2) pubblicato; Maratoneta (B3)
+  completato localmente e in attesa di rollout
 - **Obiettivo:** arrivare a un catalogo V1 piccolo, misurabile e sostenibile
 - **Principio guida:** premiare il percorso personale, non la quantità di tempo
   trascorsa davanti allo schermo
@@ -278,13 +278,19 @@ Completa più episodi della stessa serie nella stessa data.
 
 Completa rapidamente una stagione di almeno 8 episodi.
 
-Proposta V1:
+| Livello | Requisito |
+|---|---:|
+| Bronzo | 1 stagione |
+| Argento | 5 stagioni |
+| Oro | 15 stagioni |
+| Platino | 30 stagioni |
 
 - stagione da almeno 8 episodi;
 - tutti gli episodi completati nello stesso giorno o in due giorni consecutivi;
-- solo attività `tracked`.
+- solo attività `tracked`;
 - l’ordine di registrazione degli episodi non è rilevante;
 - l’intera stagione deve rientrare nella stessa finestra di una o due date.
+- ogni stagione distinta contribuisce una sola volta.
 
 Il requisito “entro 48 ore” viene evitato finché ShowTime non registra l’orario reale
 della visione.
@@ -951,7 +957,7 @@ usati dal progetto.
 
 - [x] Esploratore di generi
 - [x] Ancora un episodio
-- [ ] Maratoneta
+- [x] Maratoneta
 - [ ] Encore
 
 ### Verifica Batch B1 — Esploratore di generi
@@ -1014,6 +1020,27 @@ usati dal progetto.
 - rollback completo verificato: visioni ripristinate come `imported` con la data
   originale, sblocco di prova rimosso, progresso e massimo a `0`, UI tornata a `0/3`.
 
+### Verifica Batch B3 — Maratoneta
+
+- soglie progressive confermate: `1 / 5 / 15 / 30` stagioni distinte;
+- una stagione deve contenere almeno 8 episodi regolari secondo TMDB;
+- tutti gli episodi ufficiali della stagione devono essere `tracked`;
+- Stagione 0 / Speciali e storico importato esclusi;
+- la finestra ammette una sola data o due date di calendario consecutive;
+- l’ordine di registrazione non modifica il risultato;
+- il cambio mese o anno viene gestito come consecutivo quando la differenza è un giorno;
+- stagioni incomplete, date distanti e serie differenti non vengono combinate;
+- riusa la cache TMDB protetta di Serialista, con TTL 7 giorni;
+- evidenza privata limitata alle chiavi tecniche delle stagioni valide;
+- rivalutazioni dopo spunta singola, stagione in blocco e cambio origine;
+- migration `0024_marathon_badge.sql` e test SQL transazionale pronti;
+- patch originale a cronometro, otto episodi e traguardo;
+- preview locale con catalogo intercettato: `Maratoneta 0/4`, progresso `0/1`,
+  hero `3/31`;
+- patch e accordion verificati senza overflow a 360 e 390 px e senza errori console;
+- `38/38` test engine superati;
+- typecheck e lint mirato superati.
+
 #### Batch C — Diario e Social
 
 - [ ] Critico
@@ -1073,6 +1100,7 @@ usati dal progetto.
 - [x] Livelli Bronzo, Argento, Oro e Platino
 - [x] Tutte le famiglie a progressione arrivano a Platino
 - [x] Maratoneta accetta lo stesso giorno o due date consecutive
+- [x] Maratoneta conta stagioni distinte con soglie 1 / 5 / 15 / 30
 - [x] Critico conta tutte le voci distinte con nota, incluse revisioni e rewatch
 
 ### Badge introduttivi
@@ -1168,11 +1196,11 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 
 Le decisioni di prodotto necessarie per la V1 sono chiuse.
 
-Il prossimo passo operativo è **Maratoneta**:
+Il prossimo passo operativo è completare il rollout di **Maratoneta**:
 
-1. formalizzare la regola già approvata per stagioni da almeno 8 episodi;
-2. usare soltanto attività `tracked`;
-3. richiedere l’intera stagione nella stessa data o in due date consecutive;
-4. rendere il risultato indipendente dall’ordine di registrazione;
-5. implementare valutatore, migration, test e patch dedicata;
-6. verificare localmente e poi con un rollout reversibile.
+1. verificare patch e accordion a 360 e 390 px;
+2. distribuire la Edge Function aggiornata;
+3. applicare la migration `0024_marathon_badge.sql`;
+4. eseguire il test SQL transazionale;
+5. verificare backfill e idempotenza sugli account reali;
+6. pubblicare il client e completare un test live reversibile.

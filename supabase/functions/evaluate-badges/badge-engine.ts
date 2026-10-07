@@ -174,6 +174,22 @@ export type OneMoreEpisodeFacts = {
   trackedEpisodes: TrackedEpisodeFact[];
 };
 
+export type MarathonEpisodeFact = {
+  watchId: string;
+  episodeNumber: number;
+  watchedOn: string;
+};
+
+export type MarathonSeasonFact = {
+  seasonKey: string;
+  episodeCount: number;
+  trackedEpisodes: MarathonEpisodeFact[];
+};
+
+export type MarathonFacts = {
+  seasons: MarathonSeasonFact[];
+};
+
 export type RegularSeasonDefinition = {
   seasonNumber: number;
   episodeCount: number;
@@ -457,20 +473,27 @@ function parseGenreExplorerFacts(facts: unknown): GenreExplorerFacts {
   return { completedTitles };
 }
 
-function isValidDateOnly(value: string): boolean {
+function dateOnlyEpochDay(value: string): number | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) {
-    return false;
+    return null;
   }
   const year = Number(match[1]);
   const month = Number(match[2]);
   const day = Number(match[3]);
   const date = new Date(Date.UTC(year, month - 1, day));
-  return (
+  if (
     date.getUTCFullYear() === year &&
     date.getUTCMonth() === month - 1 &&
     date.getUTCDate() === day
-  );
+  ) {
+    return Math.floor(date.getTime() / 86_400_000);
+  }
+  return null;
+}
+
+function isValidDateOnly(value: string): boolean {
+  return dateOnlyEpochDay(value) != null;
 }
 
 function parseOneMoreEpisodeFacts(
@@ -522,6 +545,113 @@ function parseOneMoreEpisodeFacts(
     });
   }
   return { trackedEpisodes };
+}
+
+function parseMarathonFacts(facts: unknown): MarathonFacts {
+  if (
+    typeof facts !== 'object' ||
+    facts == null ||
+    !('seasons' in facts) ||
+    !Array.isArray(facts.seasons)
+  ) {
+    throw new BadgeEngineError(
+      'Fatti Maratoneta non validi',
+      'facts_invalid',
+    );
+  }
+  const seasons: MarathonSeasonFact[] = [];
+  const seasonKeys = new Set<string>();
+  for (const season of facts.seasons) {
+    if (
+      typeof season !== 'object' ||
+      season == null ||
+      !('seasonKey' in season) ||
+      typeof season.seasonKey !== 'string' ||
+      !season.seasonKey.trim() ||
+      seasonKeys.has(season.seasonKey.trim()) ||
+      !('episodeCount' in season) ||
+      !Number.isInteger(season.episodeCount) ||
+      Number(season.episodeCount) <= 0 ||
+      !('trackedEpisodes' in season) ||
+      !Array.isArray(season.trackedEpisodes)
+    ) {
+      throw new BadgeEngineError(
+        'Fatti Maratoneta non validi',
+        'facts_invalid',
+      );
+    }
+    const episodeNumbers = new Set<number>();
+    const trackedEpisodes: MarathonEpisodeFact[] = [];
+    for (const episode of season.trackedEpisodes) {
+      if (
+        typeof episode !== 'object' ||
+        episode == null ||
+        !('watchId' in episode) ||
+        typeof episode.watchId !== 'string' ||
+        !episode.watchId.trim() ||
+        !('episodeNumber' in episode) ||
+        !Number.isInteger(episode.episodeNumber) ||
+        Number(episode.episodeNumber) <= 0 ||
+        episodeNumbers.has(Number(episode.episodeNumber)) ||
+        !('watchedOn' in episode) ||
+        typeof episode.watchedOn !== 'string' ||
+        !isValidDateOnly(episode.watchedOn)
+      ) {
+        throw new BadgeEngineError(
+          'Fatti Maratoneta non validi',
+          'facts_invalid',
+        );
+      }
+      episodeNumbers.add(Number(episode.episodeNumber));
+      trackedEpisodes.push({
+        watchId: episode.watchId.trim(),
+        episodeNumber: Number(episode.episodeNumber),
+        watchedOn: episode.watchedOn,
+      });
+    }
+    const seasonKey = season.seasonKey.trim();
+    seasonKeys.add(seasonKey);
+    seasons.push({
+      seasonKey,
+      episodeCount: Number(season.episodeCount),
+      trackedEpisodes,
+    });
+  }
+  return { seasons };
+}
+
+function isMarathonSeason(season: MarathonSeasonFact): boolean {
+  if (season.episodeCount < 8) {
+    return false;
+  }
+  const officialEpisodes = new Map(
+    season.trackedEpisodes
+      .filter((episode) => episode.episodeNumber <= season.episodeCount)
+      .map((episode) => [episode.episodeNumber, episode] as const),
+  );
+  if (officialEpisodes.size !== season.episodeCount) {
+    return false;
+  }
+  const dates = Array.from(
+    new Set(
+      Array.from(officialEpisodes.values()).map(
+        (episode) => episode.watchedOn,
+      ),
+    ),
+  ).sort();
+  if (dates.length === 1) {
+    return true;
+  }
+  if (dates.length !== 2) {
+    return false;
+  }
+  const firstDay = dateOnlyEpochDay(dates[0]);
+  const secondDay = dateOnlyEpochDay(dates[1]);
+  return (
+    firstDay != null &&
+    secondDay != null &&
+    secondDay - firstDay === 1
+  );
 }
 
 function normalizeGenreName(value: string): string {
@@ -847,6 +977,31 @@ export const oneMoreEpisodeEvaluator: BadgeEvaluator = {
   },
 };
 
+export const marathonEvaluator: BadgeEvaluator = {
+  badgeId: 'marathon',
+  version: 1,
+  evaluate(definition, rawFacts, context) {
+    const facts = parseMarathonFacts(rawFacts);
+    const seasonKeys = facts.seasons
+      .filter(isMarathonSeason)
+      .map((season) => season.seasonKey);
+    const evaluation = progressiveDistinctItemEvaluation({
+      definition,
+      badgeId: 'marathon',
+      itemIds: seasonKeys,
+      context,
+      includeItemIds: false,
+    });
+    return {
+      ...evaluation,
+      evidence: {
+        seasonKeys: Array.from(new Set(seasonKeys)).sort(),
+        ...(context.isBackfill ? { backfill: true as const } : {}),
+      },
+    };
+  },
+};
+
 export const firstWatchEvaluator: BadgeEvaluator = {
   badgeId: 'first_watch',
   version: 1,
@@ -1001,6 +1156,7 @@ export function createBadgeRegistry(): BadgeEvaluatorRegistry {
   registry.register(serialistEvaluator);
   registry.register(genreExplorerEvaluator);
   registry.register(oneMoreEpisodeEvaluator);
+  registry.register(marathonEvaluator);
   registry.register(firstWatchEvaluator);
   registry.register(firstReviewEvaluator);
   registry.register(seasonCompleteEvaluator);

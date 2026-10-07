@@ -14,6 +14,7 @@ import { ArchivistBadgePatch } from '@/components/archivist-badge-patch';
 import { CinephileBadgePatch } from '@/components/cinephile-badge-patch';
 import { GenreExplorerBadgePatch } from '@/components/genre-explorer-badge-patch';
 import { IntroductoryBadgePatch } from '@/components/introductory-badge-patch';
+import { MarathonBadgePatch } from '@/components/marathon-badge-patch';
 import { NostalgicBadgePatch } from '@/components/nostalgic-badge-patch';
 import { OneMoreEpisodeBadgePatch } from '@/components/one-more-episode-badge-patch';
 import { SerialistBadgePatch } from '@/components/serialist-badge-patch';
@@ -52,6 +53,7 @@ const PROGRESSIVE_BADGE_ORDER = [
   BADGE_IDS.nostalgic,
   BADGE_IDS.genreExplorer,
   BADGE_IDS.oneMoreEpisode,
+  BADGE_IDS.marathon,
 ] as const;
 
 export default function BadgesTabScreen() {
@@ -316,7 +318,11 @@ export default function BadgesTabScreen() {
                     pressed && styles.pressed,
                   ]}>
                   <View style={styles.sectionCopy}>
-                    <ThemedText type="subtitle">Prime tappe</ThemedText>
+                    <ThemedText
+                      type="subtitle"
+                      style={styles.badgeGroupTitle}>
+                      Prime tappe
+                    </ThemedText>
                     <ThemedText type="small" themeColor="textSecondary">
                       I primi momenti che danno inizio alla tua storia.
                     </ThemedText>
@@ -435,7 +441,11 @@ function ProgressiveFamilyCard({
           pressed && styles.pressed,
         ]}>
         <View style={styles.familyCopy}>
-          <ThemedText type="subtitle">{family.name}</ThemedText>
+          <ThemedText
+            type="subtitle"
+            style={styles.badgeGroupTitle}>
+            {family.name}
+          </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             {family.description}
           </ThemedText>
@@ -563,6 +573,13 @@ function LevelCard({
       )}
       {familyId === BADGE_IDS.oneMoreEpisode && (
         <OneMoreEpisodeBadgePatch
+          levelKey={level.key}
+          levelName={level.name}
+          state={state}
+        />
+      )}
+      {familyId === BADGE_IDS.marathon && (
+        <MarathonBadgePatch
           levelKey={level.key}
           levelName={level.name}
           state={state}
@@ -746,6 +763,10 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     gap: Spacing.one,
+  },
+  badgeGroupTitle: {
+    fontSize: 28,
+    lineHeight: 36,
   },
   progressHeading: {
     flexDirection: 'row',
