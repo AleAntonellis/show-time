@@ -3,7 +3,7 @@
 Registro cronologico delle **decisioni** e dei **progressi** del progetto, così da non perdere nulla.
 Documento vivo: aggiornato a ogni passo di lavoro.
 
-> Ultimo aggiornamento: 2026-10-07 (pubblicazione trofei profilo)
+> Ultimo aggiornamento: 2026-10-07 (durate leggibili nelle Statistiche)
 
 ---
 
@@ -81,6 +81,7 @@ leggera, condivisione via link privato, tema dark esclusivo.
 | D59 | Critico | Voci Diario distinte con nota non vuota in film, episodi e serie; soglie 50/150/250/500 | Premia il contributo scritto senza incentivare testi lunghi o contare attività con solo voto |
 | D60 | Passaparola | Coppie distinte titolo + destinatario con `read_at`; soglie 25/100/250/500 | Premia consigli realmente letti e impedisce incrementi da spam, reinvii o riaperture |
 | D61 | Trofei profilo | Tutti i badge sbloccati, uno per famiglia al massimo livello permanente | Racconta l’intero percorso senza selezione manuale e senza esporre progressi o livelli inferiori |
+| D62 | Durate Statistiche | Formato compatto `y M d h`; anni da 365 giorni, mesi da 30 e totale ore separato | Rende Tempo catalogato e Tempo visto immediatamente leggibili senza cambiare i calcoli |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -465,6 +466,13 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   `Visto`; gli episodi restano basati sulle spunte completate. Il tempo catalogato esclude
   film non completati e storici episodio senza spunta, mentre ogni rewatch valido aggiunge
   nuovamente la durata, inclusa la combinazione import iniziale + visione successiva.
+- ✅ Resi più leggibili **Tempo catalogato** e **Tempo visto**: la durata principale
+  usa le abbreviazioni compatte `y M d h`, con `M` maiuscola per i mesi e unità nulle
+  omesse; anni e mesi sono equivalenze fisse di 365 e 30 giorni. La card conserva
+  sotto il valore il totale preciso a una cifra decimale in ore. Dati reali Test:
+  `1d 8h` / `32,4 h totali` e `6h` / `6,4 h totali`.
+  Test statistiche `6/6`, typecheck e lint mirato superati; nessun overflow o errore
+  console a 360/390 px.
 - ✅ Implementato localmente il **Batch A1 badge**: Primo ciak considera film, episodi
   `tracked`, revisioni episodio e visioni complete serie; Prima recensione richiede una
   nota testuale; Stagione chiusa verifica tutti gli episodi tramite TMDB, accetta importati

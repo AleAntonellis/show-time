@@ -34,12 +34,10 @@ import {
   type PersonalStatisticsByMedia,
   type RecentActivity,
 } from '@/services/statistics';
-
-const numberFormatter = new Intl.NumberFormat('it-IT', { maximumFractionDigits: 1 });
-
-function formatHours(minutes: number): string {
-  return numberFormatter.format(minutes / 60);
-}
+import {
+  formatDurationMinutes,
+  formatExactHours,
+} from '@/utils/duration';
 
 function formatDate(value: string): string {
   const [year, month, day] = value.split('-');
@@ -248,9 +246,15 @@ export default function StatisticsTabScreen() {
                   />
                 )}
                 <SummaryCard
-                  value={`${formatHours(statistics.estimatedMinutes)} h`}
+                  value={formatDurationMinutes(
+                    statistics.estimatedMinutes,
+                  )}
                   label="Tempo catalogato"
+                  detail={formatExactHours(
+                    statistics.estimatedMinutes,
+                  )}
                   accent
+                  compactValue
                 />
                 <SummaryCard
                   value={
@@ -315,11 +319,15 @@ export default function StatisticsTabScreen() {
                   />
                 )}
                 <SummaryCard
-                  value={`${formatHours(
+                  value={formatDurationMinutes(
                     statistics.lastThirtyDays.estimatedMinutes,
-                  )} h`}
+                  )}
                   label="Tempo visto"
+                  detail={formatExactHours(
+                    statistics.lastThirtyDays.estimatedMinutes,
+                  )}
                   accent
+                  compactValue
                 />
                 <SummaryCard
                   value={
@@ -358,22 +366,40 @@ export default function StatisticsTabScreen() {
 function SummaryCard({
   value,
   label,
+  detail,
   accent = false,
+  compactValue = false,
 }: {
   value: string;
   label: string;
+  detail?: string;
   accent?: boolean;
+  compactValue?: boolean;
 }) {
   return (
     <ThemedView
       type="backgroundElement"
       style={[styles.summaryCard, accent && styles.summaryCardAccent]}>
-      <ThemedText type="smallBold" style={[styles.summaryValue, accent && styles.accentText]}>
+      <ThemedText
+        type="smallBold"
+        style={[
+          styles.summaryValue,
+          compactValue && styles.summaryValueCompact,
+          accent && styles.accentText,
+        ]}>
         {value}
       </ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
         {label}
       </ThemedText>
+      {detail && (
+        <ThemedText
+          type="small"
+          themeColor="textSecondary"
+          style={styles.summaryDetail}>
+          {detail}
+        </ThemedText>
+      )}
     </ThemedView>
   );
 }
@@ -555,6 +581,14 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: 24,
     lineHeight: 30,
+  },
+  summaryValueCompact: {
+    fontSize: 19,
+    lineHeight: 25,
+  },
+  summaryDetail: {
+    fontSize: 12,
+    lineHeight: 17,
   },
   accentText: {
     color: Brand.sunsetOrange,
