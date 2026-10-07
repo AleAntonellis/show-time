@@ -3,7 +3,7 @@
 Registro cronologico delle **decisioni** e dei **progressi** del progetto, così da non perdere nulla.
 Documento vivo: aggiornato a ogni passo di lavoro.
 
-> Ultimo aggiornamento: 2026-10-07 (pubblicazione Passaparola)
+> Ultimo aggiornamento: 2026-10-07 (trofei compatti sul profilo)
 
 ---
 
@@ -80,6 +80,7 @@ leggera, condivisione via link privato, tema dark esclusivo.
 | D58 | Encore | Titoli distinti con due visioni reali, oppure import completo seguito da una visione reale; soglie 5/25/100/250 | Premia i rewatch verificabili senza contare due importazioni o progressi serie misti |
 | D59 | Critico | Voci Diario distinte con nota non vuota in film, episodi e serie; soglie 50/150/250/500 | Premia il contributo scritto senza incentivare testi lunghi o contare attività con solo voto |
 | D60 | Passaparola | Coppie distinte titolo + destinatario con `read_at`; soglie 25/100/250/500 | Premia consigli realmente letti e impedisce incrementi da spam, reinvii o riaperture |
+| D61 | Trofei profilo | Tutti i badge sbloccati, uno per famiglia al massimo livello permanente | Racconta l’intero percorso senza selezione manuale e senza esporre progressi o livelli inferiori |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -570,6 +571,21 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   non autorizzato bloccato `403`. Test rimasto `0/25`. Rollback verificato: eliminate
   21 condivisioni temporanee e rimosse le righe badge di prova, lasciando 5 coppie
   reali. Produzione senza overflow a 360/390 px né errori console.
+- ✅ Implementati localmente i **trofei compatti sul profilo**: tutti i badge
+  sbloccati vengono mostrati automaticamente, uno per famiglia al livello permanente
+  più alto; i tre badge introduttivi restano traguardi singoli. La RPC protetta usa
+  `require_viewable_profile` e non restituisce progressi, soglie, evidenze o livelli
+  inferiori. Estratto un renderer patch condiviso con la Sala trofei e aggiunta una
+  griglia compatta a tre colonne, con errore isolato dal resto del profilo. Preview
+  personale e follower accettato verificate a 360/390 px: Test mostra i 3 trofei
+  introduttivi; `ale` mostra 6 trofei reali in due righe, con Cinefilo Argento ed
+  Esploratore Platino. Critico è correttamente escluso perché il progresso `4/50`
+  non rappresenta uno sblocco. L’ordine privilegia Platino, Oro, Argento e Bronzo,
+  seguito dai badge introduttivi; a parità resta l’ordine Sala trofei. Oltre 6 elementi
+  la sezione mostra inizialmente i primi sei con “Mostra tutti / Mostra meno”.
+  Nessun overflow o errore console. Migration `0028` e test SQL del massimo livello
+  pronti; test badge `51/51`, statistiche `3/3`, typecheck e lint mirato superati.
+  Rollout ancora da completare.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

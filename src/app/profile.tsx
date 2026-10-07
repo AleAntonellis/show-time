@@ -14,15 +14,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ExpandableQuotedText } from '@/components/expandable-quoted-text';
+import { ProfileTrophyGrid } from '@/components/profile-trophy-grid';
 import { Brand, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import {
   getFollowedDiary,
   getFollowedLibrary,
   getFollowedProfile,
+  getFollowedProfileTrophies,
   type FollowedDiaryEntry,
   type FollowedLibraryItem,
   type FollowedProfile,
+  type FollowedProfileTrophy,
 } from '@/services/follower-profile';
 import { STATUS_LABELS, STATUS_ORDER, type LibraryStatus } from '@/services/library';
 
@@ -59,6 +62,8 @@ export default function FollowerProfileScreen() {
   const [profile, setProfile] = useState<FollowedProfile | null>(null);
   const [library, setLibrary] = useState<FollowedLibraryItem[]>([]);
   const [diary, setDiary] = useState<FollowedDiaryEntry[]>([]);
+  const [trophies, setTrophies] = useState<FollowedProfileTrophy[]>([]);
+  const [trophyWarning, setTrophyWarning] = useState<string | null>(null);
   const [tab, setTab] = useState<ProfileTab>('library');
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -74,16 +79,34 @@ export default function FollowerProfileScreen() {
     async function load() {
       setLoading(true);
       setError(null);
+      setTrophyWarning(null);
       try {
+        const trophyRequest = getFollowedProfileTrophies(
+          requestedUsername,
+        )
+          .then((value) => ({ value, error: null }))
+          .catch((trophyError: unknown) => ({
+            value: [] as FollowedProfileTrophy[],
+            error: trophyError,
+          }));
         const [nextProfile, nextLibrary, nextDiary] = await Promise.all([
           getFollowedProfile(requestedUsername),
           getFollowedLibrary(requestedUsername),
           getFollowedDiary(requestedUsername, DIARY_PAGE_SIZE, 0),
         ]);
+        const trophyResult = await trophyRequest;
         if (!cancelled) {
           setProfile(nextProfile);
           setLibrary(nextLibrary);
           setDiary(nextDiary);
+          setTrophies(trophyResult.value);
+          if (trophyResult.error) {
+            setTrophyWarning(
+              trophyResult.error instanceof Error
+                ? `Trofei non disponibili: ${trophyResult.error.message}`
+                : 'Trofei non disponibili',
+            );
+          }
         }
       } catch (err) {
         if (!cancelled) {
@@ -224,6 +247,12 @@ export default function FollowerProfileScreen() {
                 <ProfileCount value={profile.diaryCount} label="ricordi" />
               </View>
             </ThemedView>
+
+            <ProfileTrophyGrid
+              key={profile.username}
+              trophies={trophies}
+              warning={trophyWarning}
+            />
 
             <View style={styles.tabs}>
               <ProfileTabButton

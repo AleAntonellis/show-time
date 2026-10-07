@@ -8,8 +8,8 @@ Questa proposta affianca, senza sostituirla, la prima raccolta di idee in
 ## Stato
 
 - **Fase:** implementazione
-- **Implementazione:** catalogo badge V1 fino a Passaparola (C2) pubblicato e
-  verificato in produzione
+- **Implementazione:** catalogo badge V1 pubblicato; trofei profilo (Fase 4.1)
+  completati localmente e in attesa di rollout
 - **Obiettivo:** arrivare a un catalogo V1 piccolo, misurabile e sostenibile
 - **Principio guida:** premiare il percorso personale, non la quantità di tempo
   trascorsa davanti allo schermo
@@ -733,12 +733,20 @@ L’evidenza tecnica minima resta privata nel database soltanto per audit e diag
 
 ### Profilo follower
 
-Ogni utente può scegliere fino a 3 badge sbloccati da mettere in evidenza.
-I badge selezionati sono visibili a tutti i follower accettati, con le stesse regole di
-accesso già usate per Libreria e Diario.
+Il profilo mostra automaticamente tutti i badge sbloccati.
+
+- Per ogni famiglia progressiva viene mostrato soltanto il livello permanente più alto.
+- I badge introduttivi vengono mostrati singolarmente.
+- Non è richiesta una selezione manuale.
+- La griglia è identica sul profilo personale e per tutti i follower accettati.
+- L’accesso usa le stesse regole già applicate a Libreria e Diario.
+- L’ordine privilegia Platino, Oro, Argento e Bronzo; i badge introduttivi seguono.
+- A parità di metallo resta valido l’ordine della Sala trofei.
+- Oltre 6 trofei la sezione parte compatta e offre “Mostra tutti / Mostra meno”.
 
 Da mantenere privati:
 
+- livelli inferiori della stessa famiglia;
 - progresso dei badge non sbloccati;
 - metriche grezze;
 - orari e pattern comportamentali;
@@ -1170,12 +1178,35 @@ usati dal progetto.
 
 ### Fase 4 — Profilo e rifiniture
 
-- [ ] Selezione di 1–3 badge pubblici
-- [ ] Badge in evidenza sul profilo follower
+- [x] Tutti i badge sbloccati sul profilo, uno per famiglia al livello più alto
+- [x] Griglia trofei compatta sul profilo personale e follower
 - [ ] Accessibilità
 - [ ] Localizzazione testi
 - [ ] Telemetria errori dell’engine
 - [ ] Riconciliazione completa
+
+### Verifica Fase 4.1 — Trofei profilo
+
+- nuova RPC `get_followed_profile_badges` protetta da `require_viewable_profile`;
+- stesso accesso del profilo: proprietario o follower accettato;
+- restituisce soltanto famiglie sbloccate e un’unica riga per badge;
+- selezione server-side del livello numerico più alto, indipendente dal progresso corrente;
+- badge introduttivi inclusi come traguardi singoli;
+- nessuna esposizione di progresso, soglia, badge bloccati, evidenze o livelli inferiori;
+- renderer patch condiviso tra Sala trofei e profilo;
+- ordine per valore: Platino, Oro, Argento, Bronzo, poi badge introduttivi;
+- ordine Sala trofei usato come spareggio tra badge dello stesso metallo;
+- griglia compatta a tre colonne su mobile e fluida su schermi più ampi;
+- massimo 6 trofei iniziali, con toggle “Mostra tutti / Mostra meno” oltre la soglia;
+- errore trofei isolato: Libreria e Diario del profilo restano disponibili;
+- migration `0028_profile_trophies.sql` e test SQL del massimo livello pronti;
+- preview profilo Test: 3 trofei introduttivi reali in una riga;
+- preview follower `ale`: 6 trofei reali in due righe, Cinefilo Argento ed
+  Esploratore di generi Platino;
+- Critico correttamente escluso dal profilo `ale`: progresso `4/50`, nessuno sblocco;
+- nessun overflow o errore console a 360 e 390 px;
+- `51/51` test badge e `3/3` test statistiche superati;
+- typecheck e lint mirato superati.
 
 ### Fase 5 — Crediti TMDB
 
@@ -1200,7 +1231,7 @@ usati dal progetto.
 - Un errore di valutazione non blocca la mutazione principale.
 - La Sala trofei funziona a 390 px senza overflow.
 - RLS impedisce di leggere badge privati di altri utenti.
-- Le superfici follower espongono solo badge scelti dall’utente.
+- Le superfici follower espongono solo il massimo livello sbloccato di ogni famiglia.
 
 ---
 
@@ -1270,8 +1301,11 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 
 ### Social
 
-- [x] Fino a 3 badge pubblici scelti dall’utente
-- [x] Badge pubblici visibili a tutti i follower accettati
+- [x] Tutti i badge sbloccati sono visibili ai follower accettati
+- [x] Un solo badge per famiglia, sempre al livello permanente più alto
+- [x] Badge introduttivi visibili come traguardi singoli
+- [x] Ordinamento per metallo; badge introduttivi dopo quelli progressivi
+- [x] Sezione compatta a 6 trofei con espansione opzionale
 - [x] Progresso, badge bloccati ed evidenze restano privati
 - [x] Passaparola conta una sola volta per coppia titolo + destinatario
 - [x] Reinvii e riaperture non incrementano il progresso
@@ -1321,11 +1355,11 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 
 Le decisioni di prodotto necessarie per la V1 sono chiuse.
 
-Il prossimo passo operativo è la **selezione dei badge pubblici**:
+Il prossimo passo operativo è completare il rollout dei **trofei profilo**:
 
-1. permettere di scegliere fino a 3 badge sbloccati;
-2. mostrare la selezione nel profilo personale;
-3. esporre soltanto i badge scelti ai follower accettati;
-4. mantenere privati progressi, badge bloccati ed evidenze;
-5. gestire ordine, sostituzione e rimozione della selezione;
-6. verificare accessibilità e layout mobile.
+1. applicare la migration `0028_profile_trophies.sql`;
+2. eseguire il test SQL del livello massimo per famiglia;
+3. pubblicare la griglia compatta;
+4. verificare profilo personale e follower accettato con dati reali;
+5. controllare che nessun dato privato venga restituito;
+6. completare lo smoke responsive in produzione.

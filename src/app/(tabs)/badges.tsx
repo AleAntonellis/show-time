@@ -10,17 +10,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ArchivistBadgePatch } from '@/components/archivist-badge-patch';
-import { CinephileBadgePatch } from '@/components/cinephile-badge-patch';
-import { CriticBadgePatch } from '@/components/critic-badge-patch';
-import { EncoreBadgePatch } from '@/components/encore-badge-patch';
-import { GenreExplorerBadgePatch } from '@/components/genre-explorer-badge-patch';
+import { BadgePatch } from '@/components/badge-patch';
 import { IntroductoryBadgePatch } from '@/components/introductory-badge-patch';
-import { MarathonBadgePatch } from '@/components/marathon-badge-patch';
-import { NostalgicBadgePatch } from '@/components/nostalgic-badge-patch';
-import { OneMoreEpisodeBadgePatch } from '@/components/one-more-episode-badge-patch';
-import { WordOfMouthBadgePatch } from '@/components/word-of-mouth-badge-patch';
-import { SerialistBadgePatch } from '@/components/serialist-badge-patch';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
@@ -32,8 +23,8 @@ import {
 } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import {
-  BADGE_IDS,
   INTRODUCTORY_BADGE_IDS,
+  PROGRESSIVE_BADGE_IDS,
   evaluateBadgesAndNotify,
   getMyBadgeCatalog,
   isIntroductoryBadgeId,
@@ -49,19 +40,6 @@ const dateFormatter = new Intl.DateTimeFormat('it-IT', {
   year: 'numeric',
 });
 const INTRODUCTORY_GROUP_ID = 'introductory';
-const PROGRESSIVE_BADGE_ORDER = [
-  BADGE_IDS.cinephile,
-  BADGE_IDS.serialist,
-  BADGE_IDS.archivist,
-  BADGE_IDS.nostalgic,
-  BADGE_IDS.genreExplorer,
-  BADGE_IDS.oneMoreEpisode,
-  BADGE_IDS.marathon,
-  BADGE_IDS.encore,
-  BADGE_IDS.critic,
-  BADGE_IDS.wordOfMouth,
-] as const;
-
 export default function BadgesTabScreen() {
   const insets = useSafeAreaInsets();
   const { configured, session } = useAuth();
@@ -196,11 +174,11 @@ export default function BadgesTabScreen() {
   const progressiveFamilies = families.filter(
     (family) => !isIntroductoryBadgeId(family.id),
   ).sort((first, second) => {
-    const firstIndex = PROGRESSIVE_BADGE_ORDER.indexOf(
-      first.id as (typeof PROGRESSIVE_BADGE_ORDER)[number],
+    const firstIndex = PROGRESSIVE_BADGE_IDS.indexOf(
+      first.id as (typeof PROGRESSIVE_BADGE_IDS)[number],
     );
-    const secondIndex = PROGRESSIVE_BADGE_ORDER.indexOf(
-      second.id as (typeof PROGRESSIVE_BADGE_ORDER)[number],
+    const secondIndex = PROGRESSIVE_BADGE_IDS.indexOf(
+      second.id as (typeof PROGRESSIVE_BADGE_IDS)[number],
     );
     return (
       (firstIndex < 0 ? Number.MAX_SAFE_INTEGER : firstIndex) -
@@ -542,76 +520,13 @@ function LevelCard({
 
   return (
     <View style={[styles.levelCard, isNext && styles.levelCardNext]}>
-      {familyId === BADGE_IDS.cinephile && (
-        <CinephileBadgePatch
-          levelKey={level.key}
-          levelName={level.name}
-          state={state}
-        />
-      )}
-      {familyId === BADGE_IDS.archivist && (
-        <ArchivistBadgePatch
-          levelKey={level.key}
-          levelName={level.name}
-          state={state}
-        />
-      )}
-      {familyId === BADGE_IDS.nostalgic && (
-        <NostalgicBadgePatch
-          levelKey={level.key}
-          levelName={level.name}
-          state={state}
-        />
-      )}
-      {familyId === BADGE_IDS.serialist && (
-        <SerialistBadgePatch
-          levelKey={level.key}
-          levelName={level.name}
-          state={state}
-        />
-      )}
-      {familyId === BADGE_IDS.genreExplorer && (
-        <GenreExplorerBadgePatch
-          levelKey={level.key}
-          levelName={level.name}
-          state={state}
-        />
-      )}
-      {familyId === BADGE_IDS.oneMoreEpisode && (
-        <OneMoreEpisodeBadgePatch
-          levelKey={level.key}
-          levelName={level.name}
-          state={state}
-        />
-      )}
-      {familyId === BADGE_IDS.marathon && (
-        <MarathonBadgePatch
-          levelKey={level.key}
-          levelName={level.name}
-          state={state}
-        />
-      )}
-      {familyId === BADGE_IDS.encore && (
-        <EncoreBadgePatch
-          levelKey={level.key}
-          levelName={level.name}
-          state={state}
-        />
-      )}
-      {familyId === BADGE_IDS.critic && (
-        <CriticBadgePatch
-          levelKey={level.key}
-          levelName={level.name}
-          state={state}
-        />
-      )}
-      {familyId === BADGE_IDS.wordOfMouth && (
-        <WordOfMouthBadgePatch
-          levelKey={level.key}
-          levelName={level.name}
-          state={state}
-        />
-      )}
+      <BadgePatch
+        badgeId={familyId}
+        badgeName={familyId}
+        levelKey={level.key}
+        levelName={level.name}
+        state={state}
+      />
       <View style={styles.levelCopy}>
         <ThemedText type="smallBold">{level.name}</ThemedText>
         <ThemedText

@@ -1,7 +1,12 @@
 import type { LibraryStatus } from '@/services/library';
+import {
+  isBadgeLevelKey,
+  type BadgeLevelKey,
+} from '@/services/badges';
 import { normalizeUsername, usernameValidationError } from '@/services/social';
 import { getSupabase } from '@/services/supabase';
 import { posterUrl, type MediaType } from '@/services/tmdb';
+import { sortProfileTrophies } from '@/utils/profile-trophies';
 
 export type FollowedProfile = {
   username: string;
@@ -34,6 +39,16 @@ export type FollowedDiaryEntry = {
   note: string | null;
 };
 
+export type FollowedProfileTrophy = {
+  badgeId: string;
+  badgeName: string;
+  badgeDescription: string;
+  level: number;
+  levelKey: BadgeLevelKey;
+  levelName: string;
+  unlockedAt: string;
+};
+
 type ProfileRow = {
   username: string;
   display_name: string | null;
@@ -62,6 +77,16 @@ type DiaryRow = {
   watched_on: string;
   rating: number | null;
   note: string | null;
+};
+
+type TrophyRow = {
+  badge_id: string;
+  badge_name: string;
+  badge_description: string;
+  level: number;
+  level_key: string;
+  level_name: string;
+  unlocked_at: string;
 };
 
 function validatedUsername(value: string): string {
@@ -137,4 +162,33 @@ export async function getFollowedDiary(
     rating: row.rating,
     note: row.note,
   }));
+}
+
+export async function getFollowedProfileTrophies(
+  username: string,
+): Promise<FollowedProfileTrophy[]> {
+  const { data, error } = await getSupabase().rpc(
+    'get_followed_profile_badges',
+    {
+      p_username: validatedUsername(username),
+    },
+  );
+  if (error) {
+    throw new Error(error.message);
+  }
+  const trophies = ((data ?? []) as TrophyRow[]).map((row) => {
+    if (!isBadgeLevelKey(row.level_key)) {
+      throw new Error(`Livello badge profilo non valido: ${row.level_key}`);
+    }
+    return {
+      badgeId: row.badge_id,
+      badgeName: row.badge_name,
+      badgeDescription: row.badge_description,
+      level: Number(row.level),
+      levelKey: row.level_key,
+      levelName: row.level_name,
+      unlockedAt: row.unlocked_at,
+    };
+  });
+  return sortProfileTrophies(trophies);
 }

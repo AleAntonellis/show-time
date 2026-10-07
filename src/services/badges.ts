@@ -1,57 +1,34 @@
+import {
+  ALL_BADGE_IDS,
+  BADGE_IDS,
+  BADGE_LEVEL_KEYS,
+  INTRODUCTORY_BADGE_IDS,
+  PROFILE_BADGE_ORDER,
+  PROGRESSIVE_BADGE_IDS,
+  isBadgeLevelKey,
+  isIntroductoryBadgeId,
+  type BadgeLevelKey,
+  type IntroductoryBadgeId,
+} from '@/constants/badges';
 import { getSupabase } from '@/services/supabase';
+
+export {
+  ALL_BADGE_IDS,
+  BADGE_IDS,
+  BADGE_LEVEL_KEYS,
+  INTRODUCTORY_BADGE_IDS,
+  PROFILE_BADGE_ORDER,
+  PROGRESSIVE_BADGE_IDS,
+  isBadgeLevelKey,
+  isIntroductoryBadgeId,
+};
+export type { BadgeLevelKey, IntroductoryBadgeId };
 
 type BadgeUnlockListener = (count: number) => void;
 
 const unlockListeners = new Set<BadgeUnlockListener>();
 const queuedBadgeIds = new Set<string>();
 let evaluationTimer: ReturnType<typeof setTimeout> | null = null;
-
-export const BADGE_IDS = {
-  cinephile: 'cinephile',
-  archivist: 'archivist',
-  nostalgic: 'nostalgic',
-  serialist: 'serialist',
-  genreExplorer: 'genre_explorer',
-  oneMoreEpisode: 'one_more_episode',
-  marathon: 'marathon',
-  encore: 'encore',
-  critic: 'critic',
-  wordOfMouth: 'word_of_mouth',
-  firstWatch: 'first_watch',
-  firstReview: 'first_review',
-  seasonComplete: 'season_complete',
-} as const;
-
-export const INTRODUCTORY_BADGE_IDS = [
-  BADGE_IDS.firstWatch,
-  BADGE_IDS.firstReview,
-  BADGE_IDS.seasonComplete,
-] as const;
-
-export const ALL_BADGE_IDS = [
-  BADGE_IDS.cinephile,
-  BADGE_IDS.archivist,
-  BADGE_IDS.nostalgic,
-  BADGE_IDS.serialist,
-  BADGE_IDS.genreExplorer,
-  BADGE_IDS.oneMoreEpisode,
-  BADGE_IDS.marathon,
-  BADGE_IDS.encore,
-  BADGE_IDS.critic,
-  BADGE_IDS.wordOfMouth,
-  ...INTRODUCTORY_BADGE_IDS,
-] as const;
-
-export type IntroductoryBadgeId =
-  (typeof INTRODUCTORY_BADGE_IDS)[number];
-
-export function isIntroductoryBadgeId(
-  badgeId: string,
-): badgeId is IntroductoryBadgeId {
-  return (INTRODUCTORY_BADGE_IDS as readonly string[]).includes(badgeId);
-}
-
-export type BadgeLevelKey = 'bronze' | 'silver' | 'gold' | 'platinum';
 
 export type BadgeLevelState = {
   level: number;
