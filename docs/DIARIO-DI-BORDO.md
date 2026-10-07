@@ -3,7 +3,7 @@
 Registro cronologico delle **decisioni** e dei **progressi** del progetto, così da non perdere nulla.
 Documento vivo: aggiornato a ogni passo di lavoro.
 
-> Ultimo aggiornamento: 2026-10-07 (trofei compatti sul profilo)
+> Ultimo aggiornamento: 2026-10-07 (pubblicazione trofei profilo)
 
 ---
 
@@ -571,7 +571,7 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   non autorizzato bloccato `403`. Test rimasto `0/25`. Rollback verificato: eliminate
   21 condivisioni temporanee e rimosse le righe badge di prova, lasciando 5 coppie
   reali. Produzione senza overflow a 360/390 px né errori console.
-- ✅ Implementati localmente i **trofei compatti sul profilo**: tutti i badge
+- ✅ Pubblicati i **trofei compatti sul profilo**: tutti i badge
   sbloccati vengono mostrati automaticamente, uno per famiglia al livello permanente
   più alto; i tre badge introduttivi restano traguardi singoli. La RPC protetta usa
   `require_viewable_profile` e non restituisce progressi, soglie, evidenze o livelli
@@ -585,7 +585,13 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   la sezione mostra inizialmente i primi sei con “Mostra tutti / Mostra meno”.
   Nessun overflow o errore console. Migration `0028` e test SQL del massimo livello
   pronti; test badge `51/51`, statistiche `3/3`, typecheck e lint mirato superati.
-  Rollout ancora da completare.
+  Migration e test SQL applicati; deploy Azure sul commit `d44bfc5`, run
+  `37610160775`. Produzione: Test mostra 3 introduttivi; `ale` mostra 6 trofei reali
+  ordinati per metallo, con Esploratore Platino, Cinefilo Argento, Serialista Bronzo
+  e nessun Critico a `4/50`. La RPC espone soltanto 7 campi pubblici; accesso Test a
+  `arianna8` bloccato `403`, mentre il contesto proprietario restituisce 8 famiglie.
+  Limite 6 ed espansione/riduzione coperti automaticamente; profilo `ale` senza
+  overflow a 390 px né errori console.
 - ✅ **Pubblicazione Azure**: resource group `rg-showtime`, Static Web App
   `showtime-antonellis` (Free, West Europe), CI/CD GitHub Actions e HTTPS su
   `https://ashy-plant-0d5e71903.4.azurestaticapps.net`.

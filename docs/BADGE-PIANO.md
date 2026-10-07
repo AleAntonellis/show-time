@@ -8,8 +8,8 @@ Questa proposta affianca, senza sostituirla, la prima raccolta di idee in
 ## Stato
 
 - **Fase:** implementazione
-- **Implementazione:** catalogo badge V1 pubblicato; trofei profilo (Fase 4.1)
-  completati localmente e in attesa di rollout
+- **Implementazione:** catalogo badge V1 e trofei profilo (Fase 4.1) pubblicati e
+  verificati in produzione
 - **Obiettivo:** arrivare a un catalogo V1 piccolo, misurabile e sostenibile
 - **Principio guida:** premiare il percorso personale, non la quantità di tempo
   trascorsa davanti allo schermo
@@ -1207,6 +1207,18 @@ usati dal progetto.
 - nessun overflow o errore console a 360 e 390 px;
 - `51/51` test badge e `3/3` test statistiche superati;
 - typecheck e lint mirato superati.
+- migration `0028_profile_trophies.sql` applicata in produzione;
+- test SQL transazionale superato: Cinefilo restituito una sola volta al livello 2;
+- deploy Azure completato sul commit `d44bfc5`, run `37610160775`;
+- profilo Test reale: 3 trofei introduttivi e nessun controllo di espansione;
+- profilo `ale` reale: 6 trofei ordinati Esploratore Platino, Cinefilo Argento,
+  Serialista Bronzo e tre introduttivi;
+- Critico escluso correttamente dal profilo `ale` con progresso `4/50` ma nessuno sblocco;
+- risposta RPC verificata con soli 7 campi pubblici, senza progresso, soglie o evidenze;
+- accesso Test → `arianna8` bloccato con `403`, confermando `require_viewable_profile`;
+- chiamata RPC nel contesto proprietario `arianna8` verificata con 8 famiglie;
+- limite 6, espansione a 8 e ritorno a 6 coperti dal test automatico;
+- produzione senza overflow sul profilo `ale` a 390 px e senza errori console.
 
 ### Fase 5 — Crediti TMDB
 
@@ -1355,11 +1367,11 @@ genere narrativo. Gli altri generi associati allo stesso titolo restano validi.
 
 Le decisioni di prodotto necessarie per la V1 sono chiuse.
 
-Il prossimo passo operativo è completare il rollout dei **trofei profilo**:
+Il prossimo passo operativo è l’**accessibilità della Sala trofei e dei profili**:
 
-1. applicare la migration `0028_profile_trophies.sql`;
-2. eseguire il test SQL del livello massimo per famiglia;
-3. pubblicare la griglia compatta;
-4. verificare profilo personale e follower accettato con dati reali;
-5. controllare che nessun dato privato venga restituito;
-6. completare lo smoke responsive in produzione.
+1. verificare ordine di lettura e label di tutte le patch;
+2. controllare contrasto di testo, metalli e stati bloccati;
+3. validare focus, tastiera e controlli “Mostra tutti / Mostra meno” sul web;
+4. verificare dimensioni minime dei target touch;
+5. testare ridimensionamento testo e layout mobile;
+6. documentare gli eventuali aggiustamenti.
