@@ -3,7 +3,7 @@
 Registro cronologico delle **decisioni** e dei **progressi** del progetto, così da non perdere nulla.
 Documento vivo: aggiornato a ogni passo di lavoro.
 
-> Ultimo aggiornamento: 2026-10-07 (barra Cerca estesa)
+> Ultimo aggiornamento: 2026-10-07 (Abbandonata e barra Cerca pubblicate)
 
 ---
 
@@ -498,22 +498,25 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   Preview Test: ottobre mostra 2 attività Matrix, agosto nessuna attività. Test
   statistiche `8/8`, typecheck e lint mirato superati; nessun overflow o errore
   console a 390 px.
-- ✅ Implementato localmente lo stato manuale **Abbandonata** per le sole serie TV
+- ✅ Pubblicato lo stato manuale **Abbandonata** per le sole serie TV
   realmente In corso. L’override è separato dallo stato derivato dagli episodi:
   progresso, ore, Diario e Calendario restano invariati; la serie è esclusa da
   Continua a guardare e dai Reminder. Libreria e profili hanno una sezione dedicata;
   Statistiche separa In corso e Abbandonate. “Riprendi serie” riporta lo stato ad
-  active e il completamento
-  totale azzera automaticamente l’override. Azioni disponibili anche nella scheda
-  titolo e riepilogo episodi coerente. Migration `0029` e test SQL transazionale
-  pronti; test Libreria dedicati, typecheck e lint mirato superati. Preview simulata:
-  In corso → Abbandonate → Riprendi, esclusione Home e scheda titolo
-  “Abbandonata · 1/62 ep.”, senza overflow a 390 px.
-- ✅ Estesa localmente la **barra Cerca web**: il gruppo Home+Cerca usa lo spazio
+  `active` e il completamento totale azzera automaticamente l’override. Azioni
+  disponibili anche nella scheda titolo e riepilogo episodi coerente. Migration
+  `0029` applicata e verificata su colonna, constraint, trigger e RPC; test SQL
+  transazionale superato con rollback. Smoke reale Test su Breaking Bad:
+  In corso → Abbandonate → Riprendi, esclusione da Home e Reminder, Statistiche
+  `In corso 0 / Abbandonate 1`, scheda titolo “Abbandonata · 20/62 ep.” e ripristino
+  finale completo.
+- ✅ Pubblicata la **barra Cerca web**: il gruppo Home+Cerca usa lo spazio
   flessibile della top bar, Home resta a larghezza fissa e Cerca occupa tutto lo spazio
   libero prima di Inbox, Reminder e menu. Misure reali: circa 158 px su viewport 390
   e 600 px su viewport 834; apertura ricerca, azioni di destra e assenza di overflow
-  verificate. Typecheck e lint mirato superati.
+  verificate anche in produzione. Rollout con commit `58a2189` e workflow Azure
+  `37656634057`; test Libreria `9/9`, Statistiche `8/8`, Badge `51/51`, typecheck,
+  lint dei file modificati ed Expo Doctor `21/21` superati.
 - ✅ Implementato localmente il **Batch A1 badge**: Primo ciak considera film, episodi
   `tracked`, revisioni episodio e visioni complete serie; Prima recensione richiede una
   nota testuale; Stagione chiusa verifica tutti gli episodi tramite TMDB, accetta importati
