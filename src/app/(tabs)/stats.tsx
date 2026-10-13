@@ -183,6 +183,7 @@ export default function StatisticsTabScreen() {
   return (
     <ThemedView style={styles.container}>
       <ScrollView
+        style={styles.scroll}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.content,
@@ -676,6 +677,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
+  scroll: {
+    width: '100%',
+  },
   content: {
     width: '100%',
     maxWidth: MaxContentWidth,
@@ -720,8 +724,10 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   summaryCard: {
-    flex: 1,
-    minWidth: 140,
+    flexBasis: 140,
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
     borderRadius: Spacing.three,
     padding: Spacing.three,
     gap: Spacing.half,
@@ -756,8 +762,10 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   breakdownItem: {
-    minWidth: 100,
-    flex: 1,
+    flexBasis: 120,
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
     gap: Spacing.half,
   },
   chart: {

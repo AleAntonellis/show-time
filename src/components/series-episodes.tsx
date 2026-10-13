@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EpisodeViewingPanel } from '@/components/episode-viewings';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ViewingCountBadge } from '@/components/viewing-count-badge';
 import { Brand, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -48,6 +49,13 @@ type ContentProps = {
   adding?: boolean;
   onAddToLibrary?: () => void | Promise<void>;
   onChanged: () => void | Promise<void>;
+};
+
+type PendingHistoryChange = {
+  seasonNumber: number | null;
+  scopeLabel: string;
+  episodeCount: number;
+  source: EpisodeWatchSource;
 };
 
 const episodeKey = (season: number, episode: number) => `${season}-${episode}`;
@@ -160,6 +168,8 @@ export function SeriesEpisodesContent({
   const [busySeason, setBusySeason] = useState<number | null>(null);
   const [busySourceScope, setBusySourceScope] = useState<string | null>(null);
   const [seasonChoice, setSeasonChoice] = useState<number | null>(null);
+  const [pendingHistoryChange, setPendingHistoryChange] =
+    useState<PendingHistoryChange | null>(null);
   const [viewingKey, setViewingKey] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -256,7 +266,10 @@ export function SeriesEpisodesContent({
     const previous = watched;
     const optimistic = new Map(watched);
     if (nextWatched) {
-      optimistic.set(key, 'tracked');
+      optimistic.set(key, {
+        source: 'tracked',
+        viewingCount: 1,
+      });
     } else {
       optimistic.delete(key);
     }
@@ -311,7 +324,11 @@ export function SeriesEpisodesContent({
       for (const episodeNumber of episodeNumbers) {
         const key = episodeKey(season.seasonNumber, episodeNumber);
         if (watchAll) {
-          optimistic.set(key, source);
+          optimistic.set(key, {
+            source,
+            viewingCount:
+              optimistic.get(key)?.viewingCount ?? 1,
+          });
         } else {
           optimistic.delete(key);
         }
@@ -341,16 +358,19 @@ export function SeriesEpisodesContent({
   async function changeWatchedSource(
     seasonNumber: number | null,
     source: EpisodeWatchSource,
-  ) {
+  ): Promise<boolean> {
     if (!item) {
-      return;
+      return false;
     }
     const scope = seasonNumber == null ? 'series' : `season-${seasonNumber}`;
     const previous = watched;
     const optimistic = new Map(watched);
-    for (const [key] of optimistic) {
+    for (const [key, episode] of optimistic) {
       if (seasonNumber == null || key.startsWith(`${seasonNumber}-`)) {
-        optimistic.set(key, source);
+        optimistic.set(key, {
+          ...episode,
+          source,
+        });
       }
     }
     setWatched(optimistic);
@@ -359,19 +379,34 @@ export function SeriesEpisodesContent({
     try {
       await setWatchedEpisodesSource(item.id, seasonNumber, source);
       await notifyChanged();
+      return true;
     } catch (err) {
       setWatched(previous);
       setActionError(
         err instanceof Error ? err.message : 'Impossibile aggiornare la cronologia',
       );
+      return false;
     } finally {
       setBusySourceScope(null);
     }
   }
 
+  async function confirmHistoryChange() {
+    if (!pendingHistoryChange) {
+      return;
+    }
+    const changed = await changeWatchedSource(
+      pendingHistoryChange.seasonNumber,
+      pendingHistoryChange.source,
+    );
+    if (changed) {
+      setPendingHistoryChange(null);
+    }
+  }
+
   const watchedCount = watched.size;
   const importedCount = Array.from(watched.values()).filter(
-    (source) => source === 'imported',
+    (episode) => episode.source === 'imported',
   ).length;
   const trackedCount = watchedCount - importedCount;
   const status = deriveSeriesStatus(watchedCount, totalEpisodes);
@@ -400,29 +435,44 @@ export function SeriesEpisodesContent({
       </View>
 
       {item && watchedCount > 0 && !watchedLoading && (
-        <Pressable
-          onPress={() =>
-            changeWatchedSource(null, trackedCount > 0 ? 'imported' : 'tracked')
-          }
-          disabled={busySourceScope === 'series'}
-          style={styles.seriesHistoryAction}>
-          {busySourceScope === 'series' ? (
-            <ActivityIndicator color={Brand.softViolet} size="small" />
-          ) : (
-            <>
-              <ThemedText type="smallBold" style={styles.historyActionText}>
-                {trackedCount > 0
-                  ? 'Escludi tutti dalla cronologia'
-                  : 'Includi tutti nella cronologia da oggi'}
-              </ThemedText>
-              {importedCount > 0 && (
-                <ThemedText type="small" themeColor="textSecondary">
-                  {importedCount} episodi importati
+        <>
+          <Pressable
+            onPress={() =>
+              setPendingHistoryChange({
+                seasonNumber: null,
+                scopeLabel: 'tutti gli episodi della serie',
+                episodeCount: watchedCount,
+                source: trackedCount > 0 ? 'imported' : 'tracked',
+              })
+            }
+            disabled={busySourceScope === 'series'}
+            style={styles.seriesHistoryAction}>
+            {busySourceScope === 'series' ? (
+              <ActivityIndicator color={Brand.softViolet} size="small" />
+            ) : (
+              <>
+                <ThemedText type="smallBold" style={styles.historyActionText}>
+                  {trackedCount > 0
+                    ? 'Escludi tutti dalla cronologia'
+                    : 'Includi tutti nella cronologia da oggi'}
                 </ThemedText>
-              )}
-            </>
+                {importedCount > 0 && (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {importedCount} episodi importati
+                  </ThemedText>
+                )}
+              </>
+            )}
+          </Pressable>
+          {pendingHistoryChange?.seasonNumber === null && (
+            <HistoryChangeConfirmation
+              change={pendingHistoryChange}
+              busy={busySourceScope === 'series'}
+              onCancel={() => setPendingHistoryChange(null)}
+              onConfirm={() => void confirmHistoryChange()}
+            />
           )}
-        </Pressable>
+        </>
       )}
 
       {!item && (
@@ -448,7 +498,7 @@ export function SeriesEpisodesContent({
         );
         const watchedInSeason = watchedEntriesInSeason.length;
         const importedInSeason = watchedEntriesInSeason.filter(
-          ([, source]) => source === 'imported',
+          ([, episode]) => episode.source === 'imported',
         ).length;
         const trackedInSeason = watchedInSeason - importedInSeason;
         const allWatched =
@@ -540,25 +590,37 @@ export function SeriesEpisodesContent({
             )}
 
             {item && watchedInSeason > 0 && !choosingSource && (
-              <Pressable
-                onPress={() =>
-                  changeWatchedSource(
-                    season.seasonNumber,
-                    trackedInSeason > 0 ? 'imported' : 'tracked',
-                  )
-                }
-                disabled={busySourceScope === sourceScope}
-                style={styles.seasonHistoryAction}>
-                {busySourceScope === sourceScope ? (
-                  <ActivityIndicator color={Brand.softViolet} size="small" />
-                ) : (
-                  <ThemedText type="small" style={styles.historyActionText}>
-                    {trackedInSeason > 0
-                      ? 'Escludi la stagione dalla cronologia'
-                      : 'Includi la stagione da oggi'}
-                  </ThemedText>
+              <>
+                <Pressable
+                  onPress={() =>
+                    setPendingHistoryChange({
+                      seasonNumber: season.seasonNumber,
+                      scopeLabel: season.name,
+                      episodeCount: watchedInSeason,
+                      source: trackedInSeason > 0 ? 'imported' : 'tracked',
+                    })
+                  }
+                  disabled={busySourceScope === sourceScope}
+                  style={styles.seasonHistoryAction}>
+                  {busySourceScope === sourceScope ? (
+                    <ActivityIndicator color={Brand.softViolet} size="small" />
+                  ) : (
+                    <ThemedText type="small" style={styles.historyActionText}>
+                      {trackedInSeason > 0
+                        ? 'Escludi la stagione dalla cronologia'
+                        : 'Includi la stagione da oggi'}
+                    </ThemedText>
+                  )}
+                </Pressable>
+                {pendingHistoryChange?.seasonNumber === season.seasonNumber && (
+                  <HistoryChangeConfirmation
+                    change={pendingHistoryChange}
+                    busy={busySourceScope === sourceScope}
+                    onCancel={() => setPendingHistoryChange(null)}
+                    onConfirm={() => void confirmHistoryChange()}
+                  />
                 )}
-              </Pressable>
+              </>
             )}
 
             {isOpen &&
@@ -574,7 +636,8 @@ export function SeriesEpisodesContent({
                 (episodes ?? []).map((episode) => {
                   const key = episodeKey(season.seasonNumber, episode.episodeNumber);
                   const isWatched = watched.has(key);
-                  const isImported = watched.get(key) === 'imported';
+                  const watchedEpisode = watched.get(key);
+                  const isImported = watchedEpisode?.source === 'imported';
                   const viewingsOpen = viewingKey === key;
                   return (
                     <View key={key} style={styles.episode}>
@@ -611,9 +674,14 @@ export function SeriesEpisodesContent({
                           )}
                         </Pressable>
                         <View style={styles.episodeTitle}>
-                          <ThemedText type="smallBold">
-                            E{episode.episodeNumber} · {episode.name}
-                          </ThemedText>
+                          <View style={styles.episodeTitleRow}>
+                            <ThemedText type="smallBold" style={styles.episodeName}>
+                              E{episode.episodeNumber} · {episode.name}
+                            </ThemedText>
+                            <ViewingCountBadge
+                              count={watchedEpisode?.viewingCount ?? 0}
+                            />
+                          </View>
                           {episode.airDate ? (
                             <ThemedText type="small" themeColor="textSecondary">
                               {episode.airDate.split('-').reverse().join('/')}
@@ -668,6 +736,68 @@ export function SeriesEpisodesContent({
         );
       })}
     </View>
+  );
+}
+
+function HistoryChangeConfirmation({
+  change,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  change: PendingHistoryChange;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const including = change.source === 'tracked';
+  const episodeLabel = `${change.episodeCount} ${
+    change.episodeCount === 1 ? 'episodio' : 'episodi'
+  }`;
+
+  return (
+    <ThemedView type="backgroundSelected" style={styles.historyConfirmation}>
+      <View style={styles.historyConfirmationCopy}>
+        <ThemedText type="smallBold">
+          {including
+            ? `Includere ${change.scopeLabel} da oggi?`
+            : `Escludere ${change.scopeLabel} dalla cronologia?`}
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          {including
+            ? `La data di oggi verrà assegnata a ${episodeLabel}. L’operazione aggiorna attività e statistiche e può sbloccare badge.`
+            : `${episodeLabel} ${
+                change.episodeCount === 1 ? 'resterà' : 'resteranno'
+              } segnati come visti, ma non ${
+                change.episodeCount === 1 ? 'contribuirà' : 'contribuiranno'
+              } alle attività e ai badge basati sulla data.`}
+        </ThemedText>
+      </View>
+      <View style={styles.historyConfirmationActions}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onCancel}
+          disabled={busy}
+          style={[styles.historyCancelButton, busy && styles.disabled]}>
+          <ThemedText type="smallBold" themeColor="textSecondary">
+            Annulla
+          </ThemedText>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onConfirm}
+          disabled={busy}
+          style={[styles.historyConfirmButton, busy && styles.disabled]}>
+          {busy ? (
+            <ActivityIndicator color={Brand.sunsetOrange} size="small" />
+          ) : (
+            <ThemedText type="smallBold" style={styles.historyConfirmText}>
+              {including ? 'Includi da oggi' : 'Escludi'}
+            </ThemedText>
+          )}
+        </Pressable>
+      </View>
+    </ThemedView>
   );
 }
 
@@ -816,6 +946,44 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.three,
     backgroundColor: 'rgba(106,76,255,0.10)',
   },
+  historyConfirmation: {
+    gap: Spacing.two,
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,106,44,0.35)',
+  },
+  historyConfirmationCopy: {
+    gap: Spacing.half,
+  },
+  historyConfirmationActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  historyCancelButton: {
+    minHeight: 40,
+    flexBasis: 120,
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.two,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  historyConfirmButton: {
+    minHeight: 40,
+    flexBasis: 140,
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.two,
+    backgroundColor: 'rgba(255,106,44,0.14)',
+  },
+  historyConfirmText: {
+    color: Brand.sunsetOrange,
+  },
   episode: {
     gap: Spacing.two,
     paddingTop: Spacing.three,
@@ -853,6 +1021,14 @@ const styles = StyleSheet.create({
   episodeTitle: {
     flex: 1,
     gap: Spacing.half,
+  },
+  episodeTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  episodeName: {
+    flex: 1,
   },
   importedLabel: {
     alignSelf: 'flex-start',

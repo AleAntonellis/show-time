@@ -3,7 +3,7 @@
 Registro cronologico delle **decisioni** e dei **progressi** del progetto, così da non perdere nulla.
 Documento vivo: aggiornato a ogni passo di lavoro.
 
-> Ultimo aggiornamento: 2026-10-07 (Abbandonata e barra Cerca pubblicate)
+> Ultimo aggiornamento: 2026-10-13 (conteggio visioni ×N)
 
 ---
 
@@ -86,6 +86,9 @@ leggera, condivisione via link privato, tema dark esclusivo.
 | D64 | Dettaglio istogramma | Tap sul mese apre un pannello inline con tutte le attività reali del periodo | Approfondisce il trend senza nuova route o query e mantiene il contesto delle Statistiche |
 | D65 | Serie abbandonate | Override manuale solo per serie TV in corso, separato dal progresso episodico | Conserva cronologia e ore, rimuove la serie da Continua a guardare e rende esplicita l’intenzione dell’utente |
 | D66 | Barra Cerca web | Home e azioni globali restano fisse, Cerca assorbe tutto lo spazio centrale disponibile | Migliora il target e rende più evidente la ricerca senza alterare la navigazione |
+| D67 | Conferma cronologia episodi | Includere o escludere una stagione o un’intera serie richiede conferma con conteggio e conseguenze | Evita conversioni involontarie che riscrivono le date e possono alterare attività, statistiche e badge |
+| D68 | Modifica note Diario | Il Diario aggiorna soltanto il testo della visione, lasciando invariati data, voto e conteggio | Corregge o completa un ricordo senza ricreare l’attività né alterarne l’identità |
+| D69 | Conteggio visioni | Badge `×N` solo da 2 in su; film e serie usano visioni complete, gli episodi il proprio storico | Evidenzia subito i rewatch senza confondere completamenti della serie e revisioni dei singoli episodi |
 | D20 | Prima pubblicazione | Azure Static Web Apps Free in West Europe | Ambiente personale/dev-test semplice e reversibile |
 
 ### Percorso di distribuzione
@@ -517,6 +520,37 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   verificate anche in produzione. Rollout con commit `58a2189` e workflow Azure
   `37656634057`; test Libreria `9/9`, Statistiche `8/8`, Badge `51/51`, typecheck,
   lint dei file modificati ed Expo Doctor `21/21` superati.
+- ✅ Corretta localmente la **responsività delle Statistiche con valori grandi**:
+  lo `ScrollView` ora occupa sempre il 100% del viewport e le metriche usano una
+  base Flexbox esplicita prima di crescere o andare a capo. Con i dati reali di `ale`
+  (`6546` episodi, `6536` importati e oltre sette mesi catalogati), “La tua libreria”
+  e “Totali completati” diventano griglie 2×2 a 360/390 px e una colonna a 320 px,
+  senza overflow orizzontale in All, Film o Serie TV. Test Statistiche `8/8`,
+  typecheck, lint mirato ed export web da 28 route superati.
+- ✅ Aggiunta localmente una **conferma per Includi/Escludi dalla cronologia**,
+  sia sulla singola stagione sia sull’intera serie. Il pannello mostra quanti episodi
+  saranno modificati e avvisa che “Includi da oggi” assegna la data corrente, aggiorna
+  attività e statistiche e può sbloccare badge. I percorsi Annulla sono stati verificati
+  a 390 px senza richieste di mutazione né overflow.
+- ✅ Riparata la conversione accidentale di **Star Trek: Strange New Worlds S3**:
+  gli 8 episodi sono tornati alle date reali dal 7 al 12 ottobre ricostruite tramite
+  `created_at`; rimossi Bronzo, Argento e Oro impropri di “Ancora un episodio” e
+  ripristinato il progresso reale `2/3`. Transazione provata prima con rollback e poi
+  verificata via client, Sala trofei e attività recente.
+- ✅ Aggiunta localmente la **modifica delle note dal Diario** per visioni film,
+  episodio e serie completa. Ogni card espone “Modifica nota” o “Aggiungi nota”;
+  l’editor conserva data, voto e identità della visione, richiede 1–1000 caratteri
+  e rivaluta Prima recensione e Critico. Smoke reale reversibile sulla nota di
+  Smart Working: modifica persistita, card aggiornata, testo originale ripristinato
+  e verificato dopo reload.
+- ✅ Aggiunto localmente il **badge compatto `×N` delle visioni**, visibile soltanto
+  da due in su. Per i film somma importazioni e visioni registrate; per le serie
+  somma il completamento iniziale e le successive visioni complete; per gli episodi
+  combina la prima spunta/importazione con lo storico senza duplicare la prima
+  visione `tracked`. Compare su Libreria, hero del dettaglio titolo e riga episodio.
+  Verifica reale: Il postino mostra `×2` per una visione importata e una registrata;
+  nessun badge sui titoli visti una sola volta. Layout 360/390 px senza overflow e
+  test Libreria estesi a `12/12`.
 - ✅ Implementato localmente il **Batch A1 badge**: Primo ciak considera film, episodi
   `tracked`, revisioni episodio e visioni complete serie; Prima recensione richiede una
   nota testuale; Stagione chiusa verifica tutti gli episodi tramite TMDB, accetta importati

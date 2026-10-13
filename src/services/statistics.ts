@@ -43,6 +43,13 @@ export type RecentActivity = {
   posterUrl: string | null;
 };
 
+export type DiaryEntryType = 'movie' | 'episode' | 'series';
+
+export type DiaryEntry = RecentActivity & {
+  entryType: DiaryEntryType;
+  viewingId: string;
+};
+
 export type StatisticsMediaFilter = 'all' | MediaType;
 
 export type RecentPeriodStatistics = {
@@ -412,7 +419,7 @@ export async function getPersonalStatisticsByMedia(): Promise<PersonalStatistics
   };
 }
 
-export async function getDiaryEntries(): Promise<RecentActivity[]> {
+export async function getDiaryEntries(): Promise<DiaryEntry[]> {
   const supabase = getSupabase();
   const [statistics, rawSeriesViewings] = await Promise.all([
     getPersonalStatistics(),
@@ -429,13 +436,15 @@ export async function getDiaryEntries(): Promise<RecentActivity[]> {
     ),
   ]);
   const seriesViewings = (rawSeriesViewings as SeriesViewingDiaryRow[])
-    .map((row): RecentActivity | null => {
+    .map((row): DiaryEntry | null => {
       const title = row.library_items?.titles;
       if (!title || title.media_type !== 'tv') {
         return null;
       }
       return {
         id: `series-${row.id}`,
+        entryType: 'series',
+        viewingId: row.id,
         title: title.title,
         detail: 'Serie completa',
         watchedOn: row.watched_on,
@@ -446,15 +455,68 @@ export async function getDiaryEntries(): Promise<RecentActivity[]> {
         posterUrl: posterUrl(title.poster_path),
       };
     })
-    .filter((entry): entry is RecentActivity => entry != null);
+    .filter((entry): entry is DiaryEntry => entry != null);
+  const activityEntries = statistics.recentActivity.flatMap((activity) => {
+    const separator = activity.id.indexOf('-');
+    if (separator <= 0) {
+      return [];
+    }
+    const entryType = activity.id.slice(0, separator);
+    if (entryType !== 'movie' && entryType !== 'episode') {
+      return [];
+    }
+    return [{
+      ...activity,
+      entryType,
+      viewingId: activity.id.slice(separator + 1),
+    } satisfies DiaryEntry];
+  });
   return [
-    ...statistics.recentActivity.filter(
+    ...activityEntries.filter(
       (activity) => activity.rating != null || Boolean(activity.note?.trim()),
     ),
     ...seriesViewings,
   ].sort(
     (a, b) => b.watchedOn.localeCompare(a.watchedOn),
   );
+}
+
+export async function updateDiaryEntryNote(
+  entryType: DiaryEntryType,
+  viewingId: string,
+  note: string,
+): Promise<string> {
+  const trimmedNote = note.trim();
+  if (!trimmedNote) {
+    throw new Error('Inserisci il testo della nota');
+  }
+  if (trimmedNote.length > 1000) {
+    throw new Error('La nota può contenere al massimo 1000 caratteri');
+  }
+
+  const tableByType = {
+    movie: 'viewings',
+    episode: 'episode_viewings',
+    series: 'series_viewings',
+  } as const;
+  const { data, error } = await getSupabase()
+    .from(tableByType[entryType])
+    .update({ note: trimmedNote })
+    .eq('id', viewingId)
+    .select('note')
+    .single();
+  if (error) {
+    throw new Error(error.message);
+  }
+  if (!data?.note) {
+    throw new Error('La nota aggiornata non è disponibile');
+  }
+
+  queueBadgeEvaluation([
+    BADGE_IDS.firstReview,
+    BADGE_IDS.critic,
+  ]);
+  return data.note;
 }
 
 export async function enrichStatisticsMetadata(limit = 12): Promise<number> {

@@ -18,11 +18,20 @@ import {
   type LibraryDisplayStatus,
   type SeriesTrackingState,
 } from '@/utils/series-tracking-state';
+import {
+  getEpisodeViewingCount,
+  getMovieViewingCount,
+  getSeriesViewingCount,
+} from '@/utils/viewing-count';
 
 export type LibraryStatus = 'to_watch' | 'watching' | 'watched';
 export type EpisodeWatchSource = 'tracked' | 'imported';
 export type MovieWatchSource = 'tracked' | 'imported';
-export type WatchedEpisodes = Map<string, EpisodeWatchSource>;
+export type WatchedEpisode = {
+  source: EpisodeWatchSource;
+  viewingCount: number;
+};
+export type WatchedEpisodes = Map<string, WatchedEpisode>;
 
 export const STATUS_LABELS: Record<LibraryDisplayStatus, string> = {
   to_watch: 'Da vedere',
@@ -76,6 +85,7 @@ export type LibraryItem = {
   watchedEpisodes: number;
   viewingCount: number;
   importedViewings: number;
+  completeViewingCount: number;
   lastRecordedOn: string | null;
   latestEpisodeActivityAt: string | null;
   latestTrackedActivityAt: string | null;
@@ -139,6 +149,7 @@ type LibraryRow = {
 type LibraryActivityMaps = {
   watchedByItem: Map<string, number>;
   viewingsByItem: Map<string, number>;
+  seriesViewingsByItem: Map<string, number>;
   lastRecordedByItem: Map<string, string>;
   latestEpisodeActivityByItem: Map<string, string>;
   latestTrackedActivityByItem: Map<string, string>;
@@ -154,12 +165,14 @@ function toItem(
   const watchedEpisodes =
     activity.watchedByItem.get(row.id) ?? 0;
   const totalEpisodes = t?.total_episodes ?? null;
+  const status =
+    mediaType === 'tv'
+      ? deriveSeriesStatus(watchedEpisodes, totalEpisodes)
+      : row.status;
+  const viewingCount = activity.viewingsByItem.get(row.id) ?? 0;
   return {
     id: row.id,
-    status:
-      mediaType === 'tv'
-        ? deriveSeriesStatus(watchedEpisodes, totalEpisodes)
-        : row.status,
+    status,
     rating: row.rating,
     notes: row.notes,
     addedAt: row.added_at,
@@ -175,8 +188,20 @@ function toItem(
     genres: t?.genres ?? [],
     totalEpisodes,
     watchedEpisodes,
-    viewingCount: activity.viewingsByItem.get(row.id) ?? 0,
+    viewingCount,
     importedViewings: row.imported_viewings,
+    completeViewingCount:
+      mediaType === 'movie'
+        ? getMovieViewingCount({
+            status,
+            importedViewings: row.imported_viewings,
+            recordedViewings: viewingCount,
+          })
+        : getSeriesViewingCount({
+            completed: status === 'watched',
+            recordedCompleteViewings:
+              activity.seriesViewingsByItem.get(row.id) ?? 0,
+          }),
     lastRecordedOn:
       activity.lastRecordedByItem.get(row.id) ?? null,
     latestEpisodeActivityAt:
@@ -438,7 +463,12 @@ export async function getLibrary(): Promise<LibraryItem[]> {
       row.watched_on,
     );
   }
+  const seriesViewingsByItem = new Map<string, number>();
   for (const row of seriesViewings) {
+    seriesViewingsByItem.set(
+      row.library_item_id,
+      (seriesViewingsByItem.get(row.library_item_id) ?? 0) + 1,
+    );
     recordLatestDate(
       latestTrackedActivityByItem,
       row.library_item_id,
@@ -449,6 +479,7 @@ export async function getLibrary(): Promise<LibraryItem[]> {
   const activity: LibraryActivityMaps = {
     watchedByItem,
     viewingsByItem,
+    seriesViewingsByItem,
     lastRecordedByItem,
     latestEpisodeActivityByItem,
     latestTrackedActivityByItem,
@@ -532,6 +563,9 @@ export async function getLibraryItem(itemId: string): Promise<LibraryItem | null
   }
   const watchedByItem = new Map<string, number>([[itemId, watches.length]]);
   const viewingsByItem = new Map<string, number>([[itemId, viewings.length]]);
+  const seriesViewingsByItem = new Map<string, number>([
+    [itemId, seriesViewings.length],
+  ]);
   const lastRecordedByItem = new Map<string, string>();
   const latestEpisodeActivityByItem = new Map<string, string>();
   const latestTrackedActivityByItem = new Map<string, string>();
@@ -577,6 +611,7 @@ export async function getLibraryItem(itemId: string): Promise<LibraryItem | null
     {
       watchedByItem,
       viewingsByItem,
+      seriesViewingsByItem,
       lastRecordedByItem,
       latestEpisodeActivityByItem,
       latestTrackedActivityByItem,
@@ -1094,24 +1129,55 @@ function localDateString(): string {
 /** Chiavi `season-episode` e origine degli episodi visti per una serie. */
 export async function getWatchedEpisodes(itemId: string): Promise<WatchedEpisodes> {
   const supabase = getSupabase();
-  const rows = await fetchAllPages<{
-    season_number: number;
-    episode_number: number;
-    source: EpisodeWatchSource;
-  }>((from, to) =>
-    supabase
-      .from('episode_watches')
-      .select('season_number, episode_number, source')
-      .eq('library_item_id', itemId)
-      .order('created_at', { ascending: true })
-      .order('id', { ascending: true })
-      .range(from, to),
-  );
+  const [rows, viewingRows] = await Promise.all([
+    fetchAllPages<{
+      season_number: number;
+      episode_number: number;
+      source: EpisodeWatchSource;
+    }>((from, to) =>
+      supabase
+        .from('episode_watches')
+        .select('season_number, episode_number, source')
+        .eq('library_item_id', itemId)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to),
+    ),
+    fetchAllPages<{
+      season_number: number;
+      episode_number: number;
+    }>((from, to) =>
+      supabase
+        .from('episode_viewings')
+        .select('season_number, episode_number')
+        .eq('library_item_id', itemId)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to),
+    ),
+  ]);
+  const recordedViewingsByEpisode = new Map<string, number>();
+  for (const row of viewingRows) {
+    const key = episodeKey(row.season_number, row.episode_number);
+    recordedViewingsByEpisode.set(
+      key,
+      (recordedViewingsByEpisode.get(key) ?? 0) + 1,
+    );
+  }
   return new Map(
-    rows.map((row) => [
-      episodeKey(row.season_number, row.episode_number),
-      row.source,
-    ]),
+    rows.map((row) => {
+      const key = episodeKey(row.season_number, row.episode_number);
+      return [
+        key,
+        {
+          source: row.source,
+          viewingCount: getEpisodeViewingCount({
+            source: row.source,
+            recordedViewings: recordedViewingsByEpisode.get(key) ?? 0,
+          }),
+        },
+      ];
+    }),
   );
 }
 

@@ -25,6 +25,7 @@ import { ShareInviteBanner } from '@/components/share-invite-banner';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { TitleCreditsSections } from '@/components/title-credits-sections';
+import { ViewingCountBadge } from '@/components/viewing-count-badge';
 import { WatchProvidersSection } from '@/components/watch-providers-section';
 import { BottomTabInset, Brand, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
@@ -492,9 +493,14 @@ export default function TitleScreen() {
           )}
 
           <View style={styles.heroText}>
-            <ThemedText type="subtitle" style={styles.title}>
-              {details.title}
-            </ThemedText>
+            <View style={styles.titleRow}>
+              <ThemedText type="subtitle" style={styles.title}>
+                {details.title}
+              </ThemedText>
+              {libraryItem && (
+                <ViewingCountBadge count={libraryItem.completeViewingCount} />
+              )}
+            </View>
             {details.tagline ? (
               <ThemedText type="small" themeColor="textSecondary" style={styles.tagline}>
                 “{details.tagline}”
@@ -1009,7 +1015,13 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingTop: Spacing.one,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+  },
   title: {
+    flex: 1,
     fontSize: 30,
     lineHeight: 36,
   },

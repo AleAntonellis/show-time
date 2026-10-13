@@ -23,6 +23,7 @@ import {
 import { SeriesEpisodes } from '@/components/series-episodes';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ViewingCountBadge } from '@/components/viewing-count-badge';
 import {
   BottomTabInset,
   Brand,
@@ -345,9 +346,15 @@ export default function LibraryTabScreen() {
                             },
                           })
                         }>
-                        <ThemedText type="smallBold" numberOfLines={2}>
-                          {item.mediaType === 'movie' ? '🎬' : '📺'} {item.title}
-                        </ThemedText>
+                        <View style={styles.titleRow}>
+                          <ThemedText
+                            type="smallBold"
+                            numberOfLines={2}
+                            style={styles.rowTitle}>
+                            {item.mediaType === 'movie' ? '🎬' : '📺'} {item.title}
+                          </ThemedText>
+                          <ViewingCountBadge count={item.completeViewingCount} />
+                        </View>
                         <View style={styles.detailMeta}>
                           {item.year && (
                             <ThemedText type="small" themeColor="textSecondary">
@@ -654,6 +661,14 @@ const styles = StyleSheet.create({
   },
   detailTarget: {
     gap: Spacing.half,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+  },
+  rowTitle: {
+    flex: 1,
   },
   detailMeta: {
     flexDirection: 'row',
