@@ -3,7 +3,7 @@
 Registro cronologico delle **decisioni** e dei **progressi** del progetto, così da non perdere nulla.
 Documento vivo: aggiornato a ogni passo di lavoro.
 
-> Ultimo aggiornamento: 2026-10-13 (conteggio visioni ×N)
+> Ultimo aggiornamento: 2026-10-13 (pacchetto UX visioni pubblicato)
 
 ---
 
@@ -520,14 +520,14 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   verificate anche in produzione. Rollout con commit `58a2189` e workflow Azure
   `37656634057`; test Libreria `9/9`, Statistiche `8/8`, Badge `51/51`, typecheck,
   lint dei file modificati ed Expo Doctor `21/21` superati.
-- ✅ Corretta localmente la **responsività delle Statistiche con valori grandi**:
+- ✅ Pubblicata la **responsività delle Statistiche con valori grandi**:
   lo `ScrollView` ora occupa sempre il 100% del viewport e le metriche usano una
   base Flexbox esplicita prima di crescere o andare a capo. Con i dati reali di `ale`
   (`6546` episodi, `6536` importati e oltre sette mesi catalogati), “La tua libreria”
   e “Totali completati” diventano griglie 2×2 a 360/390 px e una colonna a 320 px,
   senza overflow orizzontale in All, Film o Serie TV. Test Statistiche `8/8`,
   typecheck, lint mirato ed export web da 28 route superati.
-- ✅ Aggiunta localmente una **conferma per Includi/Escludi dalla cronologia**,
+- ✅ Pubblicata una **conferma per Includi/Escludi dalla cronologia**,
   sia sulla singola stagione sia sull’intera serie. Il pannello mostra quanti episodi
   saranno modificati e avvisa che “Includi da oggi” assegna la data corrente, aggiorna
   attività e statistiche e può sbloccare badge. I percorsi Annulla sono stati verificati
@@ -537,20 +537,24 @@ RPC `add_to_library(...)` fa upsert atomico titolo + voce di libreria.
   `created_at`; rimossi Bronzo, Argento e Oro impropri di “Ancora un episodio” e
   ripristinato il progresso reale `2/3`. Transazione provata prima con rollback e poi
   verificata via client, Sala trofei e attività recente.
-- ✅ Aggiunta localmente la **modifica delle note dal Diario** per visioni film,
+- ✅ Pubblicata la **modifica delle note dal Diario** per visioni film,
   episodio e serie completa. Ogni card espone “Modifica nota” o “Aggiungi nota”;
   l’editor conserva data, voto e identità della visione, richiede 1–1000 caratteri
   e rivaluta Prima recensione e Critico. Smoke reale reversibile sulla nota di
   Smart Working: modifica persistita, card aggiornata, testo originale ripristinato
   e verificato dopo reload.
-- ✅ Aggiunto localmente il **badge compatto `×N` delle visioni**, visibile soltanto
+- ✅ Pubblicato il **badge compatto `×N` delle visioni**, visibile soltanto
   da due in su. Per i film somma importazioni e visioni registrate; per le serie
   somma il completamento iniziale e le successive visioni complete; per gli episodi
   combina la prima spunta/importazione con lo storico senza duplicare la prima
   visione `tracked`. Compare su Libreria, hero del dettaglio titolo e riga episodio.
-  Verifica reale: Il postino mostra `×2` per una visione importata e una registrata;
-  nessun badge sui titoli visti una sola volta. Layout 360/390 px senza overflow e
-  test Libreria estesi a `12/12`.
+  Verifica locale reale: Il postino mostra `×2` per una visione importata e una
+  registrata; nessun badge sui titoli visti una sola volta. Rollout con commit
+  `4fcc9d6` e workflow Azure `38365622507`. Smoke produzione Test a 390 px:
+  Matrix `×3` in Libreria e dettaglio, Breaking Bad S1E1 `×3`, editor Diario e
+  conferma stagione annullati con zero mutazioni, Statistiche senza overflow.
+  Test Libreria `12/12`, Statistiche `8/8`, Badge `51/51`, typecheck, lint mirato
+  ed export web da 28 route superati.
 - ✅ Implementato localmente il **Batch A1 badge**: Primo ciak considera film, episodi
   `tracked`, revisioni episodio e visioni complete serie; Prima recensione richiede una
   nota testuale; Stagione chiusa verifica tutti gli episodi tramite TMDB, accetta importati
